@@ -37,6 +37,20 @@ import { definition as googleSolar } from "./google-solar";
 import { definition as solaredge } from "./solaredge";
 import { definition as enphase } from "./enphase";
 import { definition as givenergy } from "./givenergy";
+import { definition as desnzConversionFactors } from "./desnz-conversion-factors";
+import { definition as aibResidualMix } from "./aib-residual-mix";
+import { definition as ofgemRenewableElectricityRegister } from "./ofgem-renewable-electricity-register";
+import { definition as climatiq } from "./climatiq";
+import { definition as exiobase } from "./exiobase";
+import { definition as xeroSpend } from "./xero-spend";
+import { definition as quickbooksSpend } from "./quickbooks-spend";
+import { definition as crremPathways } from "./crrem-pathways";
+import { definition as ukNzcbs } from "./uk-nzcbs";
+import { definition as ecoPlatformEcoPortal } from "./eco-platform-eco-portal";
+import { definition as okobaudat } from "./okobaudat";
+import { definition as ec3BuildingTransparency } from "./ec3-building-transparency";
+import { definition as becd } from "./becd";
+import { definition as ecoinvent } from "./ecoinvent";
 
 /** Every registered data source. Order is display order within a group. */
 export const integrations: IntegrationDefinition[] = [
@@ -50,6 +64,12 @@ export const integrations: IntegrationDefinition[] = [
   openMeteo, metOfficeDatahub, degreeDaysNet, ukhsaWeatherHealthAlerts, ukcp18, hadukGridCeda, copernicusCds,
   // solar
   pvgis, pvLive, solcast, googleSolar, solaredge, enphase, givenergy,
+  // carbon
+  desnzConversionFactors, aibResidualMix, ofgemRenewableElectricityRegister, climatiq, exiobase, xeroSpend, quickbooksSpend,
+  // pathways
+  crremPathways, ukNzcbs,
+  // embodied
+  ecoPlatformEcoPortal, okobaudat, ec3BuildingTransparency, becd, ecoinvent,
 ];
 
 const byId = new Map(integrations.map((d) => [d.id, d]));
