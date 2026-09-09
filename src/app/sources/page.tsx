@@ -39,6 +39,8 @@ export default function SourcesPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [health, setHealth] = useState<Record<string, { ok: boolean; detail: string; latencyMs?: number } | "running">>({});
   const [filter, setFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [accessFilter, setAccessFilter] = useState<string>("all");
 
   useEffect(() => {
     let active = true;
@@ -69,7 +71,12 @@ export default function SourcesPage() {
   }
 
   const q = filter.trim().toLowerCase();
-  const visible = sources.filter((s) => !q || `${s.name} ${s.id} ${s.description} ${s.territory}`.toLowerCase().includes(q));
+  const visible = sources.filter(
+    (s) =>
+      (!q || `${s.name} ${s.id} ${s.description} ${s.territory}`.toLowerCase().includes(q)) &&
+      (statusFilter === "all" || (statusFilter === "connector" ? s.status !== "reference_only" : statusFilter === "ready" ? s.configured && s.status !== "reference_only" : s.status === statusFilter)) &&
+      (accessFilter === "all" || s.access === accessFilter),
+  );
   const counts = {
     total: sources.length,
     built: sources.filter((s) => s.status === "built_unverified" || s.status === "live_verified").length,
@@ -94,8 +101,24 @@ export default function SourcesPage() {
       </div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <input placeholder="Filter sources" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ padding: 8, minWidth: 240 }} />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: 8 }}>
+          <option value="all">All statuses</option>
+          <option value="connector">With a connector</option>
+          <option value="ready">Ready to use here</option>
+          <option value="live_verified">Live verified</option>
+          <option value="built_unverified">Built, unverified</option>
+          <option value="reference_only">Reference only</option>
+        </select>
+        <select value={accessFilter} onChange={(e) => setAccessFilter(e.target.value)} style={{ padding: 8 }}>
+          <option value="all">All access routes</option>
+          {Object.entries(ACCESS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
         <button onClick={checkAll} style={{ padding: "8px 14px" }}>Run all health checks</button>
+        <span style={{ fontSize: 12, color: "#666" }}>{visible.length} shown</span>
       </div>
+      <p style={{ fontSize: 12, color: "#666" }}>
+        <strong>Built, unverified</strong>: connector and tests exist, not yet run against the live service from this machine. <strong>Reference only</strong>: access is by contract, registration or bulk import; the page tells you how. <strong>needs X</strong>: add that key to .env.local. Try <Link href="/lookup">Location lookup</Link> to run every location check at once.
+      </p>
 
       {Object.entries(groups).map(([groupId, label]) => {
         const items = visible.filter((s) => s.group === groupId);

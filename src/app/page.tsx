@@ -7,6 +7,9 @@ export default function Home() {
       <p>Integration modules. See docs/data-source-roadmap.md for the full plan.</p>
       <ul>
         <li>
+          <Link href="/lookup">Location lookup</Link> – every location check for a postcode or point in one click, nothing saved
+        </li>
+        <li>
           <Link href="/assets">Assets</Link> – buildings with linked meters, energy and carbon by year, one-click environmental screening
         </li>
         <li>
