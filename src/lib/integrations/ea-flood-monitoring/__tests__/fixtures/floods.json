@@ -1,0 +1,35 @@
+{
+  "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+  "meta": { "publisher": "Environment Agency", "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/", "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference", "version": "0.9", "comment": "Status: Beta service", "hasFormat": [] },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/065FAG101ARM",
+      "description": "River Arun and its tributaries",
+      "eaAreaName": "Solent and South Downs",
+      "eaRegionName": "Southern",
+      "floodArea": { "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/065FAG101ARM", "county": "West Sussex", "notation": "065FAG101ARM", "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/065FAG101ARM/polygon", "riverOrSea": "River Arun" },
+      "floodAreaID": "065FAG101ARM",
+      "isTidal": false,
+      "message": "River levels are rising at the Pallingham gauge as a result of heavy rainfall.  Consequently, flooding of low lying land and roads is possible.",
+      "severity": "Flood Alert",
+      "severityLevel": 3,
+      "timeMessageChanged": "2026-09-08T09:45:00",
+      "timeRaised": "2026-09-08T09:45:03",
+      "timeSeverityChanged": "2026-09-08T09:45:00"
+    },
+    {
+      "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/065FWF3ARUN1",
+      "description": "River Arun at Pulborough",
+      "eaAreaName": "Solent and South Downs",
+      "floodArea": { "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/065FWF3ARUN1", "county": "West Sussex", "notation": "065FWF3ARUN1", "riverOrSea": "River Arun" },
+      "floodAreaID": "065FWF3ARUN1",
+      "isTidal": false,
+      "message": "Flooding is expected. Immediate action required.",
+      "severity": "Flood Warning",
+      "severityLevel": 2,
+      "timeMessageChanged": "2026-09-08T11:00:00",
+      "timeRaised": "2026-09-08T11:00:03",
+      "timeSeverityChanged": "2026-09-08T11:00:00"
+    }
+  ]
+}

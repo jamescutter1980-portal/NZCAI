@@ -1,0 +1,5 @@
+data_year,country_code,country,residual_mix_gco2_per_kwh,direct_co2_only,publication,publication_date,source_url
+2025,GB,Great Britain,1.111,true,SYNTHETIC TEST PUBLICATION 2025,2026-05-28,https://example.invalid/aib-2025
+2024,GB,Great Britain,2.222,true,SYNTHETIC TEST PUBLICATION 2024,2025-05-30,https://example.invalid/aib-2024
+2025,IE,Ireland,3.333,false,SYNTHETIC TEST PUBLICATION 2025,2026-05-28,https://example.invalid/aib-2025
+2025,XX,"Nowhere, Land",,true,SYNTHETIC TEST PUBLICATION 2025,2026-05-28,https://example.invalid/aib-2025

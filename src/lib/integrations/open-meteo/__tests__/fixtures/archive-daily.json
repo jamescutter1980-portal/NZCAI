@@ -1,0 +1,25 @@
+{
+  "latitude": 51.5,
+  "longitude": -0.12,
+  "generationtime_ms": 0.6,
+  "utc_offset_seconds": 0,
+  "timezone": "Europe/London",
+  "timezone_abbreviation": "GMT",
+  "elevation": 25.0,
+  "daily_units": {
+    "time": "iso8601",
+    "temperature_2m_mean": "°C",
+    "temperature_2m_max": "°C",
+    "temperature_2m_min": "°C",
+    "precipitation_sum": "mm",
+    "shortwave_radiation_sum": "MJ/m²"
+  },
+  "daily": {
+    "time": ["2025-01-01", "2025-01-02", "2025-01-03"],
+    "temperature_2m_mean": [5.5, 10.5, null],
+    "temperature_2m_max": [8.1, 12.3, 9.0],
+    "temperature_2m_min": [2.9, 8.7, 4.2],
+    "precipitation_sum": [1.2, 0.0, 4.4],
+    "shortwave_radiation_sum": [2.31, 1.05, 0.88]
+  }
+}

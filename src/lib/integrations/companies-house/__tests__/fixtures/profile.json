@@ -1,0 +1,25 @@
+{
+  "company_name": "FOCUS GREEN LIMITED",
+  "company_number": "12345678",
+  "company_status": "active",
+  "type": "ltd",
+  "jurisdiction": "england-wales",
+  "date_of_creation": "2015-03-02",
+  "registered_office_address": {
+    "address_line_1": "1 Example Street",
+    "locality": "London",
+    "postal_code": "SW1A 1AA",
+    "country": "United Kingdom"
+  },
+  "sic_codes": ["74901", "71129", "00000"],
+  "has_charges": false,
+  "has_insolvency_history": false,
+  "accounts": {
+    "accounting_reference_date": { "day": "31", "month": "03" },
+    "last_accounts": { "made_up_to": "2025-03-31", "type": "micro-entity", "period_end_on": "2025-03-31" },
+    "next_due": "2026-12-31",
+    "overdue": false
+  },
+  "confirmation_statement": { "last_made_up_to": "2026-03-01", "next_due": "2027-03-15", "overdue": false },
+  "links": { "self": "/company/12345678" }
+}

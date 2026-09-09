@@ -1,0 +1,42 @@
+{
+  "hitsCount": 2,
+  "maxPage": 1,
+  "results": [
+    {
+      "uri": "https://www.contractsfinder.service.gov.uk/Published/Notice/releases/11111111-aaaa-4bbb-8ccc-000000000001.json",
+      "publishedDate": "2026-08-12T09:30:00Z",
+      "releases": [
+        {
+          "ocid": "ocds-b5fd17-11111111-aaaa-4bbb-8ccc-000000000001",
+          "id": "11111111-aaaa-4bbb-8ccc-000000000001",
+          "date": "2026-08-12T09:30:00Z",
+          "tag": ["tender"],
+          "buyer": { "name": "Example Borough Council" },
+          "tender": {
+            "title": "Solar PV installation on council depots",
+            "description": "Design, supply and install rooftop solar PV at three depots.",
+            "status": "active",
+            "value": { "amount": 450000, "currency": "GBP" },
+            "mainProcurementCategory": "works",
+            "tenderPeriod": { "endDate": "2026-09-15T12:00:00Z" }
+          }
+        }
+      ]
+    },
+    {
+      "uri": "https://www.contractsfinder.service.gov.uk/Published/Notice/releases/22222222-aaaa-4bbb-8ccc-000000000002.json",
+      "publishedDate": "2026-08-10T15:00:00Z",
+      "releases": [
+        {
+          "ocid": "ocds-b5fd17-22222222-aaaa-4bbb-8ccc-000000000002",
+          "id": "22222222-aaaa-4bbb-8ccc-000000000002",
+          "date": "2026-08-10T15:00:00Z",
+          "tag": ["award"],
+          "buyer": { "name": "Example NHS Trust" },
+          "tender": { "title": "Catering services", "status": "complete", "mainProcurementCategory": "services" },
+          "awards": [{ "id": "a1", "date": "2026-08-09T00:00:00Z", "value": { "amount": 1200000, "currency": "GBP" }, "suppliers": [{ "name": "Example Facilities Limited" }] }]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "system_id": 2345678,
+  "start_date": "2025-06-01",
+  "production": [98500, null, 102300],
+  "meta": { "status": "normal", "last_report_at": 1757404800, "last_energy_at": 1757404800, "operational_at": 1680000000 }
+}

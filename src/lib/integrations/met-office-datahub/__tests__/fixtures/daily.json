@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-0.142, 51.501, 20.0] },
+      "properties": {
+        "location": { "name": "Westminster" },
+        "requestPointDistance": 312.5,
+        "modelRunDate": "2026-09-09T06:00Z",
+        "timeSeries": [
+          { "time": "2026-09-09T00:00Z", "dayMaxScreenTemperature": 21.3, "nightMinScreenTemperature": 12.0, "dayMaxFeelsLikeTemp": 20.0, "nightMinFeelsLikeTemp": 11.2, "dayProbabilityOfPrecipitation": 10, "nightProbabilityOfPrecipitation": 30, "midday10MWindSpeed": 4.1, "midday10MWindGust": 8.2, "midday10MWindDirection": 230, "middayRelativeHumidity": 55.0, "maxUvIndex": 5, "daySignificantWeatherCode": 1, "nightSignificantWeatherCode": 2 },
+          { "time": "2026-09-10T00:00Z", "dayMaxScreenTemperature": 18.7, "nightMinScreenTemperature": 10.4, "dayMaxFeelsLikeTemp": 17.5, "nightMinFeelsLikeTemp": 9.8, "dayProbabilityOfPrecipitation": 60, "nightProbabilityOfPrecipitation": 20, "midday10MWindSpeed": 5.5, "midday10MWindGust": 11.0, "midday10MWindDirection": 250, "middayRelativeHumidity": 70.0, "maxUvIndex": 3, "daySignificantWeatherCode": 12, "nightSignificantWeatherCode": 7 }
+        ]
+      }
+    }
+  ]
+}

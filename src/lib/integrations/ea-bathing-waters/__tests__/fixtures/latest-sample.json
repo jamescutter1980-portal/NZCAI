@@ -1,0 +1,16 @@
+{
+  "format": "linked-data-api",
+  "version": "0.2",
+  "result": {
+    "@id": "http://environment.data.gov.uk/doc/bathing-water-quality/in-season/bathing-water/ukk4100-26400/latest.json",
+    "primaryTopic": {
+      "_about": "http://environment.data.gov.uk/data/bathing-water-quality/in-season/sample/point/26400/date/20260901/time/104500/recordDate/20260903",
+      "bathingWater": { "_about": "http://environment.data.gov.uk/id/bathing-water/ukk4100-26400", "name": { "_value": "Croyde Bay", "_lang": "en" } },
+      "sampleDateTime": { "_about": "http://reference.data.gov.uk/id/gregorian-instant/2026-09-01T10:45:00", "inXSDDateTime": "2026-09-01T10:45:00" },
+      "sampleClassification": { "_about": "http://environment.data.gov.uk/def/bwq-cc-2012/Excellent", "name": { "_value": "Excellent", "_lang": "en" } },
+      "escherichiaColiCount": 20,
+      "intestinalEnterococciCount": 10,
+      "abnormalWeatherException": false
+    }
+  }
+}

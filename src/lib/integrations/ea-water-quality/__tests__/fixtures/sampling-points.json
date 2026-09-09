@@ -1,0 +1,19 @@
+{
+  "@context": "http://environment.data.gov.uk/water-quality/meta/context.jsonld",
+  "meta": { "publisher": "Environment Agency", "version": "0.9", "limit": 100 },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/water-quality/id/sampling-point/SW-60250424",
+      "notation": "SW-60250424",
+      "label": "RIVER PARRETT AT WESTOVER BRIDGE",
+      "lat": 51.0384,
+      "long": -2.8367,
+      "easting": 341559,
+      "northing": 126644,
+      "samplingPointType": { "@id": "http://environment.data.gov.uk/water-quality/def/sampling-point-type/CA", "label": "FRESHWATER - RIVERS" },
+      "samplingPointStatus": { "@id": "http://environment.data.gov.uk/water-quality/def/sampling-point-status/open", "label": "open" },
+      "area": { "@id": "http://environment.data.gov.uk/water-quality/def/area/6-28", "label": "Wessex" },
+      "subArea": { "@id": "http://environment.data.gov.uk/water-quality/def/sub-area/6-28-1", "label": "Somerset" }
+    }
+  ]
+}

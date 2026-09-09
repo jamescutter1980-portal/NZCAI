@@ -1,0 +1,12 @@
+{
+  "energyDetails": {
+    "timeUnit": "DAY",
+    "unit": "Wh",
+    "meters": [
+      { "type": "Production", "values": [{ "date": "2025-06-01 00:00:00", "value": 210500.0 }, { "date": "2025-06-02 00:00:00", "value": 180250.0 }] },
+      { "type": "Consumption", "values": [{ "date": "2025-06-01 00:00:00", "value": 300000.0 }, { "date": "2025-06-02 00:00:00", "value": 290000.0 }] },
+      { "type": "FeedIn", "values": [{ "date": "2025-06-01 00:00:00", "value": 50000.0 }, { "date": "2025-06-02 00:00:00" }] },
+      { "type": "Purchased", "values": [{ "date": "2025-06-01 00:00:00", "value": 139500.0 }, { "date": "2025-06-02 00:00:00", "value": 150000.0 }] }
+    ]
+  }
+}

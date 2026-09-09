@@ -1,0 +1,7 @@
+{
+  "forecasts": [
+    { "pv_power_rooftop": 0, "period_end": "2026-09-09T05:30:00.0000000Z", "period": "PT30M" },
+    { "pv_power_rooftop": 1.2, "period_end": "2026-09-09T06:00:00.0000000Z", "period": "PT30M" },
+    { "pv_power_rooftop": 4.8, "period_end": "2026-09-09T06:30:00.0000000Z", "period": "PT30M" }
+  ]
+}

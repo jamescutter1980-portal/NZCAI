@@ -1,0 +1,19 @@
+{
+  "@context": "http://environment.data.gov.uk/water-quality/meta/context.jsonld",
+  "meta": { "publisher": "Environment Agency", "version": "0.9", "limit": 100 },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/water-quality/data/measurement/SW-3441553-0117",
+      "sample": { "@id": "http://environment.data.gov.uk/water-quality/data/sample/SW-3441553", "sampleDateTime": "2026-01-17T12:30:00", "samplingPoint": { "@id": "http://environment.data.gov.uk/water-quality/id/sampling-point/SW-60250424", "notation": "SW-60250424", "label": "RIVER PARRETT AT WESTOVER BRIDGE" }, "sampledMaterialType": { "label": "RIVER / RUNNING SURFACE WATER" }, "purpose": { "label": "MONITORING  (UK GOVT POLICY - NOT GQA OR RE)" }, "isComplianceSample": false },
+      "determinand": { "@id": "http://environment.data.gov.uk/water-quality/def/determinands/0117", "label": "Nitrate-N", "definition": "Nitrate as N", "notation": "0117", "unit": { "@id": "http://environment.data.gov.uk/water-quality/def/units/mg-l", "label": "mg/l" } },
+      "result": 5.43
+    },
+    {
+      "@id": "http://environment.data.gov.uk/water-quality/data/measurement/SW-3441553-0562",
+      "sample": { "@id": "http://environment.data.gov.uk/water-quality/data/sample/SW-3441553", "sampleDateTime": "2026-01-17T12:30:00", "samplingPoint": { "@id": "http://environment.data.gov.uk/water-quality/id/sampling-point/SW-60250424", "notation": "SW-60250424" }, "sampledMaterialType": { "label": "RIVER / RUNNING SURFACE WATER" }, "isComplianceSample": false },
+      "determinand": { "label": "Endrin", "definition": "Endrin", "notation": "0562", "unit": { "label": "ug/l" } },
+      "resultQualifier": { "@id": "http://environment.data.gov.uk/water-quality/def/result-qualifier/lt", "notation": "<" },
+      "result": 0.0001
+    }
+  ]
+}

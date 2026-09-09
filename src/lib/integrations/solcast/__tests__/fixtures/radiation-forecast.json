@@ -1,0 +1,7 @@
+{
+  "forecasts": [
+    { "ghi": 0, "dni": 0, "dhi": 0, "air_temp": 12, "period_end": "2026-09-09T05:30:00.0000000Z", "period": "PT30M" },
+    { "ghi": 120, "dni": 300, "dhi": 60, "air_temp": 13, "period_end": "2026-09-09T06:00:00.0000000Z", "period": "PT30M" },
+    { "ghi": 480, "dni": 700, "dhi": 110, "air_temp": 17, "period_end": "2026-09-09T06:30:00.0000000Z", "period": "PT30M" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-0.142, 51.501, 20.0] },
+      "properties": {
+        "location": { "name": "Westminster" },
+        "requestPointDistance": 312.5,
+        "modelRunDate": "2026-09-09T06:00Z",
+        "timeSeries": [
+          { "time": "2026-09-09T12:00Z", "screenTemperature": 19.4, "feelsLikeTemperature": 18.1, "totalPrecipAmount": 0.0, "probOfPrecipitation": 5, "windSpeed10m": 3.2, "windGustSpeed10m": 6.1, "windDirectionFrom10m": 240, "screenRelativeHumidity": 62.4, "uvIndex": 4, "mslp": 101800, "significantWeatherCode": 3 },
+          { "time": "2026-09-09T13:00Z", "screenTemperature": 20.1, "feelsLikeTemperature": 18.9, "totalPrecipAmount": 0.4, "probOfPrecipitation": 40, "windSpeed10m": 3.8, "windGustSpeed10m": 7.0, "windDirectionFrom10m": 245, "screenRelativeHumidity": 60.0, "uvIndex": 4, "mslp": 101790, "significantWeatherCode": 10 }
+        ]
+      }
+    }
+  ],
+  "parameters": [{ "screenTemperature": { "type": "Parameter", "description": "Screen Air Temperature", "unit": { "label": "degrees Celsius", "symbol": { "value": "Cel" } } } }]
+}

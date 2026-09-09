@@ -1,0 +1,30 @@
+{
+  "inputs": {
+    "location": { "latitude": 51.501, "longitude": -0.142, "elevation": 20 },
+    "meteo_data": { "radiation_db": "PVGIS-SARAH3", "meteo_db": "ERA5", "year_min": 2005, "year_max": 2023, "use_horizon": true, "horizon_db": "DEM-calculated" },
+    "mounting_system": { "fixed": { "slope": { "value": 35, "optimal": false }, "azimuth": { "value": 0, "optimal": false }, "type": "building-integrated" } },
+    "pv_module": { "technology": "c-Si", "peak_power": 4, "system_loss": 14 }
+  },
+  "outputs": {
+    "monthly": {
+      "fixed": [
+        { "month": 1, "E_d": 3.62, "E_m": 112.3, "H(i)_d": 1.12, "H(i)_m": 34.7, "SD_m": 21.0 },
+        { "month": 2, "E_d": 6.05, "E_m": 169.4, "H(i)_d": 1.85, "H(i)_m": 51.8, "SD_m": 29.9 },
+        { "month": 3, "E_d": 10.11, "E_m": 313.4, "H(i)_d": 3.12, "H(i)_m": 96.7, "SD_m": 44.0 },
+        { "month": 4, "E_d": 13.86, "E_m": 415.8, "H(i)_d": 4.36, "H(i)_m": 130.8, "SD_m": 43.7 },
+        { "month": 5, "E_d": 15.02, "E_m": 465.6, "H(i)_d": 4.79, "H(i)_m": 148.5, "SD_m": 44.4 },
+        { "month": 6, "E_d": 15.26, "E_m": 457.8, "H(i)_d": 4.93, "H(i)_m": 147.9, "SD_m": 36.4 },
+        { "month": 7, "E_d": 14.93, "E_m": 462.8, "H(i)_d": 4.87, "H(i)_m": 151.0, "SD_m": 37.1 },
+        { "month": 8, "E_d": 13.62, "E_m": 422.2, "H(i)_d": 4.42, "H(i)_m": 137.0, "SD_m": 34.3 },
+        { "month": 9, "E_d": 11.29, "E_m": 338.7, "H(i)_d": 3.6, "H(i)_m": 108.0, "SD_m": 29.9 },
+        { "month": 10, "E_d": 7.41, "E_m": 229.7, "H(i)_d": 2.33, "H(i)_m": 72.2, "SD_m": 31.2 },
+        { "month": 11, "E_d": 4.31, "E_m": 129.3, "H(i)_d": 1.34, "H(i)_m": 40.2, "SD_m": 20.6 },
+        { "month": 12, "E_d": 3.05, "E_m": 94.6, "H(i)_d": 0.95, "H(i)_m": 29.4, "SD_m": 18.2 }
+      ]
+    },
+    "totals": {
+      "fixed": { "E_d": 9.9, "E_m": 300.97, "E_y": 3611.6, "H(i)_d": 3.14, "H(i)_m": 95.68, "H(i)_y": 1148.2, "SD_m": 11.9, "SD_y": 142.8, "l_aoi": -3.11, "l_spec": "1.22", "l_tg": -6.55, "l_total": -21.36 }
+    }
+  },
+  "meta": { "inputs": {}, "outputs": {} }
+}
