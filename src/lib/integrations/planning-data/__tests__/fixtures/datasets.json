@@ -1,0 +1,6 @@
+{
+  "datasets": [
+    { "dataset": "conservation-area", "name": "Conservation area", "typology": "geography", "entity-count": 9800, "themes": ["heritage"] },
+    { "dataset": "listed-building", "name": "Listed building", "typology": "geography", "entity-count": 378000, "themes": ["heritage"] }
+  ]
+}

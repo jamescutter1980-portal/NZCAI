@@ -1,0 +1,30 @@
+{
+  "format": "linked-data-api",
+  "version": "0.2",
+  "result": {
+    "_about": "https://landregistry.data.gov.uk/data/ukhpi/region/north-east/month/2024-09.json",
+    "definition": "https://landregistry.data.gov.uk/meta/data/ukhpi/region/_regionName/month/_month.json",
+    "primaryTopic": {
+      "_about": "http://landregistry.data.gov.uk/data/ukhpi/region/north-east/month/2024-09",
+      "averagePrice": 170644,
+      "averagePriceCash": 156597,
+      "averagePriceDetached": 289802,
+      "averagePriceFirstTimeBuyer": 146951,
+      "averagePriceFlatMaisonette": 110497,
+      "averagePriceFormerOwnerOccupier": 193629,
+      "averagePriceMortgage": 178719,
+      "averagePriceSemiDetached": 173505,
+      "averagePriceTerraced": 140098,
+      "housePriceIndex": 145.7,
+      "housePriceIndexDetached": 149.1,
+      "housePriceIndexFlatMaisonette": 131.8,
+      "housePriceIndexSemiDetached": 146.9,
+      "housePriceIndexTerraced": 143.3,
+      "percentageChange": 0.4,
+      "percentageAnnualChange": 4.1,
+      "refMonth": { "_value": "2024-09", "_datatype": "gYearMonth" },
+      "refRegion": { "_about": "http://landregistry.data.gov.uk/id/region/north-east" },
+      "salesVolume": 2687
+    }
+  }
+}

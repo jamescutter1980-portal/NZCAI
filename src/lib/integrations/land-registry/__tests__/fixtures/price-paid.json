@@ -1,0 +1,35 @@
+{
+  "format": "linked-data-api",
+  "version": "0.2",
+  "result": {
+    "_about": "https://landregistry.data.gov.uk/data/ppi/transaction-record.json?propertyAddress.postcode=SW1A+1AA&_pageSize=50&_sort=-transactionDate",
+    "itemsPerPage": 50,
+    "page": 0,
+    "startIndex": 1,
+    "items": [
+      {
+        "_about": "http://landregistry.data.gov.uk/data/ppi/transaction/9C7A3E1D-0000-4000-8000-000000000001/current",
+        "transactionId": "9C7A3E1D-0000-4000-8000-000000000001",
+        "pricePaid": 850000,
+        "transactionDate": { "_value": "2024-06-14", "_datatype": "date" },
+        "newBuild": false,
+        "propertyType": { "_about": "http://landregistry.data.gov.uk/def/common/flat-maisonette", "prefLabel": [{ "_value": "Flat-maisonette", "_lang": "en" }] },
+        "estateType": { "_about": "http://landregistry.data.gov.uk/def/common/leasehold", "prefLabel": [{ "_value": "Leasehold", "_lang": "en" }] },
+        "transactionCategory": { "_about": "http://landregistry.data.gov.uk/def/ppi/standardPricePaidTransaction", "prefLabel": [{ "_value": "Standard price paid transaction", "_lang": "en" }] },
+        "recordStatus": { "_about": "http://landregistry.data.gov.uk/def/ppi/add" },
+        "propertyAddress": { "_about": "http://landregistry.data.gov.uk/data/ppi/address/abc", "paon": "10", "saon": "FLAT 3", "street": "EXAMPLE STREET", "town": "LONDON", "district": "CITY OF WESTMINSTER", "county": "GREATER LONDON", "postcode": "SW1A 1AA" }
+      },
+      {
+        "_about": "http://landregistry.data.gov.uk/data/ppi/transaction/9C7A3E1D-0000-4000-8000-000000000002/current",
+        "transactionId": "9C7A3E1D-0000-4000-8000-000000000002",
+        "pricePaid": 2100000,
+        "transactionDate": "2019-11-01",
+        "newBuild": true,
+        "propertyType": { "_about": "http://landregistry.data.gov.uk/def/common/terraced" },
+        "estateType": { "_about": "http://landregistry.data.gov.uk/def/common/freehold" },
+        "transactionCategory": { "_about": "http://landregistry.data.gov.uk/def/ppi/standardPricePaidTransaction" },
+        "propertyAddress": { "_about": "http://landregistry.data.gov.uk/data/ppi/address/def", "paon": "12", "street": "EXAMPLE STREET", "town": "LONDON", "district": "CITY OF WESTMINSTER", "county": "GREATER LONDON", "postcode": "SW1A 1AA" }
+      }
+    ]
+  }
+}
