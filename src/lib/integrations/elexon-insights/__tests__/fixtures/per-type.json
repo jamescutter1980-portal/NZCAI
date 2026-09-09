@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "startTime": "2026-09-01T00:00:00Z",
+      "settlementPeriod": 1,
+      "data": [
+        { "businessType": "Solar generation", "psrType": "Solar", "quantity": 0 },
+        { "businessType": "Wind generation", "psrType": "Wind Offshore", "quantity": 5000 },
+        { "businessType": "Wind generation", "psrType": "Wind Onshore", "quantity": 3000 },
+        { "businessType": "Production", "psrType": "Nuclear", "quantity": 4000 },
+        { "businessType": "Production", "psrType": "Fossil Gas", "quantity": 8000 },
+        { "businessType": "Production", "psrType": "Hydro Pumped Storage", "quantity": -500 }
+      ]
+    },
+    {
+      "startTime": "2026-09-01T00:30:00Z",
+      "settlementPeriod": 2,
+      "data": [
+        { "psrType": "Solar", "quantity": 0 },
+        { "psrType": "Wind Offshore", "quantity": 6000 },
+        { "psrType": "Wind Onshore", "quantity": 4000 },
+        { "psrType": "Nuclear", "quantity": 4000 },
+        { "psrType": "Fossil Gas", "quantity": 6000 },
+        { "psrType": "Hydro Pumped Storage", "quantity": 0 }
+      ]
+    }
+  ],
+  "metadata": { "datasets": ["AGPT"] }
+}

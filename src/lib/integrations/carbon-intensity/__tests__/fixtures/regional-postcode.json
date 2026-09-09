@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "regionid": 11,
+      "dnoregion": "WPD South West",
+      "shortname": "South West England",
+      "postcode": "BS16",
+      "data": [
+        {
+          "from": "2026-09-09T11:30Z",
+          "to": "2026-09-09T12:00Z",
+          "intensity": { "forecast": 162, "index": "moderate" },
+          "generationmix": [
+            { "fuel": "biomass", "perc": 0.4 }, { "fuel": "coal", "perc": 0 }, { "fuel": "imports", "perc": 44.2 },
+            { "fuel": "gas", "perc": 32.9 }, { "fuel": "nuclear", "perc": 1 }, { "fuel": "other", "perc": 0 },
+            { "fuel": "hydro", "perc": 0.1 }, { "fuel": "solar", "perc": 0 }, { "fuel": "wind", "perc": 21.3 }
+          ]
+        }
+      ]
+    }
+  ]
+}

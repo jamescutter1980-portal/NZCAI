@@ -1,0 +1,7 @@
+{
+  "total_count": 2,
+  "results": [
+    { "substation": "Bermondsey", "headroom_mva": 12.5, "geo_point_2d": { "lat": 51.5, "lon": -0.08 } },
+    { "substation": "Brixton", "headroom_mva": 3.1, "geo_point_2d": { "lat": 51.46, "lon": -0.11 } }
+  ]
+}

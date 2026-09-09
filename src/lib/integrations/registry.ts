@@ -10,13 +10,31 @@ import { definition as voaRatingList } from "./voa-rating-list";
 import { definition as scottishEpcRegister } from "./scottish-epc-register";
 import { definition as osOpenUprn } from "./os-open-uprn";
 import { definition as niEpc } from "./ni-epc";
+import { definition as carbonIntensity } from "./carbon-intensity";
+import { definition as elexonInsights } from "./elexon-insights";
+import { definition as nesoDataPortal } from "./neso-data-portal";
+import { definition as dnoOpenData } from "./dno-open-data";
+import { definition as ngedConnectedData } from "./nged-connected-data";
+import { definition as ssenDataPortal } from "./ssen-data-portal";
+import { definition as nationalGasData } from "./national-gas-data";
+import { definition as pvLive } from "./pv-live";
+import { definition as octopusEnergy } from "./octopus-energy";
+import { definition as openvolt } from "./openvolt";
+import { definition as electralinkQuoteright } from "./electralink-quoteright";
+import { definition as xoserveGasData } from "./xoserve-gas-data";
+import { definition as perse } from "./perse";
+import { definition as measurabl } from "./measurabl";
 
 /** Every registered data source. Order is display order within a group. */
 export const integrations: IntegrationDefinition[] = [
   // identity
   postcodesIo, epcEnglandWales, osDataHub, planningData, historicEnglandNhle, landRegistry, voaRatingList, scottishEpcRegister, osOpenUprn, niEpc,
   // energy
-  n3rgy,
+  n3rgy, octopusEnergy, openvolt, electralinkQuoteright, xoserveGasData, perse, measurabl,
+  // grid
+  carbonIntensity, elexonInsights, nesoDataPortal, dnoOpenData, ngedConnectedData, ssenDataPortal, nationalGasData,
+  // solar
+  pvLive,
 ];
 
 const byId = new Map(integrations.map((d) => [d.id, d]));

@@ -1,0 +1,8 @@
+{
+  "_id": "6514167223e3d1424bf82742",
+  "meter_number": "1200012345678",
+  "status": "active",
+  "data_source": "smart-meter",
+  "customer": { "_id": "6514151f23e3d1424bf82722", "name": "Example Retail Ltd", "account": "ACC-1" },
+  "address": { "line1": "Unit 4, Example Park", "postcode": "M1 1AE" }
+}

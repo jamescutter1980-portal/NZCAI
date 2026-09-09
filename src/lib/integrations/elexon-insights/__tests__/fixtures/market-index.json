@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "startTime": "2026-09-01T00:00:00Z", "dataProvider": "APXMIDP", "settlementDate": "2026-09-01", "settlementPeriod": 1, "price": 70, "volume": 100 },
+    { "startTime": "2026-09-01T00:30:00Z", "dataProvider": "APXMIDP", "settlementDate": "2026-09-01", "settlementPeriod": 2, "price": 90, "volume": 300 }
+  ]
+}
