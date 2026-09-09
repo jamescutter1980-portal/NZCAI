@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "n3rgy:pull": "tsx scripts/n3rgy-pull.ts",
-    "n3rgy:sync": "tsx scripts/n3rgy-sync.ts"
+    "n3rgy:sync": "tsx scripts/n3rgy-sync.ts",
+    "sources:check": "tsx scripts/sources-check.ts"
   },
   "dependencies": {
     "next": "^16.3.4",

@@ -7,6 +7,9 @@ export default function Home() {
       <p>Integration modules. See docs/data-source-roadmap.md for the full plan.</p>
       <ul>
         <li>
+          <Link href="/sources">Data sources</Link> – every external API and dataset: status, configuration, health checks and lookups
+        </li>
+        <li>
           <Link href="/meters/n3rgy">n3rgy smart-meter data</Link> – consent-based half-hourly electricity and gas
         </li>
         <li>
