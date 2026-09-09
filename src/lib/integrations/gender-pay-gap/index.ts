@@ -1,4 +1,4 @@
-import { defineIntegration, makeProvenance, type EnvLike, type HealthResult, type OperationContext } from "../framework";
+import { defineIntegration, makeProvenance, type EnvLike, type HealthResult } from "../framework";
 import { csvToRecords, parseNumericCell } from "../_shared/csv";
 import { listReferenceFiles, type ReferenceFile } from "../_shared/reference-data";
 import { cachedFile, downloadText, expectedPath, loadCached, writeCache } from "./download-cache";
@@ -22,7 +22,7 @@ export function fileName(year: number): string {
   return `${year}.csv`;
 }
 
-export interface GpgRecord {
+export type GpgRecord = {
   employer_name: string;
   current_name: string;
   employer_id: string;
@@ -43,7 +43,7 @@ export interface GpgRecord {
   date_submitted: string;
   submitted_after_deadline: boolean | null;
   link: string;
-}
+};
 
 function bool(v: string | undefined): boolean | null {
   if (!v) return null;

@@ -22,7 +22,7 @@ export function exportUrl(env: EnvLike): string {
   return env.PAYMENT_PRACTICES_CSV_URL?.trim() || DEFAULT_URL;
 }
 
-export interface PaymentReport {
+export type PaymentReport = {
   company: string;
   company_number: string;
   period_start: string;
@@ -37,7 +37,7 @@ export interface PaymentReport {
   longest_standard_terms_days: number | null;
   e_invoicing_offered: boolean | null;
   report_url: string;
-}
+};
 
 function col(rec: Record<string, string>, ...names: string[]): string {
   const lower = new Map(Object.keys(rec).map((k) => [k.toLowerCase().replace(/[^a-z0-9%]/g, ""), k]));

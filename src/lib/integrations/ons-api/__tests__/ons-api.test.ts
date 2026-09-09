@@ -1,6 +1,7 @@
 // Fixtures mirror the ONS Beta API observations documentation (dp-developer-site); not from a live call.
 import { describe, expect, it, vi } from "vitest";
 import { definition, parseVersionHref } from "..";
+import type { FetchLike } from "../../framework";
 import { routedFetch, runOperation, testContext } from "../../testing";
 import observations from "./fixtures/observations.json";
 
@@ -17,7 +18,7 @@ const catalogue = {
 
 describe("ons-api", () => {
   it("lists and filters datasets, extracting edition and version from the latest_version link", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(catalogue), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(catalogue), { status: 200 }));
     const result = await runOperation(definition, "datasets", { search: "travel" }, testContext(fetch));
     expect(fetch.mock.calls[0][0]).toBe("https://api.beta.ons.gov.uk/v1/datasets?limit=100&offset=0");
     expect(result.rows).toEqual([expect.objectContaining({ dataset_id: "TS061", latest_edition: "2021", latest_version: "3" })]);
@@ -25,7 +26,7 @@ describe("ons-api", () => {
   });
 
   it("builds the observations URL from dimension lines and maps values", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(observations), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(observations), { status: 200 }));
     const result = await runOperation(definition, "observations", { dataset_id: "cpih01", edition: "time-series", version: "6", dimensions: "time=*\ngeography=K02000001\naggregate=cpih1dim1A0" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/v1/datasets/cpih01/editions/time-series/versions/6/observations");

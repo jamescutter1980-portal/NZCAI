@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { definition, findEmployers, parseGpgCsv } from "..";
+import type { FetchLike } from "../../framework";
 import { runOperation, testContext } from "../../testing";
 
 const fx = (n: string) => path.join(__dirname, "fixtures", n);
@@ -34,7 +35,7 @@ describe("gender-pay-gap", () => {
   });
 
   it("downloads a year from the documented URL and then looks it up offline", async () => {
-    const fetch = vi.fn(async () => new Response(readFileSync(fx("2024.csv"), "utf8"), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(readFileSync(fx("2024.csv"), "utf8"), { status: 200 }));
     const reload = await runOperation(definition, "reload", { year: 2024 }, testContext(fetch, env));
     expect(fetch.mock.calls[0][0]).toBe("https://gender-pay-gap.service.gov.uk/viewing/download-data/2024");
     expect(reload.rows?.[0]).toMatchObject({ year: 2024, reports: 2 });

@@ -2,6 +2,7 @@
 // (companyProfile, officerList); they were not taken from a live call.
 import { describe, expect, it, vi } from "vitest";
 import { definition, normaliseCompanyNumber } from "..";
+import type { FetchLike } from "../../framework";
 import { routedFetch, runOperation, testContext } from "../../testing";
 import { SIC_2007, sicDescription } from "../sic-codes";
 import profile from "./fixtures/profile.json";
@@ -11,7 +12,7 @@ const env = { COMPANIES_HOUSE_API_KEY: "abc123" };
 
 describe("companies-house", () => {
   it("sends the key as a Basic username and zero-pads the company number", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(profile), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(profile), { status: 200 }));
     const result = await runOperation(definition, "profile", { company_number: "12345678" }, testContext(fetch, env));
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.company-information.service.gov.uk/company/12345678");
@@ -42,7 +43,7 @@ describe("companies-house", () => {
   });
 
   it("returns an empty unavailable result for a 404", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ errors: [{ error: "company-profile-not-found" }] }), { status: 404 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ errors: [{ error: "company-profile-not-found" }] }), { status: 404 }));
     const result = await runOperation(definition, "profile", { company_number: "99999999" }, testContext(fetch, env));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");

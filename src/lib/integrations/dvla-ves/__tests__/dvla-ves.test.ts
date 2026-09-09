@@ -1,6 +1,7 @@
 // Fixture mirrors the VES OpenAPI response schema; not from a live call.
 import { describe, expect, it, vi } from "vitest";
 import { definition, normaliseRegistration } from "..";
+import type { FetchLike } from "../../framework";
 import { runOperation, testContext } from "../../testing";
 import vehicle from "./fixtures/vehicle.json";
 
@@ -8,7 +9,7 @@ const env = { DVLA_VES_API_KEY: "ves-key" };
 
 describe("dvla-ves", () => {
   it("POSTs the registration with the x-api-key header and maps the record", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(vehicle), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(vehicle), { status: 200 }));
     const result = await runOperation(definition, "lookup", { registration: "ab12 cde" }, testContext(fetch, env));
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles");
@@ -23,7 +24,7 @@ describe("dvla-ves", () => {
   it("uses the UAT base when configured and warns when CO2 is missing", async () => {
     const { co2Emissions: _omit, ...older } = vehicle;
     void _omit;
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ ...older, yearOfManufacture: 1998 }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ ...older, yearOfManufacture: 1998 }), { status: 200 }));
     const result = await runOperation(definition, "lookup", { registration: "R123ABC" }, testContext(fetch, { ...env, DVLA_VES_BASE: "https://uat.driver-vehicle-licensing.api.gov.uk/" }));
     expect(fetch.mock.calls[0][0]).toBe("https://uat.driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles");
     expect(result.rows?.[0].co2_g_km).toBeNull();
@@ -31,7 +32,7 @@ describe("dvla-ves", () => {
   });
 
   it("returns an empty unavailable result for a 404", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ errors: [{ status: "404", code: "404", title: "Vehicle Not Found", detail: "Record for vehicle not found" }] }), { status: 404 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ errors: [{ status: "404", code: "404", title: "Vehicle Not Found", detail: "Record for vehicle not found" }] }), { status: 404 }));
     const result = await runOperation(definition, "lookup", { registration: "ZZ99ZZZ" }, testContext(fetch, env));
     expect(result.rows).toEqual([]);
     expect(result.summary).toContain("Record for vehicle not found");

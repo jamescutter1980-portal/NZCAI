@@ -21,7 +21,7 @@ export function fileName(year: number): string {
   return `StatementSummaries${year}.csv`;
 }
 
-export interface Statement {
+export type Statement = {
   organisation: string;
   company_number: string;
   statement_year: string;
@@ -33,7 +33,7 @@ export interface Statement {
   group_submission: string;
   statement_url: string;
   summary_url: string;
-}
+};
 
 function col(rec: Record<string, string>, ...names: string[]): string {
   const lower = new Map(Object.keys(rec).map((k) => [k.toLowerCase(), k]));

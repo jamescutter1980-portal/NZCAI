@@ -1,5 +1,5 @@
 import { defineIntegration, makeProvenance, type HealthResult, type OperationContext } from "../framework";
-import { csvToRecords, missingColumns } from "../_shared/csv";
+import { missingColumns } from "../_shared/csv";
 import { listReferenceFiles, loadReferenceCsv, referenceDir } from "../_shared/reference-data";
 import path from "node:path";
 
@@ -16,7 +16,7 @@ export const FILE_NAME = "targets.csv";
 export const DASHBOARD_URL = "https://sciencebasedtargets.org/target-dashboard";
 export const REQUIRED_COLUMNS = ["company_name", "isin", "lei", "country", "sector", "near_term_status", "near_term_target_year", "net_zero_status", "date"];
 
-export interface SbtiRow {
+export type SbtiRow = {
   company_name: string;
   isin: string;
   lei: string;
@@ -26,7 +26,7 @@ export interface SbtiRow {
   near_term_target_year: string;
   net_zero_status: string;
   date: string;
-}
+};
 
 function norm(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();

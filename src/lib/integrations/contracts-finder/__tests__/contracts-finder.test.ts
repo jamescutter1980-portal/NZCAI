@@ -2,12 +2,13 @@
 // as consumed by open-source OCDS collectors; it was not taken from a live call.
 import { describe, expect, it, vi } from "vitest";
 import { definition } from "..";
+import type { FetchLike } from "../../framework";
 import { routedFetch, runOperation, testContext } from "../../testing";
 import cfSearch from "./fixtures/cf-search.json";
 
 describe("contracts-finder", () => {
   it("builds the documented query and maps releases to rows", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(cfSearch), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(cfSearch), { status: 200 }));
     const result = await runOperation(definition, "search", { published_from: "2026-08-01", published_to: "2026-08-31", stage: "tender" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.origin + url.pathname).toBe("https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search");
@@ -31,8 +32,8 @@ describe("contracts-finder", () => {
   });
 
   it("queries Find a Tender release packages", async () => {
-    const pkg = { uri: "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages", releases: cfSearch.results.flatMap((r) => r.releases), links: { next: "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages?cursor=abc" } };
-    const fetch = vi.fn(async () => new Response(JSON.stringify(pkg), { status: 200 }));
+    const pkg = { uri: "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages", releases: cfSearch.results.flatMap((r) => r.releases as Record<string, unknown>[]), links: { next: "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages?cursor=abc" } };
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(pkg), { status: 200 }));
     const result = await runOperation(definition, "fts_releases", { updated_from: "2026-09-01", updated_to: "2026-09-05" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/api/1.0/ocdsReleasePackages");

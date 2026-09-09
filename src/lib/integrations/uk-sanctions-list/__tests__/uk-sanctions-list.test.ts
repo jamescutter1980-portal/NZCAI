@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { definition, parseSanctionsCsv, screenName, similarity } from "..";
+import type { FetchLike } from "../../framework";
 import { runOperation, testContext } from "../../testing";
 
 const fixture = readFileSync(path.join(__dirname, "fixtures", "UK_Sanctions_List.csv"), "utf8");
@@ -39,7 +40,7 @@ describe("uk-sanctions-list", () => {
 
   it("downloads to the reference directory on reload, then screens without the network", async () => {
     const env = { REFERENCE_DATA_DIR: dir, UK_SANCTIONS_LIST_URL: "https://example.test/list.csv" };
-    const fetch = vi.fn(async () => new Response(fixture, { status: 200, headers: { "content-type": "text/csv" } }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(fixture, { status: 200, headers: { "content-type": "text/csv" } }));
     const reload = await runOperation(definition, "reload", {}, testContext(fetch, env));
     expect(fetch.mock.calls[0][0]).toBe("https://example.test/list.csv");
     expect(reload.summary).toContain("6 rows");

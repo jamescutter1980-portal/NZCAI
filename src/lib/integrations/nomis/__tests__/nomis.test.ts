@@ -2,6 +2,7 @@
 // open-source wrappers (ouseful-datasupply/nomisweb, traffordDataLab pipelines); not from a live call.
 import { describe, expect, it, vi } from "vitest";
 import { definition, parseDimensionLines } from "..";
+import type { FetchLike } from "../../framework";
 import { routedFetch, runOperation, testContext } from "../../testing";
 import ts061 from "./fixtures/ts061-data.json";
 
@@ -24,7 +25,7 @@ const geog = { structure: { codelists: { codelist: [{ id: "CL_2078_1_GEOGRAPHY",
 
 describe("nomis", () => {
   it("searches datasets with the name:* wildcard", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(defs), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(defs), { status: 200 }));
     const result = await runOperation(definition, "search_datasets", { term: "travel to work" }, testContext(fetch));
     expect(fetch.mock.calls[0][0]).toBe("https://www.nomisweb.co.uk/api/v01/dataset/def.sdmx.json?search=name%3A*travel*to*work*");
     expect(result.rows?.[0]).toMatchObject({ dataset_id: "NM_2078_1", dimensions: "GEOGRAPHY, C2021_TTWMETH_12", source: "census_2021_ts" });
@@ -37,7 +38,7 @@ describe("nomis", () => {
   });
 
   it("fetches TS061 and pairs counts with percentages per mode", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(ts061), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(ts061), { status: 200 }));
     const result = await runOperation(definition, "travel_to_work", { geography: "645922841" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/api/v01/dataset/NM_2078_1.data.json");
@@ -50,7 +51,7 @@ describe("nomis", () => {
 
   it("passes dimension lines through to the generic data call and returns empty for no obs", async () => {
     expect(parseDimensionLines("sex=7\n item = 1\ngeography=999")).toEqual({ sex: "7", item: "1", geography: "999" });
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ obs: [] }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ obs: [] }), { status: 200 }));
     const result = await runOperation(definition, "data", { dataset_id: "NM_1_1", geography: "2092957697", dimensions: "sex=7\ngeography=1" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.searchParams.get("sex")).toBe("7");

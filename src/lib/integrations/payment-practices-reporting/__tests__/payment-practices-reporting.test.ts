@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { definition, findReports, parsePaymentCsv } from "..";
+import type { FetchLike } from "../../framework";
 import { runOperation, testContext } from "../../testing";
 
 const fixture = readFileSync(path.join(__dirname, "fixtures", "payment-practices.csv"), "utf8");
@@ -25,7 +26,7 @@ describe("payment-practices-reporting", () => {
 
   it("downloads the export and searches offline", async () => {
     const env = { REFERENCE_DATA_DIR: dir, PAYMENT_PRACTICES_CSV_URL: "https://example.test/export.csv" };
-    const fetch = vi.fn(async () => new Response(fixture, { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(fixture, { status: 200 }));
     const reload = await runOperation(definition, "reload", {}, testContext(fetch, env));
     expect(fetch.mock.calls[0][0]).toBe("https://example.test/export.csv");
     expect(reload.rows?.[0]).toMatchObject({ reports: 3, companies: 2 });
@@ -51,7 +52,7 @@ describe("payment-practices-reporting", () => {
   });
 
   it("rejects a download that is not the export", async () => {
-    const fetch = vi.fn(async () => new Response("<html>login</html>", { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response("<html>login</html>", { status: 200 }));
     await expect(runOperation(definition, "reload", {}, testContext(fetch, { REFERENCE_DATA_DIR: dir }))).rejects.toThrow(/does not look like/);
   });
 });

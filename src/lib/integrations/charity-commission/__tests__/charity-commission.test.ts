@@ -1,6 +1,7 @@
 // Fixtures follow the Charity Commission API data definition (v1.1) field names; not taken from a live call.
 import { describe, expect, it, vi } from "vitest";
 import { definition } from "..";
+import type { FetchLike } from "../../framework";
 import { routedFetch, runOperation, testContext } from "../../testing";
 import details from "./fixtures/details.json";
 
@@ -8,7 +9,7 @@ const env = { CHARITY_COMMISSION_API_KEY: "key-123" };
 
 describe("charity-commission", () => {
   it("sends the subscription key header and maps charity details", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(details), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(details), { status: 200 }));
     const result = await runOperation(definition, "details", { registered_number: "1234567" }, testContext(fetch, env));
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.charitycommission.gov.uk/register/api/allcharitydetails/1234567/0");
@@ -30,7 +31,7 @@ describe("charity-commission", () => {
   });
 
   it("returns an empty unavailable result for a 404 and fails before the network without a key", async () => {
-    const fetch = vi.fn(async () => new Response("", { status: 404 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response("", { status: 404 }));
     const result = await runOperation(definition, "details", { registered_number: "9999999" }, testContext(fetch, env));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");

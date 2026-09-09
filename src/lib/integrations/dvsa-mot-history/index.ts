@@ -106,13 +106,13 @@ export function odometerReadings(tests: MotTest[]): Reading[] {
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export interface MileageEstimate {
+export type MileageEstimate = {
   from: string;
   to: string;
   days: number;
   miles: number;
   miles_per_year: number;
-}
+};
 
 /** Annualised mileage between consecutive readings; ignores gaps under 30 days and non-increasing readings. */
 export function annualMileage(readings: Reading[]): MileageEstimate[] {
