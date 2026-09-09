@@ -8,6 +8,6 @@ coverage/
 .env
 .env.*
 !.env.example
-data/exports/
+data/
 next-env.d.ts
 tsconfig.tsbuildinfo

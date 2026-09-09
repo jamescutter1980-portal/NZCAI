@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 type Status = { configured: true; environment: string; baseUrl: string } | { configured: false; reason: string };
@@ -11,8 +12,17 @@ interface Daily {
   intervals: number;
 }
 
+interface ConsentSummary {
+  id: string;
+  utilities: string[];
+  effectiveStatus: string;
+  expiresOn: string;
+  occupierName: string;
+}
+
 interface Result {
   environment: string;
+  consentRef?: string;
   partial: boolean;
   retrievedAt: string;
   count: number;
@@ -33,6 +43,22 @@ export default function N3rgyPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+  const [consentLookup, setConsentLookup] = useState<{ mpxn: string; consents: ConsentSummary[] } | null>(null);
+
+  const cleanMpxn = mpxn.replace(/\s+/g, "");
+  const mpxnValid = /^\d{6,13}$/.test(cleanMpxn);
+
+  useEffect(() => {
+    if (!mpxnValid) return;
+    const ctrl = new AbortController();
+    fetch(`/api/consents?mpxn=${cleanMpxn}`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((b) => setConsentLookup({ mpxn: cleanMpxn, consents: b.consents ?? [] }))
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [cleanMpxn, mpxnValid]);
+
+  const consents = mpxnValid && consentLookup?.mpxn === cleanMpxn ? consentLookup.consents : null;
 
   useEffect(() => {
     fetch("/api/n3rgy/status")
@@ -90,6 +116,17 @@ export default function N3rgyPage() {
             style={{ display: "block", width: "100%", padding: 8 }}
           />
         </label>
+        {consents !== null && status?.configured && status.environment !== "sandbox" && (
+          <p style={{ fontSize: 13, margin: 0 }}>
+            {consents.some((c) => c.effectiveStatus === "active" && c.utilities.includes(utility)) ? (
+              <span style={{ color: "#1e7e34" }}>Active consent on file for {utility}.</span>
+            ) : (
+              <span style={{ color: "#b02a37" }}>
+                No active {utility} consent for this MPxN. <Link href="/consents">Record or verify one</Link> before pulling live data.
+              </span>
+            )}
+          </p>
+        )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <label>
             Utility
@@ -126,7 +163,8 @@ export default function N3rgyPage() {
       {result && (
         <section style={{ marginTop: 24 }}>
           <p>
-            {result.count} intervals, {result.unit}. Retrieved {result.retrievedAt} from {result.environment}.
+            {result.count} intervals, {result.unit}. Retrieved {result.retrievedAt} from {result.environment}
+            {result.consentRef ? ` under consent ${result.consentRef}` : ""}.
             {result.partial && " Some chunks returned partial content."}
           </p>
           <p>

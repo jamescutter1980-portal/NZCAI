@@ -43,7 +43,30 @@ Not yet run against the live service from this repository, because the build env
 1. The live host name.
 2. Whether the live platform prefers `Authorization` or `X-API-KEY` (both are sent).
 3. The exact shape of `find-mpxn` and listing responses (parsed loosely on purpose).
-4. Whether consent registration can be done through the API or only through n3rgy's consent portal. The portal does not yet capture consent; it records a `consentRef` on each reading for when it does.
+4. Whether consent registration can be done through the API or only through n3rgy's consent portal. The portal records consents and verifies them by probing n3rgy; it does not yet push consent requests to n3rgy.
+
+## Consent capture
+
+Live retrieval is gated. `/api/n3rgy/consumption` refuses with 403 unless an **active** consent exists for the MPxN and utility. Sandbox retrieval is exempt because n3rgy's sandbox MPxNs are test fixtures.
+
+Consents live at `/consents` (UI) and `/api/consents` (JSON). Each record holds: MPxN, utilities covered, asset and site reference, occupier name, email and organisation, how consent was given (n3rgy consumer portal, letter of authority, lease or contract clause, other), an evidence reference, granted and expiry dates, notes, and the result of the last verification against n3rgy.
+
+Lifecycle:
+
+| Stored status | Effective status | Meaning |
+|---|---|---|
+| pending | pending | Recorded by us, not yet confirmed effective at n3rgy. Retrieval refused. |
+| active | active | Verified, within term. Retrieval allowed; readings carry the consent id as `consentRef`. |
+| active or pending | expired | Past the expiry date. Retrieval refused until renewed. |
+| withdrawn | withdrawn | Occupier withdrew or tenancy ended. Retrieval refused. Reason and date stamped. |
+
+**Verify** (`POST /api/consents/{id}/verify`) calls n3rgy's utilities listing for the MPxN. A 200 marks a pending consent active and records which utilities n3rgy lists; a 403 or 404 records a refusal and leaves the status alone so someone can chase the occupier. Verify again whenever n3rgy has been asked to add a consent.
+
+**Renew** updates the expiry date. **Withdraw** sets the status with a reason; a fresh record is created if the same occupier consents again later.
+
+Storage is a JSON file (`data/consents.json`, gitignored, path via `CONSENT_STORE_PATH`) behind the `ConsentStore` interface in `src/lib/consent/store.ts`. Swap in a database implementation before multi-user deployment; nothing else needs to change.
+
+Verification only proves that n3rgy currently grants access to our key. It does not replace holding the occupier's evidence; keep the letter of authority or n3rgy consent reference in `evidenceRef`.
 
 ## Portal outputs
 
@@ -53,7 +76,8 @@ Not yet run against the live service from this repository, because the build env
 
 ## Next steps
 
-1. Consent capture and storage (MPxN, occupier, granted and expiry dates, evidence) so `consentRef` is real and lapsed consents block retrieval.
-2. Persist readings and provenance to the portal database rather than fetching per request.
-3. Scheduled daily pull per consented MPxN with gap detection.
-4. Tariff import for cost analysis and market-based Scope 2 evidence.
+1. Persist readings and provenance to the portal database rather than fetching per request.
+2. Scheduled daily pull per active consent with gap detection and expiry warnings.
+3. Tariff import for cost analysis and market-based Scope 2 evidence.
+4. Database-backed `ConsentStore` and user authentication before multi-user use.
+5. Evidence file upload (letter of authority PDF) attached to the consent record.

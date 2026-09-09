@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { ConsentError, getConsentStore, requireActiveConsent } from "@/lib/consent";
 import {
   dailyTotals,
   granularitySchema,
@@ -23,7 +24,8 @@ const querySchema = z.object({
 
 /**
  * Server-side proxy to n3rgy. The key never reaches the browser. Dates are
- * whole UTC days, inclusive.
+ * whole UTC days, inclusive. Live retrieval requires an active consent record
+ * for the MPxN and utility; sandbox retrieval does not.
  */
 export async function GET(req: Request) {
   const params = Object.fromEntries(new URL(req.url).searchParams);
@@ -40,11 +42,15 @@ export async function GET(req: Request) {
 
   try {
     const client = new N3rgyClient();
+    const gate = await requireActiveConsent(getConsentStore(), q.mpxn, q.utility, {
+      sandbox: client.environment === "sandbox",
+    });
     const query = { mpxn: q.mpxn, utility: q.utility, start, end, granularity: q.granularity };
     const raw = q.direction === "export" ? await client.getProduction(query) : await client.getConsumption(query);
-    const readings = normaliseConsumption(query, raw, { direction: q.direction });
+    const readings = normaliseConsumption(query, raw, { direction: q.direction, consentRef: gate.consentRef });
     return NextResponse.json({
       environment: client.environment,
+      consentRef: gate.consentRef,
       partial: raw.partial,
       retrievedAt: raw.retrievedAt,
       count: readings.length,
@@ -56,6 +62,9 @@ export async function GET(req: Request) {
   } catch (e) {
     if (e instanceof N3rgyConfigError) {
       return NextResponse.json({ error: e.message }, { status: 503 });
+    }
+    if (e instanceof ConsentError) {
+      return NextResponse.json({ error: e.message, consentCode: e.code, consentId: e.consentId }, { status: 403 });
     }
     if (e instanceof N3rgyApiError) {
       return NextResponse.json({ error: e.message, upstreamStatus: e.status }, { status: 502 });

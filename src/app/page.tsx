@@ -9,6 +9,9 @@ export default function Home() {
         <li>
           <Link href="/meters/n3rgy">n3rgy smart-meter data</Link> – consent-based half-hourly electricity and gas
         </li>
+        <li>
+          <Link href="/consents">Meter data consents</Link> – record, verify, renew and withdraw occupier consents
+        </li>
       </ul>
     </>
   );
