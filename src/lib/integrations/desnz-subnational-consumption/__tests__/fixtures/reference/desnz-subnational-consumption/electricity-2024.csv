@@ -1,0 +1,7 @@
+Outcode,Postcode,Num_meters,Total_cons_kwh,Mean_cons_kwh,Median_cons_kwh
+ZZ1,All postcodes,1234,4321000,3501.62,2999.5
+ZZ1,ZZ1 1AA,12,36000,3000,2750.5
+ZZ1,ZZ1 1AB,7,21700,3100,3000
+ZZ2,All postcodes,50,150000,3000,2900
+ZZ2,ZZ2 9ZZ,6,,,
+Unallocated,Unallocated,3,9000,3000,3000

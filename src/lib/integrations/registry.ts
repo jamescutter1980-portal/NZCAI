@@ -97,6 +97,9 @@ import { definition as ibat } from "./ibat";
 import { definition as globalForestWatch } from "./global-forest-watch";
 import { definition as resourceWatch } from "./resource-watch";
 import { definition as encore } from "./encore";
+import { definition as desnzSubnationalConsumption } from "./desnz-subnational-consumption";
+import { definition as repd } from "./repd";
+import { definition as onsGeographyImd } from "./ons-geography-imd";
 import { referenceDefinitions } from "./_reference";
 
 /** Every registered data source. Order is display order within a group. */
@@ -104,13 +107,13 @@ export const integrations: IntegrationDefinition[] = [
   // identity
   postcodesIo, epcEnglandWales, osDataHub, planningData, historicEnglandNhle, landRegistry, voaRatingList, scottishEpcRegister, osOpenUprn, niEpc,
   // energy
-  n3rgy, octopusEnergy, openvolt, electralinkQuoteright, xoserveGasData, perse, measurabl, moslWaterMarket,
+  n3rgy, octopusEnergy, openvolt, desnzSubnationalConsumption, electralinkQuoteright, xoserveGasData, perse, measurabl, moslWaterMarket,
   // grid
   carbonIntensity, elexonInsights, nesoDataPortal, dnoOpenData, ngedConnectedData, ssenDataPortal, nationalGasData,
   // weather
   openMeteo, metOfficeDatahub, degreeDaysNet, ukhsaWeatherHealthAlerts, ukcp18, hadukGridCeda, copernicusCds,
   // solar
-  pvgis, pvLive, solcast, googleSolar, solaredge, enphase, givenergy,
+  pvgis, pvLive, solcast, googleSolar, solaredge, enphase, givenergy, repd,
   // flood_water
   eaFloodMonitoring, eaHydrology, eaAssetManagement, eaWaterQuality, eaCatchmentData, eaBathingWaters, eaLongTermFloodRisk, sepaFloodMaps, nrwFlood, floodMapsNi, jbaFlood, wriAqueduct,
   // ground
@@ -120,7 +123,7 @@ export const integrations: IntegrationDefinition[] = [
   // transport
   dvlaVes, dvsaMotHistory, vcaFuelData, dftRoadTraffic, openChargeMap, samsaraFleet,
   // company
-  companiesHouse, ukSanctionsList, genderPayGap, modernSlaveryStatementRegistry, paymentPracticesReporting, sbtiTargets, contractsFinder, charityCommission, nomis, onsApi,
+  companiesHouse, ukSanctionsList, genderPayGap, modernSlaveryStatementRegistry, paymentPracticesReporting, sbtiTargets, contractsFinder, charityCommission, nomis, onsApi, onsGeographyImd,
   // carbon
   desnzConversionFactors, aibResidualMix, ofgemRenewableElectricityRegister, climatiq, exiobase, xeroSpend, quickbooksSpend,
   // pathways

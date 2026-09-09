@@ -1,0 +1,4 @@
+Property UPRN,First address line,Second address line,Town,Postcode,Energy band,Energy performance rating,Floor area,Property type,Main heating fuel,Lodgement date,Assessment date,Transaction type
+OSG_UPRN,Address1,Address2,Post Town,Postcode,Energy Band,Current Energy Performance Rating,Total floor area (m²),Property Type,Main Heating Fuel,Lodgement Date,Date of Assessment,Transaction Type
+6700000009,Unit 9 Synthetic Industrial Estate,,TESTBURGH,ZZ1 1AA,C,55,1250,B8 Storage or Distribution,Natural Gas,04/03/2021 10:15:00,01/03/2021 00:00:00,Sale
+906700000010,Synthetic Office,High Street,TESTBURGH,ZZ1 2BB,E,101,480,B1 Offices and Workshop businesses,Grid Supplied Electricity,12/12/2022 09:00:00,10/12/2022 00:00:00,Lease
