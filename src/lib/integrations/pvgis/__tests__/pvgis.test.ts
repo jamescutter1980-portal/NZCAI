@@ -2,6 +2,7 @@
 // outputs.monthly.fixed for PVcalc; outputs.monthly[] for MRcalc). Values are illustrative
 // and were not produced by a live call.
 import { describe, expect, it, vi } from "vitest";
+import type { FetchLike } from "../../framework";
 import { compassFromPvgisAspect, definition, pvgisAspectFromCompass } from "..";
 import { runOperation, testContext } from "../../testing";
 import pvcalc from "./fixtures/pvcalc.json";
@@ -19,7 +20,7 @@ describe("pvgis", () => {
   });
 
   it("builds the PVcalc URL on v5_3 and maps totals and monthly rows", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(pvcalc), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(pvcalc), { status: 200 }));
     const result = await runOperation(definition, "pv-yield", { latitude: 51.501, longitude: -0.142, peak_power_kwp: 4, tilt_deg: 35, azimuth_deg: 180, loss_pct: 14 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.origin + url.pathname).toBe("https://re.jrc.ec.europa.eu/api/v5_3/PVcalc");
@@ -39,13 +40,13 @@ describe("pvgis", () => {
   });
 
   it("sets the optimisation flags", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(pvcalc), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(pvcalc), { status: 200 }));
     await runOperation(definition, "pv-yield", { latitude: 51.5, longitude: -0.14, peak_power_kwp: 10, optimise: "both" }, testContext(fetch));
     expect(new URL(fetch.mock.calls[0][0] as string).searchParams.get("optimalangles")).toBe("1");
   });
 
   it("averages MRcalc months across years", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(mrcalc), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(mrcalc), { status: 200 }));
     const result = await runOperation(definition, "monthly-irradiation", { latitude: 51.5, longitude: -0.14 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname.endsWith("/MRcalc")).toBe(true);
@@ -60,13 +61,13 @@ describe("pvgis", () => {
 
   it("reports the optimal angles", async () => {
     const body = { ...pvcalc, inputs: { ...pvcalc.inputs, mounting_system: { fixed: { slope: { value: 38, optimal: true }, azimuth: { value: -3, optimal: true } } } } };
-    const fetch = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(body), { status: 200 }));
     const result = await runOperation(definition, "optimal-tilt", { latitude: 51.5, longitude: -0.14 }, testContext(fetch));
     expect(result.rows?.[0]).toMatchObject({ optimal_tilt_deg: 38, optimal_orientation_compass_deg: 177, yield_kwh_per_kwp: 3612 });
   });
 
   it("returns an empty result for a point PVGIS rejects", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ message: "Location over the sea. Please, select another location" }), { status: 400 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ message: "Location over the sea. Please, select another location" }), { status: 400 }));
     const result = await runOperation(definition, "pv-yield", { latitude: 50, longitude: -10, peak_power_kwp: 4 }, testContext(fetch));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");

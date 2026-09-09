@@ -1,6 +1,7 @@
 // Fixtures follow the {"forecasts": [{period_end, period, ...}]} shape shown in the
 // official Python SDK documentation; not produced by a live call.
 import { describe, expect, it, vi } from "vitest";
+import type { FetchLike } from "../../framework";
 import { definition } from "..";
 import { runOperation, testContext } from "../../testing";
 import radiation from "./fixtures/radiation-forecast.json";
@@ -10,7 +11,7 @@ const env = { SOLCAST_API_KEY: "sc-key" };
 
 describe("solcast", () => {
   it("sends a Bearer token and builds the radiation forecast URL", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(radiation), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(radiation), { status: 200 }));
     const result = await runOperation(definition, "irradiance-forecast", { latitude: 51.501, longitude: -0.142, hours: 2 }, testContext(fetch, env));
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     const u = new URL(url);
@@ -29,7 +30,7 @@ describe("solcast", () => {
   });
 
   it("builds the rooftop PV forecast and totals the energy", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(rooftop), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(rooftop), { status: 200 }));
     const result = await runOperation(definition, "rooftop-pv-forecast", { latitude: 51.501, longitude: -0.142, capacity_kw: 10, tilt_deg: 30, azimuth_deg: 180 }, testContext(fetch, env));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.pathname).toBe("/data/forecast/rooftop_pv_power");
@@ -43,21 +44,21 @@ describe("solcast", () => {
   });
 
   it("reads estimated actuals from the live endpoint", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ estimated_actuals: radiation.forecasts }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ estimated_actuals: radiation.forecasts }), { status: 200 }));
     const result = await runOperation(definition, "live-irradiance", { latitude: 51.501, longitude: -0.142 }, testContext(fetch, env));
     expect((fetch.mock.calls[0][0] as string).includes("/data/live/radiation_and_weather?")).toBe(true);
     expect(result.rows).toHaveLength(3);
   });
 
   it("returns an empty result when no forecasts come back", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ forecasts: [] }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ forecasts: [] }), { status: 200 }));
     const result = await runOperation(definition, "irradiance-forecast", { latitude: 51.501, longitude: -0.142 }, testContext(fetch, env));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");
   });
 
   it("surfaces quota and auth failures as HTTP errors", async () => {
-    const fetch = vi.fn(async () => new Response("{\"response_status\":{\"message\":\"Too many requests\"}}", { status: 429 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response("{\"response_status\":{\"message\":\"Too many requests\"}}", { status: 429 }));
     await expect(runOperation(definition, "irradiance-forecast", { latitude: 51.501, longitude: -0.142 }, testContext(fetch, env))).rejects.toMatchObject({ status: 429 });
   });
 

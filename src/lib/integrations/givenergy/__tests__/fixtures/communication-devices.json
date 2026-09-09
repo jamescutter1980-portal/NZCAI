@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "serial_number": "WF2345G678",
+      "type": "WIFI",
+      "commission_date": "2023-05-10T00:00:00Z",
+      "inverter": {
+        "serial": "CE2345G123",
+        "status": "NORMAL",
+        "last_online": "2026-09-09T11:58:02Z",
+        "last_updated": "2026-09-09T11:58:02Z",
+        "commission_date": "2023-05-10T00:00:00Z",
+        "info": { "model": "Gen 2 Hybrid 5.0kW", "max_charge_rate": 3600, "battery": { "nominal_capacity": 186, "nominal_voltage": 51.2 } },
+        "firmware_version": { "ARM": 604, "DSP": 605 },
+        "connections": { "batteries": [{ "serial_number": "BAT1", "capacity": { "ah": 186 } }, { "serial_number": "BAT2", "capacity": { "ah": 186 } }] }
+      }
+    }
+  ],
+  "links": { "first": "https://api.givenergy.cloud/v1/communication-device?page=1", "last": "https://api.givenergy.cloud/v1/communication-device?page=1", "next": null },
+  "meta": { "current_page": 1, "last_page": 1, "per_page": 100, "total": 1 }
+}

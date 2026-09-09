@@ -1,6 +1,7 @@
 // Fixtures follow the v4 response shapes seen in open-source Enphase clients
 // (systems list envelope, energy_lifetime daily Wh array); not from a live call.
 import { describe, expect, it, vi } from "vitest";
+import type { FetchLike } from "../../framework";
 import { definition } from "..";
 import { runOperation, testContext } from "../../testing";
 import systems from "./fixtures/systems.json";
@@ -10,7 +11,7 @@ const env = { ENPHASE_API_KEY: "en-key", ENPHASE_ACCESS_TOKEN: "en-token" };
 
 describe("enphase", () => {
   it("sends key as a query param and the token as a Bearer header", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(systems), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(systems), { status: 200 }));
     const result = await runOperation(definition, "systems", {}, testContext(fetch, env));
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     const u = new URL(url);
@@ -22,7 +23,7 @@ describe("enphase", () => {
   });
 
   it("maps daily production from the energy_lifetime Wh array", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(lifetime), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(lifetime), { status: 200 }));
     const result = await runOperation(definition, "daily-production", { system_id: 2345678, start_date: "2025-06-01", end_date: "2025-06-03" }, testContext(fetch, env));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.pathname).toBe("/api/v4/systems/2345678/energy_lifetime");
@@ -40,14 +41,14 @@ describe("enphase", () => {
 
   it("maps the summary", async () => {
     const body = { system_id: 2345678, current_power: 8120, energy_today: 41200, energy_lifetime: 61234000, summary_date: "2026-09-09", source: "microinverters", status: "normal", last_report_at: 1757404800, modules: 60, size_w: 24500 };
-    const fetch = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(body), { status: 200 }));
     const result = await runOperation(definition, "system-summary", { system_id: 2345678 }, testContext(fetch, env));
     expect(result.rows?.[0]).toMatchObject({ current_power_kw: 8.12, energy_today_kwh: 41.2, energy_lifetime_kwh: 61234, modules: 60, size_kw: 24.5 });
   });
 
   it("maps production intervals", async () => {
     const body = { system_id: 2345678, granularity: "day", total_devices: 60, start_at: 1750464000, end_at: 1750550400, intervals: [{ end_at: 1750464900, devices_reporting: 60, powr: 0, enwh: 0 }, { end_at: 1750465800, devices_reporting: 60, powr: 4000, enwh: 1000 }] };
-    const fetch = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(body), { status: 200 }));
     const result = await runOperation(definition, "production-intervals", { system_id: 2345678, date: "2025-06-21" }, testContext(fetch, env));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.searchParams.get("start_at")).toBe("1750464000");
@@ -57,7 +58,7 @@ describe("enphase", () => {
   });
 
   it("returns an empty result when no production values are returned", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ ...lifetime, production: [] }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ ...lifetime, production: [] }), { status: 200 }));
     const result = await runOperation(definition, "daily-production", { system_id: 2345678, start_date: "2025-06-01", end_date: "2025-06-03" }, testContext(fetch, env));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");
@@ -72,7 +73,7 @@ describe("enphase", () => {
   });
 
   it("throws on 401 so the UI can prompt for a token refresh", async () => {
-    const fetch = vi.fn(async () => new Response("{\"error\":\"invalid_token\"}", { status: 401 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response("{\"error\":\"invalid_token\"}", { status: 401 }));
     await expect(runOperation(definition, "systems", {}, testContext(fetch, env))).rejects.toMatchObject({ status: 401 });
   });
 });

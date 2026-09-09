@@ -3,6 +3,7 @@
 // built from client code and docs, not a live call.
 import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import type { FetchLike } from "../../framework";
 import { ENDPOINT, base64url, definition, signRequest } from "..";
 import { runOperation, testContext } from "../../testing";
 import locationData from "./fixtures/location-data.json";
@@ -15,7 +16,7 @@ function decode(b64url: string): string {
 
 describe("degree-days-net", () => {
   it("signs the request with HMAC-SHA256 over the JSON and posts form-encoded fields", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(locationData), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(locationData), { status: 200 }));
     const result = await runOperation(definition, "degree-days", { postcode: "sw1a 1aa", start_date: "2025-01-01", end_date: "2025-02-28", breakdown: "monthly" }, testContext(fetch, env));
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(ENDPOINT);
@@ -51,7 +52,7 @@ describe("degree-days-net", () => {
   });
 
   it("uses a LongLatLocation and daily breakdown for coordinates", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(locationData), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(locationData), { status: 200 }));
     await runOperation(definition, "degree-days", { latitude: 51.5, longitude: -0.12, start_date: "2025-01-01", end_date: "2025-01-31", breakdown: "daily", hdd_base: 18 }, testContext(fetch, env));
     const form = new URLSearchParams(String((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body));
     const envelope = JSON.parse(decode(form.get("encoded_request")!));
@@ -61,11 +62,11 @@ describe("degree-days-net", () => {
   });
 
   it("reports a location failure as an empty result and throws on account failures", async () => {
-    const locFail = vi.fn(async () => new Response(JSON.stringify({ response: { type: "Failure", code: "LocationNotSupported", message: "No station" } }), { status: 200 }));
+    const locFail = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ response: { type: "Failure", code: "LocationNotSupported", message: "No station" } }), { status: 200 }));
     const result = await runOperation(definition, "degree-days", { postcode: "ZZ1 1ZZ", start_date: "2025-01-01", end_date: "2025-01-31" }, testContext(locFail, env));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");
-    const authFail = vi.fn(async () => new Response(JSON.stringify({ response: { type: "Failure", code: "InvalidRequestAccount", message: "Bad key" } }), { status: 200 }));
+    const authFail = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ response: { type: "Failure", code: "InvalidRequestAccount", message: "Bad key" } }), { status: 200 }));
     await expect(runOperation(definition, "degree-days", { postcode: "SW1A 1AA", start_date: "2025-01-01", end_date: "2025-01-31" }, testContext(authFail, env))).rejects.toMatchObject({ status: 401 });
   });
 

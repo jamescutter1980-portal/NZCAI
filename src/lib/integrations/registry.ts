@@ -24,6 +24,19 @@ import { definition as electralinkQuoteright } from "./electralink-quoteright";
 import { definition as xoserveGasData } from "./xoserve-gas-data";
 import { definition as perse } from "./perse";
 import { definition as measurabl } from "./measurabl";
+import { definition as openMeteo } from "./open-meteo";
+import { definition as metOfficeDatahub } from "./met-office-datahub";
+import { definition as degreeDaysNet } from "./degree-days-net";
+import { definition as ukhsaWeatherHealthAlerts } from "./ukhsa-weather-health-alerts";
+import { definition as ukcp18 } from "./ukcp18";
+import { definition as hadukGridCeda } from "./haduk-grid-ceda";
+import { definition as copernicusCds } from "./copernicus-cds";
+import { definition as pvgis } from "./pvgis";
+import { definition as solcast } from "./solcast";
+import { definition as googleSolar } from "./google-solar";
+import { definition as solaredge } from "./solaredge";
+import { definition as enphase } from "./enphase";
+import { definition as givenergy } from "./givenergy";
 
 /** Every registered data source. Order is display order within a group. */
 export const integrations: IntegrationDefinition[] = [
@@ -33,8 +46,10 @@ export const integrations: IntegrationDefinition[] = [
   n3rgy, octopusEnergy, openvolt, electralinkQuoteright, xoserveGasData, perse, measurabl,
   // grid
   carbonIntensity, elexonInsights, nesoDataPortal, dnoOpenData, ngedConnectedData, ssenDataPortal, nationalGasData,
+  // weather
+  openMeteo, metOfficeDatahub, degreeDaysNet, ukhsaWeatherHealthAlerts, ukcp18, hadukGridCeda, copernicusCds,
   // solar
-  pvLive,
+  pvgis, pvLive, solcast, googleSolar, solaredge, enphase, givenergy,
 ];
 
 const byId = new Map(integrations.map((d) => [d.id, d]));

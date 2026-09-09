@@ -1,6 +1,7 @@
 // Fixtures follow the response envelopes in the SolarEdge Monitoring API guide
 // (sites.site[], energy.values[], energyDetails.meters[], overview); not from a live call.
 import { describe, expect, it, vi } from "vitest";
+import type { FetchLike } from "../../framework";
 import { definition } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
 import sitesList from "./fixtures/sites-list.json";
@@ -10,7 +11,7 @@ const env = { SOLAREDGE_API_KEY: "se-key" };
 
 describe("solaredge", () => {
   it("lists sites with api_key in the query", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(sitesList), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(sitesList), { status: 200 }));
     const result = await runOperation(definition, "sites", {}, testContext(fetch, env));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.origin + u.pathname).toBe("https://monitoringapi.solaredge.com/sites/list");
@@ -23,7 +24,7 @@ describe("solaredge", () => {
 
   it("converts daily energy from Wh to kWh and flags gaps", async () => {
     const body = { energy: { timeUnit: "DAY", unit: "Wh", values: [{ date: "2025-01-01 00:00:00", value: 12500 }, { date: "2025-01-02 00:00:00", value: null }] } };
-    const fetch = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(body), { status: 200 }));
     const result = await runOperation(definition, "daily-energy", { site_id: 1234567, start_date: "2025-01-01", end_date: "2025-01-02" }, testContext(fetch, env));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.pathname).toBe("/site/1234567/energy");
@@ -35,7 +36,7 @@ describe("solaredge", () => {
   });
 
   it("pivots energy details into one row per interval", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(energyDetails), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(energyDetails), { status: 200 }));
     const result = await runOperation(definition, "energy-details", { site_id: 1234567, start_date: "2025-06-01", end_date: "2025-06-02", time_unit: "DAY" }, testContext(fetch, env));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.pathname).toBe("/site/1234567/energyDetails");
@@ -58,7 +59,7 @@ describe("solaredge", () => {
   });
 
   it("returns an empty result for a site with no values", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ energyDetails: { timeUnit: "DAY", unit: "Wh", meters: [] } }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ energyDetails: { timeUnit: "DAY", unit: "Wh", meters: [] } }), { status: 200 }));
     const result = await runOperation(definition, "energy-details", { site_id: 1, start_date: "2025-06-01", end_date: "2025-06-02" }, testContext(fetch, env));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");
@@ -74,7 +75,7 @@ describe("solaredge", () => {
   });
 
   it("throws on 403 from the API", async () => {
-    const fetch = vi.fn(async () => new Response("{\"String\":\"Invalid token\"}", { status: 403 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response("{\"String\":\"Invalid token\"}", { status: 403 }));
     await expect(runOperation(definition, "sites", {}, testContext(fetch, env))).rejects.toMatchObject({ status: 403 });
   });
 });
