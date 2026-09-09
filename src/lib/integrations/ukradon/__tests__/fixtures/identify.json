@@ -1,0 +1,11 @@
+{
+  "results": [
+    {
+      "layerId": 0,
+      "layerName": "Radon Indicative Atlas",
+      "displayFieldName": "CLASS_MAX",
+      "value": "3",
+      "attributes": { "OBJECTID": "4812", "CLASS_MAX": "3", "Description": "3-5% of homes are estimated to be at or above the Action Level", "Shape": "Polygon" }
+    }
+  ]
+}

@@ -2,13 +2,14 @@
 // CLASS_MAX and Description attributes read by an open-source consumer of the BGS GeoIndex radon service; the class-to-band
 // mapping is inferred from the published legend order. No live call was made.
 import { describe, expect, it, vi } from "vitest";
+import type { FetchLike } from "../../framework";
 import { attributesToRow, definition } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
 import identify from "./fixtures/identify.json";
 
 describe("ukradon", () => {
   it("runs an identify against the BGS GeoIndex radon MapServer and maps the class", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(identify), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(identify), { status: 200 }));
     const result = await runOperation(definition, "radon_class_at_point", { latitude: 50.37, longitude: -4.14 }, testContext(fetch));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.origin + u.pathname).toBe("https://map.bgs.ac.uk/arcgis/rest/services/GeoIndex_Onshore/radon/MapServer/identify");
@@ -47,7 +48,7 @@ describe("ukradon", () => {
   });
 
   it("returns unavailable when identify has no results and validates before the network", async () => {
-    const empty = vi.fn(async () => new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    const empty = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ results: [] }), { status: 200 }));
     const result = await runOperation(definition, "radon_class_at_point", { latitude: 55, longitude: -8.9 }, testContext(empty));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");
@@ -57,7 +58,7 @@ describe("ukradon", () => {
   });
 
   it("surfaces ArcGIS-level errors", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ error: { code: 500, message: "Unable to complete operation." } }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ error: { code: 500, message: "Unable to complete operation." } }), { status: 200 }));
     await expect(runOperation(definition, "radon_class_at_point", { latitude: 50, longitude: -4 }, testContext(fetch))).rejects.toThrow(/ArcGIS error 500/);
   });
 });

@@ -1,0 +1,19 @@
+[
+  {
+    "applicationId": "b0f1b774-a586-4f72-9edd-27ead8aa7a8d",
+    "veTypeId": "1a5b1cd8-6a8f-4b0f-9f3d-1f2b6e3e5c11",
+    "veId": "6c2e0e2a-1111-4c5c-8a4c-0d3f1b2a9b01",
+    "name": "DCC Smart Meters",
+    "postalCode": "RG2 0AA",
+    "resources": [
+      { "resourceId": "8f0a7d2e-aaaa-4b0b-9c1d-000000000001", "resourceTypeId": "e3a5f1c0-aaaa-4b0b-9c1d-000000000011", "name": "electricity consumption", "classifier": "electricity.consumption", "description": "electricity consumption", "baseUnit": "kWh" },
+      { "resourceId": "8f0a7d2e-aaaa-4b0b-9c1d-000000000002", "resourceTypeId": "e3a5f1c0-aaaa-4b0b-9c1d-000000000012", "name": "gas consumption", "classifier": "gas.consumption", "description": "gas consumption", "baseUnit": "kWh" }
+    ]
+  },
+  {
+    "applicationId": "b0f1b774-a586-4f72-9edd-27ead8aa7a8d",
+    "veTypeId": "1a5b1cd8-6a8f-4b0f-9f3d-1f2b6e3e5c11",
+    "veId": "6c2e0e2a-2222-4c5c-8a4c-0d3f1b2a9b02",
+    "name": "Second Home"
+  }
+]

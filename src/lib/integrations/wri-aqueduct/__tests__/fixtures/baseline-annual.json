@@ -1,0 +1,46 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "fields": [{ "name": "bws_cat", "type": "esriFieldTypeInteger" }, { "name": "bws_label", "type": "esriFieldTypeString" }],
+  "features": [
+    {
+      "attributes": {
+        "OBJECTID": 101,
+        "string_id": "231702-GBR.1_1-1234",
+        "aq30_id": 8811,
+        "pfaf_id": 231702,
+        "gid_0": "GBR",
+        "name_0": "United Kingdom",
+        "name_1": "England",
+        "bws_raw": 0.61,
+        "bws_score": 4.12,
+        "bws_cat": 4,
+        "bws_label": "Extremely High (>80%)",
+        "bwd_raw": 0.12,
+        "bwd_score": 2.4,
+        "bwd_cat": 2,
+        "bwd_label": "Medium-High (25-50%)",
+        "iav_score": 1.1,
+        "iav_cat": 1,
+        "iav_label": "Low-Medium (0.25-0.50)",
+        "sev_score": 0.6,
+        "sev_cat": 0,
+        "sev_label": "Low (<0.33)",
+        "gtd_score": -9999,
+        "gtd_cat": -1,
+        "gtd_label": "No Data",
+        "rfr_score": 2.05,
+        "rfr_cat": 2,
+        "rfr_label": "Medium (2 in 1,000 to 6 in 1,000)",
+        "cfr_score": 1.2,
+        "cfr_cat": 1,
+        "cfr_label": "Low-Medium (1 in 10,000 to 3 in 10,000)",
+        "drr_score": 3.3,
+        "drr_cat": 3,
+        "drr_label": "Medium-High (0.6-0.8)",
+        "w_awr_def_tot_score": 3.9,
+        "w_awr_def_tot_cat": 3,
+        "w_awr_def_tot_label": "High (3-4)"
+      }
+    }
+  ]
+}

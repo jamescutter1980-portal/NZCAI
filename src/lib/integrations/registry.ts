@@ -100,14 +100,17 @@ import { definition as encore } from "./encore";
 import { definition as desnzSubnationalConsumption } from "./desnz-subnational-consumption";
 import { definition as repd } from "./repd";
 import { definition as onsGeographyImd } from "./ons-geography-imd";
+import { definition as hildebrandGlowmarkt } from "./hildebrand-glowmarkt";
+import { definition as cadwListedBuildings } from "./cadw-listed-buildings";
+import { definition as hesDesignations } from "./hes-designations";
 import { referenceDefinitions } from "./_reference";
 
 /** Every registered data source. Order is display order within a group. */
 export const integrations: IntegrationDefinition[] = [
   // identity
-  postcodesIo, epcEnglandWales, osDataHub, planningData, historicEnglandNhle, landRegistry, voaRatingList, scottishEpcRegister, osOpenUprn, niEpc,
+  postcodesIo, epcEnglandWales, osDataHub, planningData, historicEnglandNhle, cadwListedBuildings, hesDesignations, landRegistry, voaRatingList, scottishEpcRegister, osOpenUprn, niEpc,
   // energy
-  n3rgy, octopusEnergy, openvolt, desnzSubnationalConsumption, electralinkQuoteright, xoserveGasData, perse, measurabl, moslWaterMarket,
+  n3rgy, hildebrandGlowmarkt, octopusEnergy, openvolt, desnzSubnationalConsumption, electralinkQuoteright, xoserveGasData, perse, measurabl, moslWaterMarket,
   // grid
   carbonIntensity, elexonInsights, nesoDataPortal, dnoOpenData, ngedConnectedData, ssenDataPortal, nationalGasData,
   // weather

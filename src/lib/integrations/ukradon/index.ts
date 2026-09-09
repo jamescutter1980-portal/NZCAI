@@ -73,8 +73,10 @@ export function attributesToRow(attributes: Record<string, unknown>, layer: stri
   let classMax = typeof rawClass === "number" ? rawClass : typeof rawClass === "string" && /^\d+$/.test(rawClass.trim()) ? Number(rawClass) : null;
   const description = attr(attributes, "Description", "DESCRIPTION", "DESC", "BAND", "Band", "RADON_BAND", "LEGEND") as string | null;
   if (classMax === null && typeof description === "string") {
-    const m = /(<\s*1|1\s*-\s*3|3\s*-\s*5|5\s*-\s*10|10\s*-\s*30|>\s*30)\s*%/.exec(description.replace(/\s+/g, " "));
-    if (m) classMax = ["<1", "1-3", "3-5", "5-10", "10-30", ">30"].indexOf(m[1].replace(/\s+/g, "")) + 1 || null;
+    const compact = description.toLowerCase().replace(/\s+/g, "");
+    const patterns = [/(<1|lessthan1)%/, /1-3%/, /3-5%/, /5-10%/, /10-30%/, /(>30|morethan30)%/];
+    const idx = patterns.findIndex((re) => re.test(compact));
+    if (idx >= 0) classMax = idx + 1;
   }
   const info = classMax !== null ? CLASS_BANDS[classMax] : undefined;
   return {

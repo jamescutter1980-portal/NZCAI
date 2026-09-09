@@ -1,37 +1,43 @@
 # API gap analysis: catalogue versus what is now integrated
 
-Date: 9 September 2026. Companion to `data-source-roadmap.md` (the catalogue review) and `integrations/data-sources.md` (how to use the sources pages).
+Date: 9 September 2026, updated after the second integration pass the same day. Companion to `data-source-roadmap.md` (the catalogue review) and `integrations/data-sources.md` (how to use the sources pages).
 
 ## Headline
 
 | | Count |
 |---|---|
-| Sources registered in the portal | 109 |
-| With a working connector and tests | 69 |
-| Reference only (contract, registration, bulk download or GIS import; guidance and links, no client) | 40 |
-| Operations a user can run from `/sources` | 229 |
+| Sources registered in the portal | 111 |
+| With a working connector and tests | 82 |
+| Reference only (contract, registration, bulk download or GIS import; guidance and links, no client) | 29 |
+| Operations a user can run from `/sources` | 253 |
 | Verified against the live service | 0 |
-| Unit tests across connectors and framework | 444 |
+| Unit tests across connectors and framework | 533 |
 
-Every catalogue source now has an entry. Every entry has a page with its access route, licence, attribution, the keys it needs and whether they are set, and a test-connection button. Every connector operation has a form, a plain-English summary, a table, a provenance line and the raw response.
+Every catalogue source now has an entry. Every entry has a page with its access route, licence, attribution, the keys it needs and whether they are set, and a test-connection button. Every connector operation has a form, a plain-English summary, a table, a provenance line and the raw response. `/lookup` runs all fourteen location-based checks for a postcode or point in one click; `/assets` does the same per building and adds meters, consents and carbon.
 
 **The single biggest gap is live verification.** The build environment's network policy blocks every external host in the catalogue (91 of 92 probed; only Google's API answered, with 403 for a missing key). All 69 connectors were built from documentation, official OpenAPI files and open-source client code, and tested against fixtures. Each carries its unverified points in its notes. Section 4 is the verification plan; it runs from your desktop in under an hour for the open sources.
 
 ## 1. Coverage by catalogue group
 
-| Catalogue group | Catalogue sources | Now registered | Connector | Reference only | Notable additions beyond the catalogue |
-|---|---|---|---|---|---|
-| Building identification, EPCs, constraints | 7 | 11 | 6 | 5 | postcodes.io, Historic England NHLE, HM Land Registry, VOA, devolved heritage |
-| Energy consumption, networks, gas | 11 | 17 | 11 | 6 | n3rgy (with consent, sync and storage), Openvolt, NGED, SSEN, ENWL, Hildebrand, DESNZ sub-national |
-| Carbon factors, Scope 1–3 | 4 | 7 | 3 | 4 | AIB residual mix loader, Ofgem RER, EXIOBASE, QuickBooks |
-| Flooding, drainage, water, coastal | 15 | 13 | 9 | 4 | NaFRA2 point query, EA water-stressed areas |
-| Ground, contamination, liabilities | 6 | 9 | 5 | 4 | Coal Authority, EA environmental constraints, DEFRA UK-AIR, noise |
-| Weather, climate, normalisation | 7 | 7 | 4 | 3 | UKHSA weather-health alerts |
-| Solar, batteries, microgeneration | 6 | 10 | 7 | 3 | PV_Live, Google Solar, GivEnergy, MCS, REPD, LIDAR |
-| Biodiversity, habitats, land | 7 | 8 | 5 | 3 | – |
-| Embodied carbon, materials, pathways | 5 | 7 | 5 | 2 | Ökobaudat, BECD |
-| Transport, grey fleet, logistics | 6 | 6 | 5 | 1 | Open Charge Map (NCR decommissioned) |
-| Social, governance, supplier ESG | 11 | 14 | 9 | 5 | UK Sanctions List, payment practices, Contracts Finder, SBTi export, GRESB |
+| Roadmap group | Registered | Connector | Reference only |
+|---|---|---|---|
+| Building identity, EPCs and constraints | 13 | 9 | 4 |
+| Energy consumption and meters | 10 | 5 | 5 |
+| Electricity and gas networks | 9 | 7 | 2 |
+| Carbon factors and Scope 1-3 | 7 | 5 | 2 |
+| Flooding, drainage and water | 13 | 10 | 3 |
+| Ground conditions and environmental liabilities | 9 | 7 | 2 |
+| Weather, climate and normalisation | 7 | 4 | 3 |
+| Solar, batteries and microgeneration | 10 | 8 | 2 |
+| Biodiversity, habitats and land | 8 | 6 | 2 |
+| Transport, fleet and logistics | 6 | 6 | 0 |
+| Social, governance and supplier ESG | 12 | 10 | 2 |
+| Embodied carbon and materials | 5 | 3 | 2 |
+| Net zero pathways and standards | 2 | 2 | 0 |
+
+### Second pass: reference entries turned into working connectors
+
+Thirteen sources that were reference-only after the first pass now have connectors: Scottish EPC register, DESNZ postcode-level consumption, REPD, VCA fuel data, IMD and ONSPD (streaming loaders for user-placed files, with download where a URL is confirmed); Hildebrand Glowmarkt, Xero and QuickBooks (token-authenticated clients; the OAuth step that obtains the token is documented, not automated); Cadw, Historic Environment Scotland, UKradon, WRI Aqueduct and DEFRA noise (GIS point queries via WFS, ArcGIS REST or WMS). The 29 that remain reference-only are commercial or contract-gated (11), registration-only scientific or enquiry routes (7), or bulk and GIS products with no confirmed point service (11); each carries the access route and what the portal would do with the data.
 
 ## 2. Where the build changed the catalogue's assumptions
 
@@ -82,38 +88,40 @@ Generated from the registry. "First thing to verify live" is the first note on e
 
 ### Building identity, EPCs and constraints
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [postcodes.io](../src/lib/integrations/postcodes-io) | open | UK | Built, unverified | Look up a postcode; Nearest postcodes to a point; Look up several postcodes | none | No key, no documented hard rate limit; be considerate and cache. |
 | [Energy Performance of Buildings register (England and Wales)](../src/lib/integrations/epc-england-wales) | open_key | England and Wales | Built, unverified | Domestic EPCs for a postcode, UPRN or address; Non-domestic EPCs for a postcode, UPRN or address; Display Energy Certificates for a postcode, UPRN or address; Certificate detail; Recommendations for a certificate | EPC_API_TOKEN, EPC_API_BASE?, EPC_API_EMAIL?, EPC_API_KEY? | Covers England and Wales only. Scotland uses the Scottish EPC Register (see scottish-epc-register); Northern Ireland has no public API (see  |
 | [OS Data Hub (Names, Places, NGD Features)](../src/lib/integrations/os-data-hub) | open_key | GB | Built, unverified | Find a place, road or postcode (OS Names); Addresses in a postcode (OS Places); Address for a UPRN (OS Places); Match a free-text address (OS Places); Building parts near a point (OS NGD); List NGD collections | OS_DATA_HUB_API_KEY | Plans: OS OpenData plan is free and includes OS Names API. The Premium plan gives up to £1,000 of premium transactions per month free, which |
 | [Planning Data (planning.data.gov.uk)](../src/lib/integrations/planning-data) | open | England | Built, unverified | Planning and heritage constraints at a point; Search a dataset by name; List available datasets | none | England only. Completeness varies by local planning authority and dataset: national datasets (listed buildings, scheduled monuments, flood z |
 | [National Heritage List for England (Historic England)](../src/lib/integrations/historic-england-nhle) | open | England | Built, unverified | Heritage designations within a distance of a point; Look up a list entry number | NHLE_FEATURESERVER_URL? | Layer ids used: 0 listed building points, 3 listed building polygons, 6 scheduled monuments, 7 parks and gardens, 8 battlefields, 10 world h |
+| [Cadw listed buildings, scheduled monuments and conservation areas (Wales)](../src/lib/integrations/cadw-listed-buildings) | gis | Wales | Built, unverified | Cadw designations within a distance of a point | CADW_WFS_BASE?, CADW_WFS_TYPENAME?, CADW_WFS_TYPENAME_SAM?, CADW_WFS_TYPENAME_CONSERVATION? | Type names inspire-wg:Cadw_ListedBuildings, inspire-wg:Cadw_SAM and geonode:conservation_areas_wales are confirmed from DataMapWales layer p |
+| [Historic Environment Scotland designations](../src/lib/integrations/hes-designations) | gis | Scotland | Built, unverified | HES designations within a distance of a point | HES_ARCGIS_BASE?, HES_ARCGIS_LAYERS? | Service names Listed_Buildings, Scheduled_Monuments, Conservation_Areas and HES_Designations under https://inspire.hes.scot/arcgis/rest/serv |
 | [HM Land Registry open data (Price Paid, UK HPI)](../src/lib/integrations/land-registry) | open | England and Wales | Built, unverified | Sale prices for a postcode; House price index for a region and month | none | Price Paid Data covers residential sales in England and Wales sold for value and lodged for registration since January 1995; it excludes com |
 | [VOA non-domestic rating lists (bulk download)](../src/lib/integrations/voa-rating-list) | download | England and Wales | Reference only | Download links and what they contain | none | – |
-| [Scottish EPC Register (open data extracts)](../src/lib/integrations/scottish-epc-register) | download | Scotland | Reference only | Download links | none | – |
+| [Scottish EPC Register (open data extracts)](../src/lib/integrations/scottish-epc-register) | download | Scotland | Built, unverified | EPCs at a postcode; EPCs for a UPRN; Loaded extract files; Download links | REFERENCE_DATA_DIR? | Supply the files: download the domestic and non-domestic extracts from statistics.gov.scot (ZIP archives named like D_EPC_data_2012-<year>Q< |
 | [OS Open UPRN, USRN and Linked Identifiers (bulk)](../src/lib/integrations/os-open-uprn) | download | GB | Reference only | Product and download links | none | – |
 | [Northern Ireland EPC register (enquiry)](../src/lib/integrations/ni-epc) | enquiry | Northern Ireland | Reference only | Where to look up NI certificates | none | – |
-| [Cadw, Historic Environment Scotland and DfC Historic Environment (NI)](../src/lib/integrations/devolved-heritage) | gis | Wales, Scotland, Northern Ireland | Reference only | Links and access route | none | – |
+| [Historic Environment Record of Northern Ireland](../src/lib/integrations/ni-historic-environment) | gis | Northern Ireland | Reference only | Links and access route | none | – |
 
 ### Energy consumption and meters
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [n3rgy smart-meter data](../src/lib/integrations/n3rgy) | authorised | GB | Built, unverified | Utilities available for an MPxN; Half-hourly consumption | N3RGY_API_KEY, N3RGY_ENV?, N3RGY_BASE_URL?, N3RGY_HEALTH_MPXN? | Live retrieval requires an active consent record; see /consents. Sandbox MPxNs need none. |
+| [Hildebrand Glowmarkt (Bright) smart-meter data](../src/lib/integrations/hildebrand-glowmarkt) | authorised | GB | Built, unverified | List meters (virtual entities) and resources; Half-hourly or daily readings for a resource | GLOWMARKT_USERNAME, GLOWMARKT_PASSWORD, GLOWMARKT_APPLICATION_ID?, GLOWMARKT_API_BASE? | Access route: the occupier installs the Bright app, links their smart meters (DCC consent) and shares the account or, for organisations, Hil |
 | [Octopus Energy API](../src/lib/integrations/octopus-energy) | authorised | GB | Built, unverified | Grid supply point for a postcode; List current products; Unit rates for a product and tariff; Account meter points (authorised); Meter consumption (authorised) | OCTOPUS_API_KEY? | Product, tariff and grid-supply-point endpoints are public with no key. Account and consumption endpoints need the account holder's API key, |
 | [Openvolt](../src/lib/integrations/openvolt) | authorised | GB | Built, unverified | List connected meters; Meter details; Interval consumption for a meter | OPENVOLT_API_KEY | Commercial service: the portal needs an Openvolt account and a per-meter connection. Consent from the site's energy account holder is captur |
+| [DESNZ postcode-level energy consumption](../src/lib/integrations/desnz-subnational-consumption) | download | GB | Built, unverified | Consumption for a postcode; Download a year; Loaded files; Publication pages | REFERENCE_DATA_DIR?, DESNZ_SUBNATIONAL_URLS? | Supply the files: from the gov.uk 'Postcode level electricity statistics: <year>' and 'Postcode level gas statistics: <year>' pages download |
 | [ElectraLink QuoteRight](../src/lib/integrations/electralink-quoteright) | commercial | GB | Reference only | – | none | – |
 | [Xoserve gas supply point data](../src/lib/integrations/xoserve-gas-data) | commercial | GB | Reference only | – | none | – |
 | [Perse](../src/lib/integrations/perse) | commercial | UK | Reference only | – | none | – |
 | [Measurabl](../src/lib/integrations/measurabl) | authorised | Global | Reference only | – | none | – |
 | [MOSL non-household water market data (CMOS)](../src/lib/integrations/mosl-water-market) | authorised | England | Reference only | How to request MOSL market data | none | – |
-| [Hildebrand Glowmarkt](../src/lib/integrations/hildebrand-glowmarkt) | authorised | GB | Reference only | Links and access route | none | – |
-| [DESNZ sub-national energy consumption statistics](../src/lib/integrations/desnz-subnational-consumption) | download | GB | Reference only | Links and access route | none | – |
 
 ### Electricity and gas networks
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [NESO Carbon Intensity API](../src/lib/integrations/carbon-intensity) | open | GB | Built, unverified | National carbon intensity now; National carbon intensity for a date range; Regional carbon intensity now for a postcode; Regional 48-hour forecast for a postcode; National generation mix now; Per-fuel emission factors used by the API | none | Licence is CC BY 4.0 (recorded here in the OGL bucket as the closest open, attribution-only category). Attribution required when values are  |
 | [Elexon Insights (BMRS)](../src/lib/integrations/elexon-insights) | open | GB | Built, unverified | Generation by fuel type for a date range; Generation mix for the last 24 hours; National demand outturn; Imbalance (system) prices for a settlement day; Market index (wholesale) prices | none | Licence is Elexon's BMRS data licence (free reuse with the attribution above), recorded in the OGL bucket as the closest open category; it i |
@@ -127,19 +135,19 @@ Generated from the registry. "First thing to verify live" is the first note on e
 
 ### Carbon factors and Scope 1-3
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [UK Government GHG Conversion Factors (DESNZ)](../src/lib/integrations/desnz-conversion-factors) | download | UK | Built, unverified | Search conversion factors; Get a factor by ID; Loaded reporting years; Publication pages | REFERENCE_DATA_DIR? | Supply the file: download the '<year> flat file for automatic processing' (XLSX) from the gov.uk publication, export the 'Factors by Categor |
 | [AIB European Residual Mixes](../src/lib/integrations/aib-residual-mix) | download | Europe incl. GB | Built, unverified | Residual mix for a country and year; Loaded residual-mix rows; AIB publication pages | REFERENCE_DATA_DIR? | Supply the file: transcribe the rows you need from the AIB results (XLSX/PDF per data year) into data/reference/aib-residual-mix/residual-mi |
 | [Ofgem Renewable Electricity Register (REGO evidence)](../src/lib/integrations/ofgem-renewable-electricity-register) | enquiry | GB | Reference only | Where to obtain REGO evidence | none | – |
 | [Climatiq emission factors](../src/lib/integrations/climatiq) | commercial | Global | Built, unverified | Search emission factors; Estimate emissions from an activity id; Spend-based estimate (procurement) | CLIMATIQ_API_KEY, CLIMATIQ_DATA_VERSION? | Endpoints and parameter names follow the Climatiq API reference (search, estimate, procurement) and public client code; no live call was mad |
 | [EXIOBASE 3 (spend-based factors)](../src/lib/integrations/exiobase) | download | Global (49 regions incl. GB) | Reference only | Where to obtain EXIOBASE | none | – |
-| [Xero purchase transactions (spend-based Scope 3)](../src/lib/integrations/xero-spend) | authorised | Global | Reference only | Xero authorisation and endpoints | XERO_CLIENT_ID, XERO_CLIENT_SECRET | – |
-| [QuickBooks Online purchase transactions (spend-based Scope 3)](../src/lib/integrations/quickbooks-spend) | authorised | Global | Reference only | QuickBooks authorisation and endpoints | QBO_CLIENT_ID, QBO_CLIENT_SECRET | – |
+| [Xero purchase invoices (spend-based Scope 3)](../src/lib/integrations/xero-spend) | authorised | Global | Built, unverified | Purchase invoices (bills) in a date range; Spend by supplier in a date range; Spend by account code in a date range; Supplier contact details | XERO_ACCESS_TOKEN, XERO_TENANT_ID, XERO_API_BASE? | OAuth is out of scope here: the portal's Xero app must run the authorization-code flow with PKCE (scopes accounting.transactions.read, accou |
+| [QuickBooks Online purchases and bills (spend-based Scope 3)](../src/lib/integrations/quickbooks-spend) | authorised | Global | Built, unverified | Purchases and bills in a date range; Spend by vendor in a date range; Spend by expense account in a date range | QBO_ACCESS_TOKEN, QBO_REALM_ID, QBO_ENV?, QBO_API_BASE? | OAuth is out of scope here: the portal's Intuit app must run the authorization-code flow (scope com.intuit.quickbooks.accounting), store the |
 
 ### Flooding, drainage and water
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [EA flood warnings, river levels, rainfall and tide gauges](../src/lib/integrations/ea-flood-monitoring) | open | England | Built, unverified | Flood warnings and alerts in force near a point; Flood warning and alert areas near a point; River level and flow stations near a point; EA rainfall: gauges near a point with latest totals; EA tide gauges near a point with latest levels; Station detail; Latest readings for a station; Readings for a station since a date; 3-day national flood outlook | none | No key. The service asks for a polite request rate and caches responses; readings are typically 15-minute and appear within an hour or two. |
 | [EA Hydrology archive (flow, level, groundwater, rainfall)](../src/lib/integrations/ea-hydrology) | open | England | Built, unverified | Hydrology stations near a point; Time series available at a station; Readings for a measure over a date range | none | No key. The archive holds billions of rows; request only the measure, resolution and window you need. Readings are capped here at 20,000 per |
@@ -152,26 +160,26 @@ Generated from the registry. "First thing to verify live" is the first note on e
 | [NRW flood warnings and alerts (Wales)](../src/lib/integrations/nrw-flood) | open_key | Wales | Built, unverified | Flood warnings and alerts in force near a point (Wales); All flood warnings and alerts in force (Wales); 5-day flood risk outlook (Wales) | NRW_API_KEY | Register at api-portal.naturalresources.wales, subscribe to the open-data products (Live Flood Warnings and Alerts, Flood Risk Forecast, Riv |
 | [Flood Maps (NI) - DfI Rivers](../src/lib/integrations/flood-maps-ni) | gis | Northern Ireland | Reference only | Where to check flood risk in Northern Ireland | none | – |
 | [JBA Risk Management flood maps, scores and API](../src/lib/integrations/jba-flood) | commercial | Global | Reference only | How to obtain JBA flood data | none | – |
-| [WRI Aqueduct water risk atlas](../src/lib/integrations/wri-aqueduct) | download | Global | Reference only | Aqueduct data and viewer links | none | – |
+| [WRI Aqueduct 4.0 water risk](../src/lib/integrations/wri-aqueduct) | gis | Global | Built, unverified | Aqueduct water risk indicators at a point | AQUEDUCT_ARCGIS_URL? | Service URL and field names (bws_cat, bws_label, bws_score, name_0, name_1, pfaf_id) are confirmed from open-source point-query clients and  |
 | [EA water stressed areas classification](../src/lib/integrations/ea-water-stressed-areas) | gis | England | Reference only | Links and access route | none | – |
 
 ### Ground conditions and environmental liabilities
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [EA public registers (permits and registrations)](../src/lib/integrations/ea-public-registers) | open | England | Built, unverified | Permits and registrations near a point; Waste carrier, broker or dealer lookup by name | none | No key. Data is provided under the Environment Agency Conditional Licence (attribution required; do not imply EA endorsement). Page size is  |
 | [EA environmental constraints at a point (landfill, SPZ, aquifer, groundwater, coastal erosion, historic flooding)](../src/lib/integrations/ea-environmental-constraints) | gis | England | Built, unverified | Environmental constraints at a point | EA_ARCGIS_BASE?, EA_ARCGIS_SERVICES? | Desktop screening only: a clear result is not proof that land is uncontaminated, and a historic landfill nearby is not proof that it is. A P |
 | [BGS geology at a point (bedrock and superficial)](../src/lib/integrations/bgs-geology) | open | GB | Built, unverified | Bedrock and superficial geology at a point (1:50,000); Geology at a point (1:625,000, open data) | BGS_WMS_BASE?, BGS_OGC_API_BASE? | The 1:50,000 WMS is free to use for viewing and point queries under the BGS WMS terms; the underlying DiGMapGB-50 dataset is licensed and mu |
 | [Coal Authority mining reporting areas and specific risks](../src/lib/integrations/coal-authority) | open | GB | Built, unverified | Coal mining reporting area and specific risks at a point | COAL_AUTHORITY_WMS_BASE? | Being inside the coal mining reporting area means a CON29M coal mining report is advisable for a transaction; it does not by itself mean the |
 | [Defra UK-AIR monitoring (SOS)](../src/lib/integrations/defra-uk-air) | open | UK | Built, unverified | Air quality monitoring stations near a point; Pollutant time series at a station; Recent measurements for a time series; Modelled background maps and AQMA links | none | No key. The SOS is run by a third party and is intermittently unavailable (502s); retry later rather than treating an outage as missing data |
-| [Defra strategic noise mapping (England)](../src/lib/integrations/defra-noise-mapping) | gis | England | Reference only | Strategic noise mapping downloads | none | – |
-| [UKradon (UKHSA/BGS radon affected areas)](../src/lib/integrations/ukradon) | download | UK | Reference only | Radon map and dataset links | none | – |
+| [Defra strategic noise mapping (England, Round 4)](../src/lib/integrations/defra-noise-mapping) | gis | England | Built, unverified | Road and rail noise levels at a point | DEFRA_NOISE_WMS_ROAD?, DEFRA_NOISE_WMS_RAIL?, DEFRA_NOISE_ARCGIS_BASE?, DEFRA_NOISE_ARCGIS_LAYERS? | Road Round 4 WMS (environment.data.gov.uk/spatialdata/road-noise-all-metrics-england-round-4/wms) is confirmed from the Defra Data Services  |
+| [UKradon indicative atlas (UKHSA/BGS radon affected areas)](../src/lib/integrations/ukradon) | gis | UK | Built, unverified | Radon affected-area class at a point | UKRADON_ARCGIS_URL?, UKRADON_MAPSERVER? | Service: BGS GeoIndex radon MapServer (map.bgs.ac.uk/arcgis/rest/services/GeoIndex_Onshore/radon/MapServer) via the REST identify operation, |
 | [Groundsure environmental and climate reports](../src/lib/integrations/groundsure) | commercial | GB | Reference only | How to obtain a Groundsure report | none | – |
 | [Landmark Information Group climate change and environmental reports](../src/lib/integrations/landmark-climate) | commercial | GB | Reference only | How to obtain Landmark reports | none | – |
 
 ### Weather, climate and normalisation
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [Open-Meteo](../src/lib/integrations/open-meteo) | open | Global | Built, unverified | Daily weather history with degree days; Daily forecast; Hourly weather history (short range) | OPEN_METEO_API_KEY? | Licence: data CC BY 4.0, free for non-commercial use (under 10,000 calls/day); commercial use needs a subscription and the OPEN_METEO_API_KE |
 | [Met Office Weather DataHub](../src/lib/integrations/met-office-datahub) | open_key | Global (UK detail from the UKV model) | Built, unverified | Hourly forecast (next 48 h); Daily forecast (7 days) | MET_OFFICE_DATAHUB_API_KEY | Weather DataHub replaced DataPoint (retired 2024). Site-specific forecasts are the closest equivalent to DataPoint's 3-hourly site forecasts |
@@ -183,7 +191,7 @@ Generated from the registry. "First thing to verify live" is the first note on e
 
 ### Solar, batteries and microgeneration
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [PVGIS (JRC)](../src/lib/integrations/pvgis) | open | Europe, Africa, Asia and the Americas (UK covered by PVGIS-SARAH3) | Built, unverified | Annual PV yield estimate; Monthly solar irradiation at a point; Optimal tilt and orientation | none | No key. Rate limit 30 calls/second per IP; PVGIS returns 429 when exceeded and may return 529 under load. |
 | [Sheffield Solar PV_Live](../src/lib/integrations/pv-live) | open | GB | Built, unverified | Latest national PV outturn; National PV outturn for a date range; Regional PV outturn by PES or GSP id | none | Licence: Sheffield Solar publishes PV_Live under CC BY 4.0 with attribution required (recorded in the OGL bucket as the closest open categor |
@@ -192,13 +200,13 @@ Generated from the registry. "First thing to verify live" is the first note on e
 | [SolarEdge Monitoring](../src/lib/integrations/solaredge) | authorised | Global | Built, unverified | List sites; Site overview; Daily energy for a site; Energy by meter (production, consumption, import, export) | SOLAREDGE_API_KEY | The client (site owner) must generate the key and consent to the portal reading their data; record the consent reference in the provenance. |
 | [Enphase Enlighten API v4](../src/lib/integrations/enphase) | authorised | Global | Built, unverified | List systems; System summary; Daily production for a range; 15-minute production for one day | ENPHASE_API_KEY, ENPHASE_ACCESS_TOKEN | OAuth 2.0 authorisation-code flow is required: the system owner logs in at Enphase and grants the portal's developer app access; the resulti |
 | [GivEnergy Cloud](../src/lib/integrations/givenergy) | authorised | UK | Built, unverified | List inverters; Latest system snapshot; Energy flows for a range | GIVENERGY_API_TOKEN | The account holder creates the token and consents to the portal reading their data; record the consent reference in the provenance. |
+| [DESNZ Renewable Energy Planning Database (REPD)](../src/lib/integrations/repd) | download | UK | Built, unverified | Projects near a point; Projects by technology, status and area; Download the latest extract; Loaded extracts; Publication pages | REFERENCE_DATA_DIR?, REPD_CSV_URL? | Supply the file: download the CSV from the gov.uk quarterly extract page and save it as data/reference/repd/repd-q2-2026.csv (any name start |
 | [MCS installations database](../src/lib/integrations/mcs-installations) | download | UK | Reference only | Links and access route | none | – |
-| [DESNZ Renewable Energy Planning Database](../src/lib/integrations/repd) | download | UK | Reference only | Links and access route | none | – |
 | [Environment Agency LIDAR (DEFRA Survey Data)](../src/lib/integrations/ea-lidar) | download | England | Reference only | Links and access route | none | – |
 
 ### Biodiversity, habitats and land
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [Natural England designated sites and habitats](../src/lib/integrations/natural-england) | gis | England | Built, unverified | Designated sites and habitats within a distance of a point | NATURAL_ENGLAND_ARCGIS_BASE? | Service names are those used by open-source consumers of the Natural England ArcGIS Online organisation (SSSI_England, Special_Areas_of_Cons |
 | [NBN Atlas](../src/lib/integrations/nbn-atlas) | open | UK | Built, unverified | Species records near a point | NBN_ATLAS_API_KEY? | Radius is in kilometres around the point; results are paged (pageSize up to 100 here) and facets give counts per species across all matching |
@@ -211,18 +219,18 @@ Generated from the registry. "First thing to verify live" is the first note on e
 
 ### Transport, fleet and logistics
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [DVLA Vehicle Enquiry Service](../src/lib/integrations/dvla-ves) | open_key | UK | Built, unverified | Vehicle lookup by registration | DVLA_VES_API_KEY, DVLA_VES_BASE? | Access is by application on the DVLA developer portal and is reviewed; keys are issued for a stated purpose and the terms restrict bulk use. |
 | [DVSA MOT History](../src/lib/integrations/dvsa-mot-history) | open_key | GB and NI | Built, unverified | MOT history for a registration; Annual mileage estimate from MOT odometer readings | DVSA_MOT_CLIENT_ID, DVSA_MOT_CLIENT_SECRET, DVSA_MOT_API_KEY, DVSA_MOT_TOKEN_URL, DVSA_MOT_SCOPE? | Access requires registration with DVSA (trade API); credentials arrive by email and the client secret expires periodically. Tokens are cache |
-| [VCA car fuel data](../src/lib/integrations/vca-fuel-data) | download | UK | Reference only | Open VCA car fuel data downloads | none | – |
+| [VCA car fuel data](../src/lib/integrations/vca-fuel-data) | download | UK | Built, unverified | Search by make and model; Loaded years; VCA car fuel data downloads | REFERENCE_DATA_DIR? | Supply the files: from the VCA downloads page fetch the CSV (current 'Euro 6 latest' file, or an archive year's file, unzipped) and save it  |
 | [DfT road traffic statistics](../src/lib/integrations/dft-road-traffic) | open | GB | Built, unverified | Count points in a local authority (optionally nearest a point); Annual average daily flow for a count point | none | Unauthenticated; the API paginates with page[number] and page[size] and returns a data[] envelope with links.next. No latitude/longitude fil |
 | [Open Charge Map](../src/lib/integrations/open-charge-map) | open_key | Global | Built, unverified | Charge points near a point | OPEN_CHARGE_MAP_API_KEY | Data is community-maintained with operator imports; status and connector counts can be stale. Verify before relying on a specific site for a |
 | [Samsara Fleet](../src/lib/integrations/samsara-fleet) | authorised | Global | Built, unverified | List vehicles; Fuel and energy report for a date range | SAMSARA_API_TOKEN, SAMSARA_API_BASE? | Commercial telematics: the client creates a read-only API token in their Samsara organisation and shares it under a data-sharing agreement.  |
 
 ### Social, governance and supplier ESG
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [Companies House](../src/lib/integrations/companies-house) | open_key | UK | Built, unverified | Search companies by name; Company profile; Officers; Persons with significant control; Filing history; Charges (secured debt) | COMPANIES_HOUSE_API_KEY | Rate limit: 600 requests per 5 minutes per key; the API returns HTTP 429 when exceeded. |
 | [UK Sanctions List (FCDO)](../src/lib/integrations/uk-sanctions-list) | download | UK | Built, unverified | Screen a name against the UK Sanctions List; Download the latest list | UK_SANCTIONS_LIST_URL?, REFERENCE_DATA_DIR? | The OFSI Consolidated List of Asset Freeze Targets closed on 28 January 2026; the UK Sanctions List is the only official UK source. |
@@ -234,12 +242,12 @@ Generated from the registry. "First thing to verify live" is the first note on e
 | [Charity Commission register](../src/lib/integrations/charity-commission) | open_key | England and Wales | Built, unverified | Search charities by name; Charity details; Financial history | CHARITY_COMMISSION_API_KEY | Routes confirmed from open-source clients: /searchCharityName/{name}, /allcharitydetails/{regno}/{suffix}, /charityoverview/{regno}/{suffix} |
 | [Nomis (ONS labour market and census)](../src/lib/integrations/nomis) | open | UK | Built, unverified | Search datasets; Find geography codes; Fetch data for a dataset and geography; Census 2021 travel to work mode (TS061) for an area | none | No key needed; anonymous calls are limited to 25,000 cells per request and Nomis asks for a UID (free registration) for heavier use. |
 | [ONS Beta API](../src/lib/integrations/ons-api) | open | UK | Built, unverified | List or search datasets; Dataset detail; Observations for a dataset | none | No key. The observations endpoint needs one option per dimension (or '*' for exactly one dimension, capped at 10,000 observations); dimensio |
+| [English Indices of Deprivation and ONS Postcode Directory](../src/lib/integrations/ons-geography-imd) | download | England (IMD); UK (ONSPD) | Built, unverified | Deprivation for an LSOA; Deprivation for a postcode; Download an IMD edition; Loaded files; Publication pages | REFERENCE_DATA_DIR?, IMD_FILE7_URL? | Supply the IMD file: from the gov.uk 'English indices of deprivation 2019' (or 2025) page download 'File 7: all ranks, deciles and scores fo |
 | [GRESB](../src/lib/integrations/gresb) | commercial | Global | Reference only | Links and access route | none | – |
-| [ONS Postcode Directory and Indices of Deprivation](../src/lib/integrations/ons-geography-imd) | download | UK / England | Reference only | Links and access route | none | – |
 
 ### Embodied carbon and materials
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [ECO Platform ECO Portal (EPDs)](../src/lib/integrations/eco-platform-eco-portal) | open_key | Europe | Built, unverified | Search EPDs by name; EPD detail: GWP by module | ECO_PORTAL_TOKEN | Register at data.eco-platform.org, then generate an API token in the user profile; tokens expire and must be renewed. The token is sent only |
 | [ÖKOBAUDAT (BBSR)](../src/lib/integrations/okobaudat) | open | Germany (generic datasets used across Europe) | Built, unverified | List data stocks (releases); Search datasets by name; Dataset detail: GWP by module | none | No key. Data stocks are versioned releases (e.g. 'OBD_2024_I'); list them first and search within the release you intend to cite so results  |
@@ -249,7 +257,7 @@ Generated from the registry. "First thing to verify live" is the first note on e
 
 ### Net zero pathways and standards
 
-| Source | Access | Territory | Status | Operations | Keys | First thing to verify live |
+| Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [CRREM decarbonisation pathways](../src/lib/integrations/crrem-pathways) | download | Global (UK pathways included) | Built, unverified | Pathway series; Misalignment year for an asset; Loaded CRREM versions | REFERENCE_DATA_DIR? | Supply the file: export the pathway tables from the CRREM tool or the published pathway workbook into data/reference/crrem-pathways/<version |
 | [UK Net Zero Carbon Buildings Standard limits](../src/lib/integrations/uk-nzcbs) | download | UK | Built, unverified | Limits for a sector and year; Loaded Standard versions | REFERENCE_DATA_DIR? | Supply the file: transcribe the limit and target tables from the published Standard (technical document and its annexes) into data/reference |

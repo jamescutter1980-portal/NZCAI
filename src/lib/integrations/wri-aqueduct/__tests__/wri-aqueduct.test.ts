@@ -2,13 +2,14 @@
 // bws_raw and the same suffixes for bwd/iav/sev/gtd/rfr/cfr/drr/w_awr_def_tot, plus name_0/name_1/pfaf_id) come from the
 // Aqueduct 4.0 data dictionary and open-source consumers of the Living Atlas layer. No live call was made.
 import { describe, expect, it, vi } from "vitest";
+import type { FetchLike } from "../../framework";
 import { attributesToRows, definition } from "..";
 import { runOperation, testContext } from "../../testing";
 import baseline from "./fixtures/baseline-annual.json";
 
 describe("wri-aqueduct", () => {
   it("queries the Living Atlas baseline annual layer at the point and lists one row per indicator", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(baseline), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(baseline), { status: 200 }));
     const result = await runOperation(definition, "water_risk_at_point", { latitude: 51.5074, longitude: -0.1278 }, testContext(fetch));
     const u = new URL(fetch.mock.calls[0][0] as string);
     expect(u.origin + u.pathname).toBe("https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/aqueduct_water_risk/FeatureServer/1/query");
@@ -19,7 +20,7 @@ describe("wri-aqueduct", () => {
     expect(u.searchParams.has("distance")).toBe(false);
     expect(u.searchParams.get("returnGeometry")).toBe("false");
     expect(u.searchParams.get("resultRecordCount")).toBe("1");
-    expect(result.rows).toHaveLength(10);
+    expect(result.rows).toHaveLength(9);
     expect(result.rows?.[0]).toEqual({ indicator: "Baseline water stress", code: "bws", group: "Physical risk: quantity", category: 4, label: "Extremely High (>80%)", score: 4.12, raw_value: 0.61, source: "Aqueduct 4.0" });
     expect(result.rows?.find((r) => r.code === "gtd")).toMatchObject({ category: -1, label: "No Data" });
     expect(result.rows?.find((r) => r.code === "w_awr_def_tot")).toMatchObject({ category: 3, label: "High (3-4)" });
@@ -32,13 +33,13 @@ describe("wri-aqueduct", () => {
   });
 
   it("uses the env layer override", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(baseline), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(baseline), { status: 200 }));
     await runOperation(definition, "water_risk_at_point", { latitude: 1, longitude: 2 }, testContext(fetch, { AQUEDUCT_ARCGIS_URL: "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/Aqueduct40_waterrisk_download_y2023m07d05/FeatureServer/0/" }));
     expect(String(fetch.mock.calls[0][0])).toMatch(/^https:\/\/services9\.arcgis\.com\/RHVPKKiFTONKtxq3\/arcgis\/rest\/services\/Aqueduct40_waterrisk_download_y2023m07d05\/FeatureServer\/0\/query\?/);
   });
 
   it("returns unavailable with no rows when no basin covers the point", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ features: [] }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ features: [] }), { status: 200 }));
     const result = await runOperation(definition, "water_risk_at_point", { latitude: -70, longitude: 0 }, testContext(fetch));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");

@@ -142,7 +142,7 @@ async function viaArcgis(ctx: OperationContext, spec: ArcGisLayerSpec, latitude:
   if (!a) return { source: spec.source, metric: spec.metric, level_db: null, band: bandFor(null, spec.metric), layer: spec.url, field: null };
   const cls = attr(a, "NoiseClass", "NOISECLASS", "Noise_Class", "CLASS", "BAND", "Band", "gridcode", "GRIDCODE", "VALUE", "Value", "Pixel Value");
   const { value, field } = levelFromProperties(cls !== null ? { NoiseClass: cls } : a);
-  return { source: spec.source, metric: spec.metric, level_db: value, band: typeof cls === "string" && !/^\d/.test(cls) ? cls : bandFor(value, spec.metric), layer: spec.url, field };
+  return { source: spec.source, metric: spec.metric, level_db: value, band: typeof cls === "string" && !/^-?\d+(\.\d+)?$/.test(cls.trim()) ? cls.trim() : bandFor(value, spec.metric), layer: spec.url, field };
 }
 
 export const definition = defineIntegration({

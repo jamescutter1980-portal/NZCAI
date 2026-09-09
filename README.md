@@ -19,7 +19,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Sync | `/sync`, `/api/n3rgy/sync`, `pnpm n3rgy:sync` | Scheduled pull, gaps, expiry warnings, tariffs |
 | Readings | `/readings`, `/api/readings`, `/api/readings/meters` | Daily totals, gaps, CSV, indicative cost |
 | Assets | `/assets`, `/assets/[id]`, `/api/assets/...`, `pnpm carbon:intensity` | Meters per building, Scope 1 and 2 with factor provenance, screening across 14 point-based sources |
-| Data sources | `/sources`, `/sources/[id]`, `/api/sources/...`, `pnpm sources:check` | 109 sources, 69 connectors, 229 operations, generic forms and health checks |
+| Data sources | `/sources`, `/sources/[id]`, `/lookup`, `/api/sources/...`, `pnpm sources:check` | 111 sources, 82 connectors, 253 operations, generic forms, health checks, one-click location lookup |
 | Storage | `data/portal.sqlite` | Node built-in SQLite, migrations on open |
 | Access | `src/proxy.ts` | Optional basic auth via `PORTAL_BASIC_AUTH` |
 

@@ -88,3 +88,17 @@ This is a reference table, not a calculation API, and is kept separate from CRRE
 ## Not file-based
 
 `climatiq`, `eco-platform-eco-portal`, `okobaudat` and `ec3-building-transparency` call their services directly (keys in `.env.local`: `CLIMATIQ_API_KEY`, `ECO_PORTAL_TOKEN`, `EC3_API_TOKEN`). `exiobase`, `ecoinvent`, `becd`, `xero-spend`, `quickbooks-spend` and `ofgem-renewable-electricity-register` are reference-only definitions whose notes explain how access would work.
+
+
+## Files added in the second pass
+
+| Source | Directory under `data/reference/` | Files |
+|---|---|---|
+| Scottish EPC register | `scottish-epc-register/` | `domestic-*.csv`, `non-domestic-*.csv` unzipped from the statistics.gov.scot extracts |
+| DESNZ postcode consumption | `desnz-subnational-consumption/` | `electricity-<year>.csv`, `gas-<year>.csv` (optional `electricity-standard-<year>.csv`, `electricity-economy7-<year>.csv`); the `download` operation fetches known years |
+| REPD | `repd/` | `repd*.csv` (newest file used); `download` operation available |
+| VCA fuel data | `vca-fuel-data/` | `<year>.csv` (suffix allowed) |
+| IMD and ONSPD | `ons-geography-imd/` | `imd2019-file7.csv`, `imd2025-file7.csv`; optional `onspd*.csv` |
+| UK Sanctions List, gender pay gap, modern slavery, payment practices, SBTi | see each source page | downloaded on `reload`, or user-placed |
+
+Each source page lists the exact expectations in its notes and the `files` operation reports what is loaded.
