@@ -3,7 +3,8 @@
 **Prepared for:** James Cutter, NZC Portal Ltd / NZC AI
 **Date:** 9 September 2026
 **Status:** Draft v1 for internal review (James, Iain, Matthew)
-**Trigger:** a principal client selected Watershed (watershed.com) over NZC Portal
+**Trigger:** Welcome Break (Applegreen group) selected Watershed (watershed.com) over NZC Portal for Scope 3 measurement across its franchise and concession partners
+**Companion brief:** `docs/product/nzc-ai-scope-3-brief.md` (Scope 3 for multi-brand site operators)
 
 ---
 
@@ -13,7 +14,7 @@ Watershed is a US enterprise carbon-accounting platform valued at $1.8bn, with r
 
 NZC Portal today is an ESOS, SECR and EPC/MEES compliance tracker with a half-built landlord portal, an unbuilt occupier portal, a microgeneration prototype and a set of strong but unshipped briefs (the ECR ledger, Portfolio Intelligence, the NZC AI sidecar, the EPC register and mapping modules). The advisory knowledge base behind it (30 skills) is genuinely differentiated. The software is not yet.
 
-A client that chose Watershed did not choose it for ESOS or MEES. They almost certainly chose it because:
+Welcome Break did not choose Watershed for ESOS or MEES. It is the franchisee-operator of KFC, Starbucks, Burger King, Waitrose, WHSmith and a dozen other brands across some 60 locations, its parent Applegreen is a CSRD Wave 2 company with a net-zero 2050 goal across all three scopes, it sells fuel (so SBTi forces a separate category 11 target), and its franchisors set per-restaurant targets. That is a Scope 3 buyer. NZC Portal has no Scope 3 product beyond the categories the GHG skill covers, and no concept of a franchisee, a franchisor, a concession tenant or a fuel retailer. Beyond that, Watershed won because:
 
 1. It is a finished, assured, enterprise-grade system of record with SOC 2, data lineage, approval workflows and a "100% of audited footprints have passed" claim, versus a portal whose own August gap review found the ESOS deadline engine wrong and no Notification of Compliance module.
 2. It covers the whole corporate footprint in one place: all 15 Scope 3 categories, 60+ integrations into finance and HR systems, supplier engagement, CSRD/ISSB/CDP builders. NZC Portal is building-centric.
@@ -31,7 +32,7 @@ The strategic conclusion is not to chase Watershed on carbon-accounting breadth.
 | 3 | No data lineage / approval workflow / change log in the UI | Assurance readiness is Watershed's headline; auditors ask for it | Evidence trail exists in the design; expose it as a first-class "Audit" screen and export |
 | 4 | No security attestation (SOC 2, ISO 27001, Cyber Essentials Plus) or public trust page | Procurement gate for any fund or listed company | Cyber Essentials Plus now; ISO 27001 within 12 months; trust page this quarter |
 | 5 | No in-product AI (chat, flagging, OCR) | Watershed's entire 2026 narrative; NZC AI has the better knowledge base but nothing live | Build the sidecar Phase 0–2 (specified July 2026); ship PDF bill OCR into the portal |
-| 6 | No spend-based Scope 3 | Any occupier client needs a full footprint; Watershed covers all 15 categories | Adopt Open CEDA (free, CC BY-SA, released by Watershed itself) plus DESNZ factors; Xero/Sage/QuickBooks spend connectors |
+| 6 | No Scope 3 product: no spend-based engine, no categories 2, 4, 8–15, no operator-role boundaries, no partner data collection, no data-quality tiers | This is the gap that lost Welcome Break; Watershed covers all 15 categories with supplier engagement and a CSRD builder | Build the Scope 3 module in the companion brief: Open CEDA (free, CC BY-SA, released by Watershed itself) plus DESNZ, ledger import, outlet roles, partner requests, ESRS E1-6 and SBTi outputs |
 | 7 | No finance/HR/utility integrations beyond CSV | "60+ integrations" versus manual upload | Perse (meter data), EPC register, accounting packages, M365 mail for consent |
 | 8 | No report builder for SECR, GHG statement, TCFD/UK SRS inside the portal | Reports are a consultancy workflow, not a product feature | Generate branded packs from the ledger via existing skills (ECR §17 item 8) |
 | 9 | No references, case studies, analyst coverage or public pricing | Small-vendor risk with nothing to offset it | Three named case studies, a pricing page with tiers, Verdantix briefing |
@@ -143,9 +144,25 @@ Sources: nzcportal.co.uk (public pages), Hidden Brains proposal (25 Aug 2026), N
 
 ---
 
-## 4. Lessons: why a client picks Watershed over NZC Portal
+## 4. Lessons: why Welcome Break picked Watershed
 
-These are inferred from Watershed's positioning and the state of the portal; no record of the client's stated reasons was found in email or Notion. Replace with their actual words when you have them.
+### 4.1 The client and the stated reason
+
+Welcome Break operates some 60 locations including 32 motorway service areas and 31 hotels, with 6,000+ staff and 85 million customers a year. On its sites it is simultaneously a franchisee (KFC, Starbucks, Burger King, Taco Bell, Subway, Greggs, Pret, PizzaExpress, Krispy Kreme, Chopstix), a retail partner (Waitrose, WHSmith), a hotel franchisee (Ramada, Days Inn), a landlord to concession and charging tenants (Tesla, GRIDSERVE, Revolution Laundry) and a fuel and EV-charging retailer. Its parent, Applegreen (Dublin, €3.85bn revenue 2025, ~15,000 staff, owned by Blackstone Infrastructure and B&J Holdings), has a net-zero 2050 goal across Scopes 1 to 3, has completed a first Scope 3 assessment and is building an SBTi-aligned transition plan.
+
+The stated reason was Scope 3: the number of subcontracted brands on the estate. Three obligations converge on that:
+
+| Driver | Requirement | What Welcome Break needs |
+|---|---|---|
+| CSRD Wave 2 (Applegreen exceeds 1,000 employees and €450m turnover) | First statement in 2028 covering FY2027 under ESRS 2.0; E1-6 gross Scope 3 by category with a primary/secondary data split; limited assurance | An assurable category-level inventory from the UK entity, baseline year FY2026 |
+| SBTi criterion C22 | Fuel sellers must set a separate 1.5°C category 11 target; near-term targets must cover 67% of Scope 3; exclusions under 5% | Fuel sold quantified as a mandatory line; food and packaging (category 1) almost certainly in the boundary |
+| Franchisor targets (Yum! Brands 46% per-restaurant reduction by 2030 with franchisees; Starbucks and Wyndham similar) | Annual restaurant-level energy, waste and packaging data requests | Reporting upward to brands and sideways to the parent from one dataset |
+
+Extra MSA, a direct peer, became the first motorway service operator with SBTi-validated net-zero targets in 2025. That raised the bar for Welcome Break's board.
+
+NZC Portal could not answer any of that. The GHG skill covers categories 1, 3, 5, 6 and 7 for organisations holding their own data; there is no spend-based engine, no operator-role boundary logic, no partner data collection, no data-quality tiering and no ESRS or SBTi output. Watershed covers all 15 categories with CEDA, supplier engagement and a CSRD builder, and sells an assurance guarantee on top.
+
+### 4.2 The wider lessons
 
 1. **Completeness beats depth at selection time.** A buyer runs two demos. Watershed shows a finished product covering the whole company. NZC Portal shows a strong ESOS data hub with a wrong deadline countdown, missing floor areas in the demo org, "coming soon" on the evidence pack and no occupier portal. Depth in the skills library is invisible in that meeting.
 2. **Buyers buy assurance, not calculations.** Watershed's headline is lineage, approval workflow, annual assured methodology and a money-back assurance guarantee. Nothing in NZC Portal's UI shows a number's provenance, even though the design has an evidence trail.
@@ -156,7 +173,11 @@ These are inferred from Watershed's positioning and the state of the portal; no 
 7. **Integrations.** "60+ integrations" versus CSV. Even if the client only uses three, the list signals maturity.
 8. **A defined pricing story.** Watershed is expensive but the buyer knows what they are getting: platform plus advisory plus assurance support. NZC Portal has Stripe subscriptions but no public tiers or packaging.
 
-The honest self-assessment: the client did not reject the strategy; they rejected an unfinished product with no credibility scaffolding around it.
+The honest self-assessment: Welcome Break needed a Scope 3 system NZC does not yet have, and even where NZC is strong the product was not finished enough, or credentialed enough, to be considered for the site-level work.
+
+### 4.3 What this means for the roadmap
+
+The Scope 3 gap moves from Tier 3 to Tier 2. The companion brief specifies a module for multi-brand, multi-site operators: outlet operator roles (franchisee, franchisor, landlord, retail partner, fuel retailer) that set the boundary automatically, purchase-ledger import with EEIO mapping on Open CEDA and DESNZ, physical activity data for food, packaging, fuel sold and waste, partner data requests reusing the RFI and consent workflow (VSME by default for suppliers under 1,000 employees), data-quality tiers with the ESRS primary/secondary split, SBTi coverage tests with the mandatory category 11 flag, franchisor packs, and consolidation to a parent. It is a ten-week build that reuses the ECR ledger for categories 8 and 13.
 
 ---
 
@@ -252,12 +273,13 @@ The ordering principle: first remove reasons to say no, then ship the things Wat
 | 2.7 | PDF bill OCR wired into readings with confidence and one-click accept | ECR X4 |
 | 2.8 | Microgeneration completion incl. Solar API fix and PPA billing | Hidden Brains Phase 3; microgen skill |
 | 2.9 | NZCBS proforma module mirroring rev03 workbook | nzcbs-standard skill |
+| 2.10 | Scope 3 module for multi-brand site operators: outlet roles, ledger import and EEIO mapping, activity data, partner requests, quality tiers, ESRS E1-6 and SBTi outputs, franchisor packs | Scope 3 brief (docs/product) |
 
 ### Tier 3 — parity where clients ask (9–18 months)
 
 | # | Item |
 |---|---|
-| 3.1 | Spend-based Scope 3 with Open CEDA; Xero/Sage/QuickBooks import; occupier portal Scope 3 categories 1, 2, 4, 6, 7 |
+| 3.1 | Scope 3 extensions: commercial ingredient factor database, distributor feed connectors, supplier scorecards, product-level footprints |
 | 3.2 | SBTi target module with progress tracking; CRREM-derived and NZCBS-derived pathways as target lines |
 | 3.3 | REGO/PPA instrument tracking with market-based Scope 2 allocation |
 | 3.4 | UK SRS/TCFD and CDP export mapping from the ledger |
@@ -288,16 +310,17 @@ The ECR brief alone is ten weeks; the sidecar is nine to fourteen; the Hidden Br
 
 ---
 
-## 9. Win-back and coexistence play for the lost client
+## 9. Win-back and coexistence play for Welcome Break
 
-Watershed will hold their group footprint and CSRD/UK SRS reporting. It will not do their ESOS Phase 4 notification (due 5 December 2027), their MEES exposure for 2031 EPC B, CRREM stranding, NZCBS alignment or GRESB. Offer:
+Watershed will hold the group Scope 3 inventory and feed Applegreen's CSRD statement. It will not do Welcome Break's ESOS Phase 4 notification (Welcome Break qualifies on headcount; notification due 5 December 2027), MEES exposure for 2031 EPC B across 32 service areas and 31 hotels, site energy engineering, shared-energy allocation to outlets for franchisor packs, or the landlord/concession split for category 13. Offer:
 
-1. **ESOS Phase 4 lead assessor engagement** run through the portal, with the evidence pack and MESOS transcription export. Watershed has no equivalent.
-2. **MEES/EPC tracker** for the estate, with the 2031 exposure list and lease-event triggers.
-3. **Building-level Scope 1/2 export** in a format their Watershed team can ingest, so NZC data becomes the source for the buildings line in their group footprint.
-4. **CRREM and NZCBS assessment** for the top assets by value.
+1. **ESOS Phase 4 lead assessor engagement** run through the portal, with the evidence pack and MESOS transcription export. The energy audit outputs also give Watershed better Scope 1/2 data than bill OCR.
+2. **Site energy ledger with outlet allocation** so per-restaurant energy and waste intensities for Yum!, Starbucks and Wyndham requests come from meters, not estimates. Watershed does not allocate shared site energy to outlets.
+3. **Category 13 concession data via the consent workflow** (Tesla, GRIDSERVE, laundry, retail concessions) exported in a form Watershed can ingest.
+4. **MEES/EPC tracker** for the estate, with the 2031 exposure list and lease-event triggers; hotels included.
+5. **Solar PV and EV-load design** for the larger sites, feeding the transition plan Applegreen is writing.
 
-Price these as consultancy plus a Compliance-tier subscription. The goal is to stay inside the account as the real-asset system while Watershed holds the corporate ledger.
+Price these as consultancy plus a Compliance-tier subscription. The goal is to stay inside the account as the site-level system while Watershed holds the corporate ledger, and to use the engagement as the design-partner seed for the Scope 3 module. Ask Welcome Break's ESG team for a 20-minute loss review; this document should carry their actual words.
 
 ---
 
@@ -318,6 +341,9 @@ Price these as consultancy plus a Compliance-tier subscription. The goal is to s
 **Pricing and reviews (third-party, directional)**
 - Vendr marketplace listing; Dcycle Watershed pricing; rfp.wiki; ERP Research; StackMatch; sustainabilityreportingstandards.co.uk; uksrs.org.uk buyer's guide; Greenly vs Watershed; Sweep vs Watershed
 - Tracxn, DealData (Form D Dec 2025), Forge, PitchBook, LinkedIn, trueup.io for funding and headcount
+
+**Welcome Break and Applegreen**
+- welcomebreak.co.uk/brands · Forecourt Trader on the MSA network commitment (32 sites) · Applegreen 2025 growth statement (applegreengroup.com) · drivechange.applegreen.com (net-zero 2050, first Scope 3 assessment) · Irish Times 26 Nov 2025 (revenue) · Blackstone/B&J Holdings takeover announcement · Extra MSA 2025 Sustainability Report (SBTi validation) · Yum! Brands climate targets · SBTi Corporate Near-Term Criteria V5.3.1 (C4, C6, C22) · csrd-advisory skill (Omnibus I thresholds and Wave 2 timing)
 
 **NZC internal**
 - nzcportal.co.uk home, platform and EPC/MEES pages
