@@ -114,7 +114,7 @@ export const definition = defineIntegration({
   docsUrl: "https://carbon-intensity.github.io/api-definitions/",
   termsUrl: "https://creativecommons.org/licenses/by/4.0/",
   attribution: "Carbon intensity data from the NESO Carbon Intensity API (https://carbonintensity.org.uk), licensed under CC BY 4.0.",
-  licence: "OGL",
+  licence: "CC_BY",
   envVars: [],
   status: "built_unverified",
   notes: [

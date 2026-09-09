@@ -3,6 +3,10 @@
 Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 
 - `docs/data-source-roadmap.md` – data source register, gap review and integration sequence
+- `docs/api-gap-analysis.md` – what is integrated, what changed versus the catalogue, what could not be built, verification plan
+- `docs/integrations/data-sources.md` – the sources pages, API routes and health-check CLI
+- `docs/integrations/CONNECTOR_GUIDE.md` – how to add a connector
+- `docs/integrations/reference-data.md` – files the factor and pathway loaders expect
 - `docs/integrations/n3rgy.md` – first connector: consent-based smart-meter data
 
 ## What exists
@@ -13,6 +17,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Consents | `/consents`, `/api/consents`, `/api/consents/{id}`, `/api/consents/{id}/verify` | Gate on all live retrieval |
 | Sync | `/sync`, `/api/n3rgy/sync`, `pnpm n3rgy:sync` | Scheduled pull, gaps, expiry warnings, tariffs |
 | Readings | `/readings`, `/api/readings`, `/api/readings/meters` | Daily totals, gaps, CSV, indicative cost |
+| Data sources | `/sources`, `/sources/[id]`, `/api/sources/...`, `pnpm sources:check` | 109 sources, 69 connectors, 229 operations, generic forms and health checks |
 | Storage | `data/portal.sqlite` | Node built-in SQLite, migrations on open |
 | Access | `src/proxy.ts` | Optional basic auth via `PORTAL_BASIC_AUTH` |
 
@@ -26,6 +31,7 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm n3rgy:sync              # pull readings for active consents
+pnpm sources:check --all     # health-check every data source from this machine
 ```
 
 Data files under `data/` and every `.env*` except `.env.example` are gitignored.

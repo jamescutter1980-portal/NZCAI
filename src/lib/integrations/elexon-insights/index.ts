@@ -86,7 +86,7 @@ export const definition = defineIntegration({
   docsUrl: "https://bmrs.elexon.co.uk/api-documentation",
   termsUrl: "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/",
   attribution: "Contains BMRS data © Elexon Limited copyright and database right",
-  licence: "OGL",
+  licence: "open_other",
   envVars: [],
   status: "built_unverified",
   notes: [

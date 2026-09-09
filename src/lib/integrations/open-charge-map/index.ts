@@ -63,7 +63,7 @@ export const definition = defineIntegration({
   docsUrl: "https://openchargemap.org/site/develop/api",
   termsUrl: "https://openchargemap.org/site/about/terms",
   attribution: "Charge point data © Open Charge Map contributors, licensed under the Open Database Licence (ODbL) and CC BY-SA 4.0 for content.",
-  licence: "restricted",
+  licence: "CC_BY_SA",
   envVars: [{ name: "OPEN_CHARGE_MAP_API_KEY", required: true, description: "Free API key from an Open Charge Map account; sent as X-API-Key." }],
   status: "built_unverified",
   notes: [

@@ -93,7 +93,7 @@ export const definition = defineIntegration({
   docsUrl: "https://techdocs.gbif.org/en/openapi/v1/occurrence",
   termsUrl: "https://www.gbif.org/terms",
   attribution: "Occurrence data from GBIF.org (https://www.gbif.org); each record carries its dataset's licence (CC0, CC BY or CC BY-NC) and must be cited by dataset or download DOI.",
-  licence: "restricted",
+  licence: "mixed",
   envVars: [],
   status: "built_unverified",
   notes: [

@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { definition } from "..";
+import type { FetchLike } from "../../framework";
 import { runOperation, testContext } from "../../testing";
 import lookup from "./fixtures/lookup.json";
 
 describe("postcodes-io", () => {
   it("looks up a postcode and normalises the input", async () => {
-    const fetch = vi.fn(async (_url: string) => new Response(JSON.stringify(lookup), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(lookup), { status: 200 }));
     const result = await runOperation(definition, "lookup", { postcode: "sw1a 1aa" }, testContext(fetch));
     expect(fetch.mock.calls[0][0]).toBe("https://api.postcodes.io/postcodes/SW1A1AA");
     expect(result.rows?.[0]).toMatchObject({ postcode: "SW1A 1AA", latitude: 51.501009, lsoa_code: "E01004736" });

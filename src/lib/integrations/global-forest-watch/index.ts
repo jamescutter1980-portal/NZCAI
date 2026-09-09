@@ -75,7 +75,7 @@ export const definition = defineIntegration({
   docsUrl: "https://data-api.globalforestwatch.org/",
   termsUrl: "https://www.globalforestwatch.org/terms/",
   attribution: "Data from Global Forest Watch (World Resources Institute) Data API; each dataset carries its own licence and citation in its metadata.",
-  licence: "restricted",
+  licence: "CC_BY",
   envVars: [{ name: "GFW_API_KEY", required: true, description: "API key created via the GFW Data API auth endpoints (free); sent as x-api-key. Keys are tied to an allowed origin/domain." }],
   status: "built_unverified",
   notes: [

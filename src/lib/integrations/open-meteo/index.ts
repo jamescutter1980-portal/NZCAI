@@ -75,7 +75,7 @@ export const definition = defineIntegration({
   docsUrl: "https://open-meteo.com/en/docs",
   termsUrl: "https://open-meteo.com/en/terms",
   attribution: "Weather data by Open-Meteo.com (CC BY 4.0).",
-  licence: "restricted",
+  licence: "CC_BY",
   envVars: [{ name: "OPEN_METEO_API_KEY", required: false, description: "Commercial API key. When set, requests go to the customer-* hosts with &apikey=; required for commercial use." }],
   status: "built_unverified",
   notes: [

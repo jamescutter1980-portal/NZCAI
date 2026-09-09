@@ -109,7 +109,7 @@ export const definition = defineIntegration({
   docsUrl: "https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/getting-started-pvgis/api-non-interactive-service_en",
   termsUrl: "https://commission.europa.eu/legal-notice_en",
   attribution: "Solar radiation and PV performance data: PVGIS © European Union, 2001-2026 (Joint Research Centre), CC BY 4.0.",
-  licence: "restricted",
+  licence: "CC_BY",
   envVars: [],
   status: "built_unverified",
   notes: [

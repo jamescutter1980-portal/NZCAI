@@ -12,7 +12,15 @@ export type Basis =
   | "not_applicable";
 
 export type Licence =
+  /** Open Government Licence v3.0 */
   | "OGL"
+  | "CC_BY"
+  | "CC_BY_SA"
+  | "CC0"
+  /** Open data under the publisher's own licence (Elexon BMRS, Octopus, and similar) */
+  | "open_other"
+  /** Licence varies per record or dataset (NBN Atlas, GBIF); check each result */
+  | "mixed"
   | "restricted"
   | "commercial"
   | "consent_based";

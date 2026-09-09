@@ -81,7 +81,7 @@ export const definition = defineIntegration({
   docsUrl: "https://api.nbnatlas.org/",
   termsUrl: "https://nbnatlas.org/help/nbn-atlas-terms-of-use/",
   attribution: "Species records from the NBN Atlas (https://nbnatlas.org), contributed by many data providers under the licence stated for each dataset.",
-  licence: "restricted",
+  licence: "mixed",
   envVars: [{ name: "NBN_ATLAS_API_KEY", required: false, description: "Optional API key from NBN Atlas for higher limits; sent as x-api-key (header name not confirmed against the live service)." }],
   status: "built_unverified",
   notes: [

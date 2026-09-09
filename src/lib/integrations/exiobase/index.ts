@@ -16,7 +16,7 @@ export const definition = defineIntegration({
   docsUrl: "https://www.exiobase.eu/",
   termsUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
   attribution: "EXIOBASE 3 (Stadler et al.), licensed under CC BY-SA 4.0. Version and release as stated.",
-  licence: "restricted",
+  licence: "CC_BY_SA",
   envVars: [],
   status: "reference_only",
   notes: [

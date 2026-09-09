@@ -105,7 +105,7 @@ export const definition = defineIntegration({
   docsUrl: "https://developer.octopus.energy/rest/guides/endpoints",
   termsUrl: "https://octopus.energy/policies/terms/",
   attribution: "Tariff and consumption data from the Octopus Energy API (api.octopus.energy).",
-  licence: "restricted",
+  licence: "open_other",
   envVars: [{ name: ENV_KEY, required: false, description: "The customer's Octopus API key (Developer settings in their account). Required for 'Account meter points' and 'Meter consumption'; sent as HTTP Basic auth with an empty password. Not needed for products, rates or GSP lookup." }],
   status: "built_unverified",
   notes: [

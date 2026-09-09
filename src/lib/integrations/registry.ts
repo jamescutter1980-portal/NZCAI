@@ -74,6 +74,30 @@ import { definition as groundsure } from "./groundsure";
 import { definition as landmarkClimate } from "./landmark-climate";
 import { definition as eaEcology } from "./ea-ecology";
 import { definition as moslWaterMarket } from "./mosl-water-market";
+import { definition as companiesHouse } from "./companies-house";
+import { definition as ukSanctionsList } from "./uk-sanctions-list";
+import { definition as genderPayGap } from "./gender-pay-gap";
+import { definition as modernSlaveryStatementRegistry } from "./modern-slavery-statement-registry";
+import { definition as paymentPracticesReporting } from "./payment-practices-reporting";
+import { definition as sbtiTargets } from "./sbti-targets";
+import { definition as contractsFinder } from "./contracts-finder";
+import { definition as charityCommission } from "./charity-commission";
+import { definition as nomis } from "./nomis";
+import { definition as onsApi } from "./ons-api";
+import { definition as dvlaVes } from "./dvla-ves";
+import { definition as dvsaMotHistory } from "./dvsa-mot-history";
+import { definition as vcaFuelData } from "./vca-fuel-data";
+import { definition as dftRoadTraffic } from "./dft-road-traffic";
+import { definition as openChargeMap } from "./open-charge-map";
+import { definition as samsaraFleet } from "./samsara-fleet";
+import { definition as nbnAtlas } from "./nbn-atlas";
+import { definition as gbif } from "./gbif";
+import { definition as naturalEngland } from "./natural-england";
+import { definition as ibat } from "./ibat";
+import { definition as globalForestWatch } from "./global-forest-watch";
+import { definition as resourceWatch } from "./resource-watch";
+import { definition as encore } from "./encore";
+import { referenceDefinitions } from "./_reference";
 
 /** Every registered data source. Order is display order within a group. */
 export const integrations: IntegrationDefinition[] = [
@@ -92,13 +116,19 @@ export const integrations: IntegrationDefinition[] = [
   // ground
   eaPublicRegisters, eaEnvironmentalConstraints, bgsGeology, coalAuthority, defraUkAir, defraNoiseMapping, ukradon, groundsure, landmarkClimate,
   // nature
-  eaEcology,
+  naturalEngland, nbnAtlas, gbif, eaEcology, ibat, globalForestWatch, resourceWatch, encore,
+  // transport
+  dvlaVes, dvsaMotHistory, vcaFuelData, dftRoadTraffic, openChargeMap, samsaraFleet,
+  // company
+  companiesHouse, ukSanctionsList, genderPayGap, modernSlaveryStatementRegistry, paymentPracticesReporting, sbtiTargets, contractsFinder, charityCommission, nomis, onsApi,
   // carbon
   desnzConversionFactors, aibResidualMix, ofgemRenewableElectricityRegister, climatiq, exiobase, xeroSpend, quickbooksSpend,
   // pathways
   crremPathways, ukNzcbs,
   // embodied
   ecoPlatformEcoPortal, okobaudat, ec3BuildingTransparency, becd, ecoinvent,
+  // reference-only entries for sources no connector group built
+  ...referenceDefinitions,
 ];
 
 const byId = new Map(integrations.map((d) => [d.id, d]));

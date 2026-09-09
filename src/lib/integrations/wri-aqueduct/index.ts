@@ -10,7 +10,7 @@ export const definition = defineIntegration({
   docsUrl: "https://www.wri.org/aqueduct",
   termsUrl: "https://github.com/wri/Aqueduct40",
   attribution: "Aqueduct 4.0 © World Resources Institute, licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).",
-  licence: "restricted",
+  licence: "CC_BY",
   envVars: [],
   status: "reference_only",
   notes: [
