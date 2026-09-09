@@ -4,6 +4,7 @@ import { routedFetch, runOperation, testContext } from "../../testing";
 import search from "./fixtures/search.json";
 import estimate from "./fixtures/estimate.json";
 import spend from "./fixtures/spend.json";
+const jsonFetch = (body: unknown, status = 200) => vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
 
 // Fixtures follow the documented Climatiq response shapes (API reference and
 // public client code); they are not live captures and every number is synthetic.
@@ -11,9 +12,9 @@ const env = { CLIMATIQ_API_KEY: "test-key" };
 
 describe("climatiq", () => {
   it("searches with the key as a Bearer token and the default data version, mapping provenance fields into rows", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(search), { status: 200 }));
+    const fetch = jsonFetch(search, 200);
     const res = await runOperation(definition, "search", { query: "residual mix", year: 2025, source: "AIB" }, testContext(fetch, env));
-    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
     const u = new URL(url);
     expect(u.origin + u.pathname).toBe("https://api.climatiq.io/data/v1/search");
     expect(u.searchParams.get("query")).toBe("residual mix");
@@ -28,17 +29,17 @@ describe("climatiq", () => {
   });
 
   it("honours CLIMATIQ_DATA_VERSION and a per-call override", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(search), { status: 200 }));
+    const fetch = jsonFetch(search, 200);
     await runOperation(definition, "search", { query: "x" }, testContext(fetch, { ...env, CLIMATIQ_DATA_VERSION: "^30" }));
-    expect(new URL(fetch.mock.calls[0][0] as unknown as string).searchParams.get("data_version")).toBe("^30");
+    expect(new URL(fetch.mock.calls[0][0]).searchParams.get("data_version")).toBe("^30");
     await runOperation(definition, "search", { query: "x", data_version: "36" }, testContext(fetch, { ...env, CLIMATIQ_DATA_VERSION: "^30" }));
-    expect(new URL(fetch.mock.calls[1][0] as unknown as string).searchParams.get("data_version")).toBe("36");
+    expect(new URL(fetch.mock.calls[1][0]).searchParams.get("data_version")).toBe("36");
   });
 
   it("posts an estimate with typed parameters and records the factor in provenance", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(estimate), { status: 200 }));
+    const fetch = jsonFetch(estimate, 200);
     const res = await runOperation(definition, "estimate", { activity_id: "electricity-supply_grid-source_residual_mix", parameter_type: "energy", quantity: "1000", unit: "kWh", year: 2025 }, testContext(fetch, env));
-    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.climatiq.io/data/v1/estimate");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({
@@ -52,11 +53,11 @@ describe("climatiq", () => {
   });
 
   it("builds a money parameter set for spend-type activity factors", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(estimate), { status: 200 }));
+    const fetch = jsonFetch(estimate, 200);
     await runOperation(definition, "estimate", { activity_id: "x", parameter_type: "money", quantity: 50, unit: "gbp", region: "" }, testContext(fetch, env));
-    const body = JSON.parse((fetch.mock.calls[0][1] as RequestInit).body as string);
+    const body = JSON.parse(fetch.mock.calls[0][1]!.body as string);
     expect(body.parameters).toEqual({ money: 50, money_unit: "gbp" });
-    expect(body.emission_factor.region).toBeUndefined();
+    expect(body.emission_factor.region).toBe("GB"); // blank region falls back to the GB default
   });
 
   it("posts a procurement spend request by classification code and by activity id", async () => {
@@ -72,7 +73,7 @@ describe("climatiq", () => {
   });
 
   it("throws on auth failure and validates before any network call", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }));
+    const fetch = jsonFetch({ error: "Unauthorized" }, 401);
     await expect(runOperation(definition, "search", { query: "x" }, testContext(fetch, env))).rejects.toMatchObject({ status: 401 });
     const noCall = vi.fn();
     await expect(runOperation(definition, "estimate", { activity_id: "x", parameter_type: "volume", quantity: 1, unit: "l" }, testContext(noCall, env))).rejects.toThrow();

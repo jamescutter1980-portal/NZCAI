@@ -1,4 +1,5 @@
 import { buildUrl, defineIntegration, fetchJson, makeProvenance, simpleHealth, type OperationContext } from "../framework";
+import { fetchJsonOrNotFound } from "../_shared/http";
 import { EPD_WARNINGS, pickLang, type ProcessListPage } from "../_shared/ilcd";
 import { epdDetailResult, listResult } from "../eco-platform-eco-portal";
 
@@ -101,8 +102,8 @@ export const definition = defineIntegration({
         const uuid = String(params.uuid).trim();
         if (!isUuid(uuid)) throw new Error("uuid must be a UUID");
         const url = buildUrl(BASE, `processes/${uuid}`, { format: "json", view: "extended", lang: "en", version: params.version as string | undefined });
-        const { data, status } = await fetchJson<unknown>(ctx, url, {}, { acceptStatuses: [404] });
-        if (status === 404) {
+        const { data } = await fetchJsonOrNotFound<unknown>(ctx, url);
+        if (data === null) {
           return { summary: `Dataset ${uuid} not found in ÖKOBAUDAT.`, rows: [], columns: ["indicator", "module", "value_kgco2e"], provenance: makeProvenance(definition, ctx, { dataset: "processes", basis: "unavailable" }) };
         }
         return epdDetailResult(definition, ctx, data, "processes", url);

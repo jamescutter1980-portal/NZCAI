@@ -1,4 +1,5 @@
 import { buildUrl, defineIntegration, fetchJson, makeProvenance, simpleHealth, type EnvLike, type OperationContext, type OperationResult } from "../framework";
+import { fetchJsonOrNotFound } from "../_shared/http";
 import { a1a3Total, EPD_WARNINGS, gwpModuleRows, mapProcessListEntry, primaryGwp, PROCESS_LIST_COLUMNS, summariseProcess, type ProcessListPage, type ProcessListRow } from "../_shared/ilcd";
 
 /**
@@ -138,8 +139,8 @@ export const definition = defineIntegration({
         } else {
           url = buildUrl(BASE, `processes/${uuid}`, { format: "json", view: "extended", lang: "en", version: params.version as string | undefined });
         }
-        const { data, status } = await fetchJson<unknown>(ctx, url, { headers: headers(ctx.env, url) }, { acceptStatuses: [404] });
-        if (status === 404) {
+        const { data } = await fetchJsonOrNotFound<unknown>(ctx, url, { headers: headers(ctx.env, url) });
+        if (data === null) {
           return { summary: `Dataset ${uuid} not found on ${new URL(url).host}.`, rows: [], columns: ["indicator", "module", "value_kgco2e"], provenance: makeProvenance(definition, ctx, { dataset: "processes", basis: "unavailable" }) };
         }
         const res = epdDetailResult(definition, ctx, data, "processes", url);

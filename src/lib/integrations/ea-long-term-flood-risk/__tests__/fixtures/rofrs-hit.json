@@ -1,0 +1,4 @@
+{
+  "fields": [{ "name": "prob_4band", "type": "esriFieldTypeString" }, { "name": "suitability", "type": "esriFieldTypeString" }, { "name": "pub_date", "type": "esriFieldTypeDate" }],
+  "features": [{ "attributes": { "OBJECTID": 7, "prob_4band": "Low", "suitability": "Suitable for county to town scale", "pub_date": 1737331200000 } }]
+}

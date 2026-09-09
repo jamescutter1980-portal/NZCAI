@@ -1,0 +1,10 @@
+{
+  "_comment": "soda4LCA process list shape as seen by public ECO Portal clients (uuid, name, version, classific, geo, validUntil, owner, regNo, nodeid, uri). Not a live capture; entries are synthetic.",
+  "totalCount": 2,
+  "pageSize": 25,
+  "startIndex": 0,
+  "data": [
+    { "uuid": "00000000-0000-4000-8000-000000000001", "name": "Synthetic test product", "version": "00.01.000", "classific": "Mineral building products / Concrete", "geo": "DE", "validUntil": 2029, "refYear": 2024, "owner": "Synthetic Operator", "regNo": "SYN-0001", "subType": "specific dataset", "nodeid": "SYNNODE", "uri": "https://synthetic-node.example/resource/processes/00000000-0000-4000-8000-000000000001?version=00.01.000", "dsType": "Process" },
+    { "uuid": "00000000-0000-4000-8000-000000000002", "name": [ { "value": "Zweites Produkt", "lang": "de" }, { "value": "Second product", "lang": "en" } ], "classific": "Insulation", "geo": "GB", "validUntil": "2027", "owner": "Synthetic Operator", "nodeid": "ECOPORTAL" }
+  ]
+}

@@ -1,4 +1,5 @@
 import { buildUrl, defineIntegration, fetchJson, makeProvenance, simpleHealth, type EnvLike, type OperationContext } from "../framework";
+import { fetchJsonOrNotFound } from "../_shared/http";
 import { EPD_WARNINGS } from "../_shared/ilcd";
 
 /**
@@ -159,8 +160,8 @@ export const definition = defineIntegration({
         const id = String(params.id).trim();
         if (!/^[A-Za-z0-9_-]{4,64}$/.test(id)) throw new Error("id must be an EC3 identifier");
         const url = buildUrl(BASE, `epds/${encodeURIComponent(id)}`);
-        const { data, status } = await fetchJson<unknown>(ctx, url, { headers: headers(ctx.env) }, { acceptStatuses: [404] });
-        if (status === 404 || !isObj(data)) {
+        const { data } = await fetchJsonOrNotFound<unknown>(ctx, url, { headers: headers(ctx.env) });
+        if (!isObj(data)) {
           return { summary: `EPD ${id} not found in EC3.`, columns: COLUMNS, rows: [], provenance: makeProvenance(definition, ctx, { dataset: "epds", basis: "unavailable" }) };
         }
         const row = toRow(data);

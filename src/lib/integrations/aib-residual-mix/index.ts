@@ -123,14 +123,14 @@ export const definition = defineIntegration({
         }
         const version = fileVersion(file, `${row.publication} (${row.publication_date})`);
         if (row.availability === "unavailable") {
-          return { summary: `AIB publishes no residual mix for ${row.country} in ${row.data_year}. Do not use 0.`, columns: COLUMNS, rows: [row], provenance: makeProvenance(definition, ctx, { dataset: "residual-mix", basis: "unavailable", version }), links: LINKS };
+          return { summary: `AIB publishes no residual mix for ${row.country} in ${row.data_year}. Do not use 0.`, columns: COLUMNS, rows: [{ ...row }], provenance: makeProvenance(definition, ctx, { dataset: "residual-mix", basis: "unavailable", version }), links: LINKS };
         }
         const warnings = [MARKET_BASED_NOTE];
         if (row.direct_co2_only) warnings.push("Figure is direct CO2 only, not CO2e; do not combine with CO2e factors without stating the basis.");
         return {
           summary: `${row.country} ${row.data_year} residual mix: ${row.residual_mix_gco2_per_kwh} gCO2/kWh (${row.publication}, ${row.publication_date}).`,
           columns: COLUMNS,
-          rows: [row],
+          rows: [{ ...row }],
           raw: row,
           provenance: makeProvenance(definition, ctx, { dataset: "residual-mix", basis: "measured", version }),
           warnings,
@@ -150,7 +150,7 @@ export const definition = defineIntegration({
         return {
           summary: !file ? `No residual-mix file loaded from ${referenceDir(ctx.env, ID)}.` : `${out.length} row(s) loaded from ${file.name}${code ? ` for ${code}` : ""}.`,
           columns: COLUMNS,
-          rows: out,
+          rows: out.map((r) => ({ ...r })),
           provenance: makeProvenance(definition, ctx, { dataset: "residual-mix", basis: out.length ? "measured" : "unavailable", version: file ? fileVersion(file) : undefined }),
           links: LINKS,
         };

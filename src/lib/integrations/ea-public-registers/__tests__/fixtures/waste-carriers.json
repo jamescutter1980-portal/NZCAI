@@ -1,0 +1,17 @@
+{
+  "meta": { "publisher": "Environment Agency", "limit": 50 },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/public-register/waste-carriers-brokers/registration/CBDU123456",
+      "register": { "label": "Waste Carriers and Brokers Public Register for England" },
+      "registrationNumber": "CBDU123456",
+      "holder": { "name": "Example Skips Limited", "tradingName": "Example Skips" },
+      "registrationType": { "label": "Carrier, broker and dealer" },
+      "tier": { "@id": "http://environment.data.gov.uk/public-register/waste-carriers-brokers/def/tier/upper", "label": "Upper" },
+      "regime": { "@id": "http://environment.data.gov.uk/public-register/def/regime/carriers-and-brokers/carrier-broker-dealer", "prefLabel": "carrier broker dealer" },
+      "registrationDate": "2024-05-01",
+      "expiryDate": "2027-05-01",
+      "site": { "siteAddress": { "address": "1 Station Road, Birmingham", "postcode": "B1 1AA" } }
+    }
+  ]
+}
