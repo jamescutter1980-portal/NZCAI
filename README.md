@@ -3,6 +3,7 @@
 Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 
 - `docs/data-source-roadmap.md` – data source register, gap review and integration sequence
+- `docs/assets-and-carbon.md` – assets, meter linking, screening profile and carbon method
 - `docs/api-gap-analysis.md` – what is integrated, what changed versus the catalogue, what could not be built, verification plan
 - `docs/integrations/data-sources.md` – the sources pages, API routes and health-check CLI
 - `docs/integrations/CONNECTOR_GUIDE.md` – how to add a connector
@@ -17,6 +18,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Consents | `/consents`, `/api/consents`, `/api/consents/{id}`, `/api/consents/{id}/verify` | Gate on all live retrieval |
 | Sync | `/sync`, `/api/n3rgy/sync`, `pnpm n3rgy:sync` | Scheduled pull, gaps, expiry warnings, tariffs |
 | Readings | `/readings`, `/api/readings`, `/api/readings/meters` | Daily totals, gaps, CSV, indicative cost |
+| Assets | `/assets`, `/assets/[id]`, `/api/assets/...`, `pnpm carbon:intensity` | Meters per building, Scope 1 and 2 with factor provenance, screening across 14 point-based sources |
 | Data sources | `/sources`, `/sources/[id]`, `/api/sources/...`, `pnpm sources:check` | 109 sources, 69 connectors, 229 operations, generic forms and health checks |
 | Storage | `data/portal.sqlite` | Node built-in SQLite, migrations on open |
 | Access | `src/proxy.ts` | Optional basic auth via `PORTAL_BASIC_AUTH` |

@@ -7,6 +7,9 @@ export default function Home() {
       <p>Integration modules. See docs/data-source-roadmap.md for the full plan.</p>
       <ul>
         <li>
+          <Link href="/assets">Assets</Link> – buildings with linked meters, energy and carbon by year, one-click environmental screening
+        </li>
+        <li>
           <Link href="/sources">Data sources</Link> – every external API and dataset: status, configuration, health checks and lookups
         </li>
         <li>

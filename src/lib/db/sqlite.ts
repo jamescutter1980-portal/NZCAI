@@ -111,6 +111,54 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       CREATE INDEX sync_items_run ON sync_items(run_id);
     `,
   },
+  {
+    id: "0005_assets",
+    sql: `
+      CREATE TABLE assets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        uprn TEXT,
+        address TEXT,
+        postcode TEXT,
+        latitude REAL,
+        longitude REAL,
+        floor_area_m2 REAL,
+        property_type TEXT,
+        country TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE asset_meters (
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        mpxn TEXT NOT NULL,
+        utility TEXT NOT NULL,
+        direction TEXT NOT NULL DEFAULT 'import',
+        label TEXT,
+        supplier_factor_kgco2e_per_kwh REAL,
+        supplier_factor_evidence TEXT,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (asset_id, mpxn, utility, direction)
+      );
+      CREATE TABLE asset_screenings (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        ran_at TEXT NOT NULL,
+        results TEXT NOT NULL,
+        ok_count INTEGER NOT NULL,
+        error_count INTEGER NOT NULL
+      );
+      CREATE INDEX asset_screenings_asset ON asset_screenings(asset_id, ran_at);
+      CREATE TABLE grid_intensity (
+        region TEXT NOT NULL,
+        interval_start TEXT NOT NULL,
+        gco2_per_kwh REAL,
+        basis TEXT NOT NULL,
+        retrieved_at TEXT NOT NULL,
+        PRIMARY KEY (region, interval_start)
+      );
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;
