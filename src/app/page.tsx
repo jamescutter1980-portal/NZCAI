@@ -1,0 +1,15 @@
+import Link from "next/link";
+
+export default function Home() {
+  return (
+    <>
+      <h1>NZC Portal</h1>
+      <p>Integration modules. See docs/data-source-roadmap.md for the full plan.</p>
+      <ul>
+        <li>
+          <Link href="/meters/n3rgy">n3rgy smart-meter data</Link> – consent-based half-hourly electricity and gas
+        </li>
+      </ul>
+    </>
+  );
+}

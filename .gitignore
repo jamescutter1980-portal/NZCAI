@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+data/exports/
+next-env.d.ts
+tsconfig.tsbuildinfo
