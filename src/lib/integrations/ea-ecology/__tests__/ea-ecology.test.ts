@@ -1,6 +1,7 @@
 // Fixtures are illustrative: the Ecology and Fish Data API response shape could
 // not be confirmed from documentation reachable in this environment, so the
 // connector matches field names loosely and this test exercises that matching.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { definition, listOf } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -9,7 +10,7 @@ import surveys from "./fixtures/surveys.json";
 
 describe("ea-ecology", () => {
   it("queries sites near a point and sorts by distance", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(sites), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(sites), { status: 200 }));
     const result = await runOperation(definition, "sites", { latitude: 51.414, longitude: -0.186, radius: 5 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/ecology/api/v1/sites");
@@ -22,7 +23,7 @@ describe("ea-ecology", () => {
   });
 
   it("lists surveys newest first", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(surveys), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(surveys), { status: 200 }));
     const result = await runOperation(definition, "surveys", { siteId: "43378" }, testContext(fetch));
     expect(new URL(fetch.mock.calls[0][0] as string).searchParams.get("site_id")).toBe("43378");
     expect(result.rows?.[0]).toMatchObject({ survey_id: "BIO-2025-0001", survey_date: "2025-05-14", survey_method: "3-minute kick sample", observations: 34 });

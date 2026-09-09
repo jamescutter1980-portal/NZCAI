@@ -1,6 +1,7 @@
 // Fixture shapes follow the published OpenAPI document for the public register
 // API (registrationNumber, holder.name, register.label, site.siteAddress, distance);
 // not captured live here.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { definition } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -9,7 +10,7 @@ import carriers from "./fixtures/waste-carriers.json";
 
 describe("ea-public-registers", () => {
   it("converts lat/long to easting/northing and searches all registers", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(search), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(search), { status: 200 }));
     const result = await runOperation(definition, "near-point", { latitude: 51.501009, longitude: -0.141588, dist: 1 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/public-register/api/search.json");
@@ -24,7 +25,7 @@ describe("ea-public-registers", () => {
   });
 
   it("uses a single register route with given easting/northing", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ items: [] }), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ items: [] }), { status: 200 }));
     const result = await runOperation(definition, "near-point", { easting: 623719, northing: 309247, dist: 5, register: "waste-operations" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/public-register/waste-operations/registration.json");
@@ -34,7 +35,7 @@ describe("ea-public-registers", () => {
   });
 
   it("looks up waste carriers by name", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(carriers), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(carriers), { status: 200 }));
     const result = await runOperation(definition, "waste-carrier", { name: "Example Skips" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/public-register/waste-carriers-brokers/registration.json");

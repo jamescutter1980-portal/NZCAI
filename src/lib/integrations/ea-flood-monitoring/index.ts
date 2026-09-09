@@ -1,5 +1,5 @@
 import { buildUrl, defineIntegration, fetchJson, makeProvenance, simpleHealth, type OperationContext, type OperationResult } from "../framework";
-import { type EaList, lastSegment, num, round, text, trimItems } from "./ea-lda";
+import { type EaList, haversineKm, lastSegment, num, round, text, trimItems } from "./ea-lda";
 
 /**
  * Environment Agency real-time flood-monitoring API (England).
@@ -156,19 +156,10 @@ export function stationRow(s: Station, origin?: { lat: number; lon: number }) {
     date_opened: s.dateOpened ?? null,
     latitude: lat,
     longitude: lon,
-    distance_km: origin && lat !== null && lon !== null ? round(haversine(origin.lat, origin.lon, lat, lon)) : null,
+    distance_km: origin && lat !== null && lon !== null ? round(haversineKm(origin.lat, origin.lon, lat, lon)) : null,
     typical_range_low: num(s.stageScale?.typicalRangeLow),
     typical_range_high: num(s.stageScale?.typicalRangeHigh),
   };
-}
-
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
 }
 
 const STATION_COLUMNS = ["station_reference", "label", "type", "river_name", "town", "catchment", "parameters", "status", "date_opened", "latitude", "longitude", "distance_km", "typical_range_low", "typical_range_high"];

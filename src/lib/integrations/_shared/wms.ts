@@ -1,4 +1,4 @@
-import { buildUrl, fetchText, IntegrationHttpError, type OperationContext } from "../framework";
+import { fetchText, IntegrationHttpError, type OperationContext } from "../framework";
 
 /**
  * OGC WMS 1.3.0 GetFeatureInfo point query, for map services that expose no
@@ -38,6 +38,16 @@ export interface WmsFeatureInfoResult {
 
 export const WMS_INFO_FORMATS = ["application/json", "text/plain", "text/html"];
 
+/** Appends query parameters to a service URL without altering its path (WMS endpoints must not gain a trailing slash). */
+export function withQuery(base: string, query: Record<string, string | number | undefined>): string {
+  const url = new URL(base);
+  for (const [k, v] of Object.entries(query)) {
+    if (v === undefined) continue;
+    url.searchParams.set(k, String(v));
+  }
+  return url.toString();
+}
+
 export function wmsFeatureInfoUrl(base: string, opts: WmsFeatureInfoOptions): string {
   const w = opts.width ?? 101;
   const h = opts.height ?? 101;
@@ -45,7 +55,7 @@ export function wmsFeatureInfoUrl(base: string, opts: WmsFeatureInfoOptions): st
   const dy = dx * Math.cos((opts.latitude * Math.PI) / 180);
   const bbox = [opts.longitude - dx, opts.latitude - dy, opts.longitude + dx, opts.latitude + dy].map((v) => v.toFixed(7)).join(",");
   const layers = opts.layers.join(",");
-  return buildUrl(base, "", {
+  return withQuery(base, {
     SERVICE: "WMS",
     VERSION: "1.3.0",
     REQUEST: "GetFeatureInfo",
@@ -65,7 +75,7 @@ export function wmsFeatureInfoUrl(base: string, opts: WmsFeatureInfoOptions): st
 }
 
 export function wmsCapabilitiesUrl(base: string): string {
-  return buildUrl(base, "", { SERVICE: "WMS", VERSION: "1.3.0", REQUEST: "GetCapabilities" });
+  return withQuery(base, { SERVICE: "WMS", VERSION: "1.3.0", REQUEST: "GetCapabilities" });
 }
 
 function decodeEntities(s: string): string {

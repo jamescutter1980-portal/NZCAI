@@ -1,6 +1,7 @@
 // Fixtures mirror the documented response shapes in
 // https://environment.data.gov.uk/flood-monitoring/doc/reference (and public
 // client code); they were not captured from a live call in this codebase.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { definition, parseMeasureId } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -12,7 +13,7 @@ const EMPTY = { "@context": "x", meta: {}, items: [] };
 
 describe("ea-flood-monitoring", () => {
   it("queries warnings near a point and labels severity", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(floods), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(floods), { status: 200 }));
     const result = await runOperation(definition, "warnings", { latitude: 50.95, longitude: -0.51, dist: 10 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/flood-monitoring/id/floods");
@@ -35,7 +36,7 @@ describe("ea-flood-monitoring", () => {
   });
 
   it("lists rainfall gauges with latest totals from a full station view", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(stations), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(stations), { status: 200 }));
     const result = await runOperation(definition, "rainfall", { latitude: 51.87, longitude: -1.74, dist: 15 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.searchParams.get("parameter")).toBe("rainfall");
@@ -46,7 +47,7 @@ describe("ea-flood-monitoring", () => {
   });
 
   it("requests tide gauges by station type", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(stations), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(stations), { status: 200 }));
     await runOperation(definition, "tide-gauges", { latitude: 51.87, longitude: -1.74 }, testContext(fetch));
     expect(new URL(fetch.mock.calls[0][0] as string).searchParams.get("type")).toBe("TideGauge");
   });
@@ -57,7 +58,7 @@ describe("ea-flood-monitoring", () => {
   });
 
   it("parses latest readings and measure ids", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(latest), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(latest), { status: 200 }));
     const result = await runOperation(definition, "latest-readings", { stationReference: "1029TH" }, testContext(fetch));
     expect(fetch.mock.calls[0][0]).toBe("https://environment.data.gov.uk/flood-monitoring/id/stations/1029TH/readings?latest");
     expect(result.rows?.[0]).toMatchObject({ value: 0.112, parameter: "level", qualifier: "downstage", unit: "mASD" });
@@ -65,7 +66,7 @@ describe("ea-flood-monitoring", () => {
   });
 
   it("builds a sorted since query", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(latest), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(latest), { status: 200 }));
     await runOperation(definition, "readings-since", { stationReference: "1029TH", since: "2026-09-01T00:00:00Z", parameter: "level" }, testContext(fetch));
     const url = fetch.mock.calls[0][0] as string;
     expect(url).toContain("/id/stations/1029TH/readings?");
@@ -75,7 +76,7 @@ describe("ea-flood-monitoring", () => {
   });
 
   it("reports a missing station without throwing", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ status: 404, message: "Not found" }), { status: 404 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify({ status: 404, message: "Not found" }), { status: 404 }));
     const result = await runOperation(definition, "station", { stationReference: "NOPE" }, testContext(fetch));
     expect(result.rows).toEqual([]);
     expect(result.provenance.basis).toBe("unavailable");

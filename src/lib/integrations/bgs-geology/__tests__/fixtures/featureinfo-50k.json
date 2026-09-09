@@ -1,0 +1,7 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { "type": "Feature", "id": "BGS.50k.Bedrock.1", "layerName": "BGS.50k.Bedrock", "properties": { "OBJECTID": 1, "LEX": "LC", "LEX_D": "LONDON CLAY FORMATION", "LEX_RCS": "LC-CLSISA", "RCS_D": "CLAY, SILT AND SAND", "RANK_D": "FORMATION", "BED_EQ_D": "", "MB_EQ_D": "", "FM_EQ_D": "LONDON CLAY FORMATION", "GP_EQ_D": "THAMES GROUP", "MAX_TIME_D": "YPRESIAN AGE", "MIN_TIME_D": "YPRESIAN AGE", "VERSION": "V8" } },
+    { "type": "Feature", "id": "BGS.50k.Superficial.deposits.1", "layerName": "BGS.50k.Superficial.deposits", "properties": { "OBJECTID": 2, "LEX_D": "LANGLEY SILT MEMBER", "RCS_D": "CLAY, SILT AND SAND", "RANK_D": "MEMBER", "MAX_TIME_D": "DEVENSIAN STAGE", "MIN_TIME_D": "HOLOCENE EPOCH", "VERSION": "V8" } }
+  ]
+}

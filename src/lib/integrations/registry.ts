@@ -51,19 +51,48 @@ import { definition as okobaudat } from "./okobaudat";
 import { definition as ec3BuildingTransparency } from "./ec3-building-transparency";
 import { definition as becd } from "./becd";
 import { definition as ecoinvent } from "./ecoinvent";
+import { definition as eaFloodMonitoring } from "./ea-flood-monitoring";
+import { definition as eaHydrology } from "./ea-hydrology";
+import { definition as eaAssetManagement } from "./ea-asset-management";
+import { definition as eaWaterQuality } from "./ea-water-quality";
+import { definition as eaCatchmentData } from "./ea-catchment-data";
+import { definition as eaBathingWaters } from "./ea-bathing-waters";
+import { definition as eaLongTermFloodRisk } from "./ea-long-term-flood-risk";
+import { definition as sepaFloodMaps } from "./sepa-flood-maps";
+import { definition as nrwFlood } from "./nrw-flood";
+import { definition as floodMapsNi } from "./flood-maps-ni";
+import { definition as jbaFlood } from "./jba-flood";
+import { definition as wriAqueduct } from "./wri-aqueduct";
+import { definition as eaPublicRegisters } from "./ea-public-registers";
+import { definition as eaEnvironmentalConstraints } from "./ea-environmental-constraints";
+import { definition as bgsGeology } from "./bgs-geology";
+import { definition as coalAuthority } from "./coal-authority";
+import { definition as defraUkAir } from "./defra-uk-air";
+import { definition as defraNoiseMapping } from "./defra-noise-mapping";
+import { definition as ukradon } from "./ukradon";
+import { definition as groundsure } from "./groundsure";
+import { definition as landmarkClimate } from "./landmark-climate";
+import { definition as eaEcology } from "./ea-ecology";
+import { definition as moslWaterMarket } from "./mosl-water-market";
 
 /** Every registered data source. Order is display order within a group. */
 export const integrations: IntegrationDefinition[] = [
   // identity
   postcodesIo, epcEnglandWales, osDataHub, planningData, historicEnglandNhle, landRegistry, voaRatingList, scottishEpcRegister, osOpenUprn, niEpc,
   // energy
-  n3rgy, octopusEnergy, openvolt, electralinkQuoteright, xoserveGasData, perse, measurabl,
+  n3rgy, octopusEnergy, openvolt, electralinkQuoteright, xoserveGasData, perse, measurabl, moslWaterMarket,
   // grid
   carbonIntensity, elexonInsights, nesoDataPortal, dnoOpenData, ngedConnectedData, ssenDataPortal, nationalGasData,
   // weather
   openMeteo, metOfficeDatahub, degreeDaysNet, ukhsaWeatherHealthAlerts, ukcp18, hadukGridCeda, copernicusCds,
   // solar
   pvgis, pvLive, solcast, googleSolar, solaredge, enphase, givenergy,
+  // flood_water
+  eaFloodMonitoring, eaHydrology, eaAssetManagement, eaWaterQuality, eaCatchmentData, eaBathingWaters, eaLongTermFloodRisk, sepaFloodMaps, nrwFlood, floodMapsNi, jbaFlood, wriAqueduct,
+  // ground
+  eaPublicRegisters, eaEnvironmentalConstraints, bgsGeology, coalAuthority, defraUkAir, defraNoiseMapping, ukradon, groundsure, landmarkClimate,
+  // nature
+  eaEcology,
   // carbon
   desnzConversionFactors, aibResidualMix, ofgemRenewableElectricityRegister, climatiq, exiobase, xeroSpend, quickbooksSpend,
   // pathways

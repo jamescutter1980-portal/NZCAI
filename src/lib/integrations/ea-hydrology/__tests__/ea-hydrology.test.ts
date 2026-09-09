@@ -1,5 +1,6 @@
 // Fixtures follow the documented shapes at
 // https://environment.data.gov.uk/hydrology/doc/reference; not captured live here.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { definition, summariseDaily } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -8,7 +9,7 @@ import readings from "./fixtures/readings.json";
 
 describe("ea-hydrology", () => {
   it("finds stations near a point filtered by observed property", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(stations), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(stations), { status: 200 }));
     const result = await runOperation(definition, "stations", { latitude: 51.41, longitude: -0.31, dist: 5, observedProperty: "waterFlow" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/hydrology/id/stations.json");
@@ -19,7 +20,7 @@ describe("ea-hydrology", () => {
   });
 
   it("summarises readings by day with quality flags and inclusive date params", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(readings), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(readings), { status: 200 }));
     const result = await runOperation(definition, "readings", { measureId: "x-flow-m-86400-m3s-qualified", from: "2026-01-01", to: "2026-01-31" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/hydrology/id/measures/x-flow-m-86400-m3s-qualified/readings.json");

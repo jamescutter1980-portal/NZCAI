@@ -1,5 +1,6 @@
 // Fixture items were taken from a recorded response of /asset-management/id/asset.json
 // (public test cassette); the spatial filter parameters follow the platform convention.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { conditionVsTarget, definition } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -7,7 +8,7 @@ import assets from "./fixtures/assets.json";
 
 describe("ea-asset-management", () => {
   it("queries assets near a point and maps condition fields", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(assets), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(assets), { status: 200 }));
     const result = await runOperation(definition, "assets-near", { latitude: 51.44, longitude: -2.56, dist: 1 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/asset-management/id/asset.json");

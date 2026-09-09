@@ -71,7 +71,6 @@ export const definition = defineIntegration({
           const first = rows.find((r) => r.status === "error");
           throw new IntegrationHttpError(`Every EA flood service failed: ${first?.message ?? "unknown"}`, 502, base, rows.map((r) => `${r.layer_group}: ${r.message}`).join("\n"));
         }
-        const hits = usable.filter((r) => r.hit);
         const fz3 = rows.find((r) => r.layer_group.startsWith("Flood Zone 3"));
         const fz2 = rows.find((r) => r.layer_group.startsWith("Flood Zone 2"));
         const zone = fz3?.hit ? "Flood Zone 3" : fz2?.hit ? "Flood Zone 2" : fz3?.status === "no feature" && fz2?.status === "no feature" ? "Flood Zone 1 (outside Zones 2 and 3)" : "Flood Zone undetermined";
@@ -80,7 +79,7 @@ export const definition = defineIntegration({
           columns: SCAN_COLUMNS,
           rows,
           raw,
-          provenance: makeProvenance(definition, ctx, { dataset: "EA ArcGIS flood risk layers", basis: hits.length ? "modelled" : "modelled" }),
+          provenance: makeProvenance(definition, ctx, { dataset: "EA ArcGIS flood risk layers", basis: "modelled" }),
           warnings: [
             "Mapped flood risk is modelled; a point check is desktop screening, not a site-specific flood risk assessment (FRA) and does not consider surface water drainage, groundwater or sewer flooding beyond the layers listed.",
             "Present-day and climate-change rows are separate scenarios; do not combine them into one rating.",

@@ -1,6 +1,7 @@
 // Fixtures follow the Linked Data API rendering used by environment.data.gov.uk
 // (result.items / result.primaryTopic, {_value,_lang} literals) and the property
 // lists in the published Elda configuration; not captured live here.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { definition } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -10,7 +11,7 @@ import compliance from "./fixtures/latest-compliance.json";
 
 describe("ea-bathing-waters", () => {
   it("lists bathing waters in a district", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(list), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(list), { status: 200 }));
     const result = await runOperation(definition, "by-district", { gssCode: "e07000043" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/doc/bathing-water.json");
@@ -20,7 +21,7 @@ describe("ea-bathing-waters", () => {
   });
 
   it("converts lat/long to OSGB36 for the nearest lookup", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(list), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(list), { status: 200 }));
     await runOperation(definition, "nearest", { latitude: 51.501009, longitude: -0.141588, count: 3 }, testContext(fetch));
     const url = fetch.mock.calls[0][0] as string;
     const m = /nearest-bathing-water\/easting\/(\d+)\/northing\/(\d+)\.json\?_pageSize=3$/.exec(url);

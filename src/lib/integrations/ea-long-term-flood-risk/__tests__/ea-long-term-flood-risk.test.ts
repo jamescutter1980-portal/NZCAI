@@ -1,6 +1,7 @@
 // Fixtures mirror ArcGIS REST `query?f=json` and `MapServer?f=json` shapes with
 // attribute names from published EA layer descriptions (prob_4band, type/layer);
 // service names were confirmed from public references where noted in index.ts.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { definition, SERVICES } from "..";
 import { digest, parseOverrides } from "../arcgis-scan";
@@ -71,7 +72,7 @@ describe("ea-long-term-flood-risk", () => {
   });
 
   it("throws when every service fails so the UI can show the upstream status", async () => {
-    const fetch = vi.fn(async () => new Response("gateway", { status: 502 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response("gateway", { status: 502 }));
     await expect(runOperation(definition, "risk-at-point", { latitude: 52, longitude: -1 }, testContext(fetch))).rejects.toThrow(/Every EA flood service failed/);
   });
 

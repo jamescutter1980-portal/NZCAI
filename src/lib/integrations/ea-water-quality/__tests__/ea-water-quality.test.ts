@@ -1,5 +1,6 @@
 // Fixture shapes follow the Water Quality Archive reference and its CSV exports
 // (sample.sampleDateTime, determinand.label, resultQualifier.notation); not captured live here.
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { definition } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -8,7 +9,7 @@ import measurements from "./fixtures/measurements.json";
 
 describe("ea-water-quality", () => {
   it("finds sampling points near a point", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(points), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(points), { status: 200 }));
     const result = await runOperation(definition, "sampling-points", { latitude: 51.04, longitude: -2.84, dist: 3 }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/water-quality/id/sampling-point.json");
@@ -18,7 +19,7 @@ describe("ea-water-quality", () => {
   });
 
   it("lists measurements newest first with qualifiers and units", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(measurements), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(measurements), { status: 200 }));
     const result = await runOperation(definition, "measurements", { samplingPoint: "SW-60250424", startDate: "2026-01-01", endDate: "2026-02-01", determinand: "0117" }, testContext(fetch));
     const url = new URL(fetch.mock.calls[0][0] as string);
     expect(url.pathname).toBe("/water-quality/data/measurement.json");

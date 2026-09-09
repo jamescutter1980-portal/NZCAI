@@ -114,7 +114,7 @@ export function measureRow(m: HydroMeasure) {
   };
 }
 
-export interface DailySummary {
+export interface DailySummary extends Record<string, unknown> {
   date: string;
   readings: number;
   min: number | null;

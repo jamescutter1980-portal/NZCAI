@@ -1,0 +1,11 @@
+[
+  {
+    "id": 5551,
+    "label": "Nitrogen dioxide (air), London Marylebone Road-Nitrogen dioxide (air), GB_Station_GB0682A",
+    "uom": "ug.m-3",
+    "station": { "properties": { "id": 1001, "label": "London Marylebone Road-Nitrogen dioxide (air)" }, "geometry": { "type": "Point", "coordinates": [51.52253, -0.15461, 35] }, "type": "Feature", "id": 1001 },
+    "parameters": { "service": { "id": "1", "label": "UK-AIR" }, "offering": { "id": "1", "label": "Nitrogen dioxide (air)" }, "feature": { "id": "1001", "label": "GB_SamplingFeature_GB0682A" }, "procedure": { "id": "1", "label": "Chemiluminescence" }, "phenomenon": { "id": "http://dd.eionet.europa.eu/vocabulary/aq/pollutant/8", "label": "Nitrogen dioxide (air)" }, "category": { "id": "8", "label": "Nitrogen dioxide (air)" } },
+    "firstValue": { "timestamp": 1704067200000, "value": 41.2 },
+    "lastValue": { "timestamp": 1757415600000, "value": 38.6 }
+  }
+]

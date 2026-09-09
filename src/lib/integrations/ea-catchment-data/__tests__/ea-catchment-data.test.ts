@@ -2,6 +2,7 @@
 // classifications.csv columns come from published analyses of the public files,
 // not from a live call in this codebase.
 import { readFileSync } from "node:fs";
+import type { FetchLike } from "../../framework";
 import { describe, expect, it, vi } from "vitest";
 import { classificationRows, definition } from "..";
 import { routedFetch, runOperation, testContext } from "../../testing";
@@ -11,7 +12,7 @@ const csv = readFileSync(new URL("./fixtures/classifications.csv", import.meta.u
 
 describe("ea-catchment-data", () => {
   it("fetches a water body GeoJSON by id", async () => {
-    const fetch = vi.fn(async () => new Response(JSON.stringify(waterBody), { status: 200 }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(JSON.stringify(waterBody), { status: 200 }));
     const result = await runOperation(definition, "water-body", { waterBodyId: "GB108044009890" }, testContext(fetch));
     expect(fetch.mock.calls[0][0]).toBe("https://environment.data.gov.uk/catchment-planning/WaterBody/GB108044009890.geojson");
     expect(result.rows).toHaveLength(2);
@@ -21,7 +22,7 @@ describe("ea-catchment-data", () => {
   });
 
   it("parses catchment classifications, keeping only the latest year per water body", async () => {
-    const fetch = vi.fn(async () => new Response(csv, { status: 200, headers: { "content-type": "text/csv" } }));
+    const fetch = vi.fn<FetchLike>(async () => new Response(csv, { status: 200, headers: { "content-type": "text/csv" } }));
     const result = await runOperation(definition, "catchment-classifications", { catchmentId: 3367 }, testContext(fetch));
     expect(fetch.mock.calls[0][0]).toBe("https://environment.data.gov.uk/catchment-planning/OperationalCatchment/3367/classifications.csv");
     expect(result.rows).toHaveLength(4);

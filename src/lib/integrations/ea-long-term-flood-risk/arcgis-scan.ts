@@ -155,18 +155,24 @@ export function parseOverrides(json: string | undefined): Record<string, string>
   }
 }
 
-/** Plain-English digest grouped by scenario. */
+/** Plain-English digest grouped by scenario; layer names are shown only for multi-layer services. */
 export function digest(rows: ScanRow[]): string {
-  const groups = new Map<Scenario, string[]>();
+  const perGroup = new Map<string, number>();
+  for (const r of rows) perGroup.set(r.layer_group, (perGroup.get(r.layer_group) ?? 0) + 1);
+  const groups = new Map<Scenario, { hits: string[]; checked: number }>();
   for (const r of rows) {
-    const list = groups.get(r.scenario) ?? [];
-    if (r.status === "hit") list.push(`${r.layer_group}${r.layer && r.layer !== "(service)" && r.layer !== r.layer_group ? ` / ${r.layer}` : ""}: ${r.risk_band ?? "within"}`);
-    groups.set(r.scenario, list);
+    const g = groups.get(r.scenario) ?? { hits: [], checked: 0 };
+    if (r.status === "hit" || r.status === "no feature") g.checked += 1;
+    if (r.status === "hit") {
+      const multi = (perGroup.get(r.layer_group) ?? 1) > 1 && r.layer !== "(service)";
+      g.hits.push(`${r.layer_group}${multi ? ` / ${r.layer}` : ""}: ${r.risk_band ?? "within"}`);
+    }
+    groups.set(r.scenario, g);
   }
   const parts: string[] = [];
-  for (const [scenario, hits] of groups) {
-    const total = rows.filter((r) => r.scenario === scenario && r.status !== "error" && r.status !== "skipped").length;
-    parts.push(`${scenario[0].toUpperCase()}${scenario.slice(1)}: ${hits.length ? hits.join("; ") : `no features at the point (${total} layers checked)`}`);
+  for (const [scenario, g] of groups) {
+    if (!g.checked) continue;
+    parts.push(`${scenario[0].toUpperCase()}${scenario.slice(1)}: ${g.hits.length ? g.hits.join("; ") : `no features at the point (${g.checked} layers checked)`}`);
   }
   return parts.join(". ");
 }
