@@ -64,9 +64,35 @@ Lifecycle:
 
 **Renew** updates the expiry date. **Withdraw** sets the status with a reason; a fresh record is created if the same occupier consents again later.
 
-Storage is a JSON file (`data/consents.json`, gitignored, path via `CONSENT_STORE_PATH`) behind the `ConsentStore` interface in `src/lib/consent/store.ts`. Swap in a database implementation before multi-user deployment; nothing else needs to change.
+Storage is the portal SQLite database (`SqliteConsentStore`) behind the `ConsentStore` interface. Set `CONSENT_STORE_PATH` to a JSON file to use the file store instead, for example in tests.
 
 Verification only proves that n3rgy currently grants access to our key. It does not replace holding the occupier's evidence; keep the letter of authority or n3rgy consent reference in `evidenceRef`.
+
+## Sync, storage and tariffs
+
+`runN3rgySync` (`src/lib/sync/n3rgy-sync.ts`) pulls for every **active** consent and each utility it covers:
+
+1. Import readings from the last stored interval (or 395 days back on first run, n3rgy's retention) to the end of yesterday UTC, 90 days per request, upserted into `meter_readings` with the consent id on each row.
+2. Export readings for electricity; a 404 is recorded as "no export register", not an error.
+3. Tariff prices per half hour and standing charges into `tariff_prices` and `standing_charges`. Tariff failures are warnings.
+4. Gap detection across the stored window, written to the run log.
+5. Warnings for consents expiring within 30 days, expired, or still pending.
+
+Each run is logged in `sync_runs` and `sync_items` and shown on `/sync`. Runs are idempotent.
+
+Run it:
+
+- `pnpm n3rgy:sync` daily from cron, a systemd timer or Windows Task Scheduler. Exit code 1 if any meter errored.
+- `POST /api/n3rgy/sync` from a hosted scheduler with `Authorization: Bearer $SYNC_TOKEN` (or `?token=`). Vercel Cron can use GET.
+- The "Run sync now" button on `/sync`.
+
+Storage is SQLite through Node's built-in driver (`DB_PATH`, default `data/portal.sqlite`, gitignored). Migrations are in `src/lib/db/sqlite.ts` and run on open. Node prints an "SQLite is an experimental feature" warning once per process; it is harmless. Moving to Postgres later means reimplementing `ReadingsRepository` and `SqliteConsentStore` against the same interfaces.
+
+`/readings` and `GET /api/readings` serve stored data by meter and date range: daily totals, gaps, CSV, and an **indicative** cost from the stored tariff (unit rate × kWh plus standing charge per day, excluding VAT and anything the supplier did not report to n3rgy). Treat the cost as a sanity check, not a bill.
+
+## Access protection
+
+Set `PORTAL_BASIC_AUTH=user:password` to put HTTP Basic Auth in front of every route (`src/proxy.ts`). Sync requests carrying a valid `SYNC_TOKEN` bypass it so schedulers do not need the password. This is single-user protection for a hosted instance; real accounts are still to come.
 
 ## Portal outputs
 
@@ -76,8 +102,8 @@ Verification only proves that n3rgy currently grants access to our key. It does 
 
 ## Next steps
 
-1. Persist readings and provenance to the portal database rather than fetching per request.
-2. Scheduled daily pull per active consent with gap detection and expiry warnings.
-3. Tariff import for cost analysis and market-based Scope 2 evidence.
-4. Database-backed `ConsentStore` and user authentication before multi-user use.
-5. Evidence file upload (letter of authority PDF) attached to the consent record.
+1. Link meters to portal assets (UPRN, site) so readings roll up to buildings and EUI.
+2. Carbon: apply DESNZ factors and the Carbon Intensity API to stored readings (location-based, market-based, time-varying).
+3. Evidence file upload (letter of authority PDF) attached to the consent record.
+4. User accounts and roles in place of basic auth; Postgres in place of SQLite for multi-instance hosting.
+5. Email or Slack notification when a sync errors or a consent is within 30 days of expiry.

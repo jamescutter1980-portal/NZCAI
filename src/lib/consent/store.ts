@@ -93,18 +93,3 @@ export class JsonFileConsentStore implements ConsentStore {
 function stripUndefined<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 }
-
-let singleton: ConsentStore | undefined;
-
-/** Process-wide store. Path from CONSENT_STORE_PATH, default data/consents.json. */
-export function getConsentStore(): ConsentStore {
-  if (!singleton) {
-    singleton = new JsonFileConsentStore(process.env.CONSENT_STORE_PATH?.trim() || "data/consents.json");
-  }
-  return singleton;
-}
-
-/** Test hook. */
-export function setConsentStore(store: ConsentStore | undefined) {
-  singleton = store;
-}

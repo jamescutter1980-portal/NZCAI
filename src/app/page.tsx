@@ -12,6 +12,12 @@ export default function Home() {
         <li>
           <Link href="/consents">Meter data consents</Link> – record, verify, renew and withdraw occupier consents
         </li>
+        <li>
+          <Link href="/sync">n3rgy sync</Link> – scheduled pull of readings and tariffs into the portal database
+        </li>
+        <li>
+          <Link href="/readings">Stored readings</Link> – daily totals, gaps and indicative cost per meter
+        </li>
       </ul>
     </>
   );
