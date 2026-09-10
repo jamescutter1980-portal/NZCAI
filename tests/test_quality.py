@@ -11,7 +11,7 @@ from engines.quality import (
     uplift_tonnes,
     weighted_dq_score,
 )
-from engines.types import Category, Figure, Tier
+from engines.types import PRIMARY_TIERS, Category, Figure, Tier, is_primary
 from tests import fixtures as fx
 
 
@@ -40,6 +40,26 @@ class FigureIntegrity(unittest.TestCase):
     def test_negative_emissions_are_rejected(self):
         with self.assertRaises(ValueError):
             _fig(-1.0, Tier.D)
+
+
+class PrimaryBoundary(unittest.TestCase):
+    """Where primary data stops and secondary begins, for ESRS E1-6."""
+
+    def test_supplier_specific_and_hybrid_are_primary(self):
+        self.assertTrue(is_primary(Tier.A))
+        self.assertTrue(is_primary(Tier.B))
+
+    def test_average_spend_and_estimated_are_secondary(self):
+        for tier in (Tier.C, Tier.D, Tier.E):
+            with self.subTest(tier=tier):
+                self.assertFalse(is_primary(tier))
+
+    def test_every_tier_falls_on_one_side_or_the_other(self):
+        self.assertEqual(
+            {t for t in Tier if is_primary(t)} | {t for t in Tier if not is_primary(t)},
+            set(Tier),
+        )
+        self.assertEqual(PRIMARY_TIERS, frozenset({Tier.A, Tier.B}))
 
 
 class PrimaryShare(unittest.TestCase):

@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from datetime import date
 
+from engines.quality import uplift_tonnes
 from engines.types import (
     Category,
+    Confidentiality,
     Counterparty,
     Document,
     DocumentType,
@@ -22,6 +24,13 @@ from engines.types import (
 
 TODAY = date(2026, 9, 10)
 REPORTING_PERIOD = 2026
+
+#: The client organisation whose inventory this is.
+ORG = "org_welcome_shaped"
+
+#: A second client of the same consultancy, for the cross-organisation
+#: disclosure tests. It must never see the first client's documents.
+OTHER_ORG = "org_other_client"
 
 DESNZ = ("DESNZ", "2025")
 CEDA = ("Open CEDA", "2024")
@@ -219,6 +228,23 @@ FIGURES: list[Figure] = [
 TOTAL_SCOPE_3 = sum(f.tco2e for f in FIGURES)
 
 
+def uplift_by_counterparty() -> dict[str, float]:
+    """Tonnes of tier improvement available per counterparty, derived.
+
+    Computed from FIGURES through the real engine rather than transcribed, so
+    a regression in :func:`engines.quality.uplift_tonnes` shows up in the
+    scoring tests instead of hiding behind a stale constant. Every known
+    counterparty appears, including those with nothing to gain.
+    """
+    uplift: dict[str, float] = {cid: 0.0 for cid in COUNTERPARTIES}
+    for figure in FIGURES:
+        if figure.counterparty_id:
+            uplift[figure.counterparty_id] = (
+                uplift.get(figure.counterparty_id, 0.0) + uplift_tonnes(figure)
+            )
+    return uplift
+
+
 #: Categories inside the proposed near-term target boundary. Fuel sold plus
 #: the food book carries the coverage test comfortably.
 COVERED = frozenset(
@@ -240,6 +266,7 @@ ISO_CERT_EXPIRED = Document(
     doc_type=DocumentType.ISO_CERTIFICATE,
     issue_date=date(2023, 5, 1),
     valid_to=date(2026, 5, 1),
+    owner_org_id=ORG,
 )
 
 ISO_CERT_EXPIRING = Document(
@@ -248,14 +275,19 @@ ISO_CERT_EXPIRING = Document(
     doc_type=DocumentType.ISO_CERTIFICATE,
     issue_date=date(2023, 11, 1),
     valid_to=date(2026, 11, 1),
+    owner_org_id=ORG,
 )
 
+# A published report: open to anyone, and the reason enrichment raises the
+# primary-data share even when a counterparty never replies.
 REPORT_CURRENT = Document(
     id="doc_report_dairy",
     counterparty_id="dairy_co",
     doc_type=DocumentType.SUSTAINABILITY_REPORT,
     issue_date=date(2026, 4, 1),
     period_covered=2025,
+    confidentiality=Confidentiality.PUBLIC,
+    owner_org_id=ORG,
 )
 
 REPORT_STALE = Document(
@@ -264,6 +296,8 @@ REPORT_STALE = Document(
     doc_type=DocumentType.SUSTAINABILITY_REPORT,
     issue_date=date(2025, 1, 15),
     period_covered=2024,
+    confidentiality=Confidentiality.PUBLIC,
+    owner_org_id=ORG,
 )
 
 UTILITY_BILL_STALE = Document(
@@ -271,6 +305,7 @@ UTILITY_BILL_STALE = Document(
     counterparty_id="charging",
     doc_type=DocumentType.UTILITY_BILL,
     issue_date=date(2026, 1, 31),
+    owner_org_id=ORG,
 )
 
 INVOICE = Document(
@@ -278,8 +313,43 @@ INVOICE = Document(
     counterparty_id="bakery",
     doc_type=DocumentType.INVOICE,
     issue_date=date(2024, 2, 2),
+    owner_org_id=ORG,
 )
 
+# Commercially sensitive, held under an agreement with this client only.
+PCF_UNDER_NDA = Document(
+    id="doc_pcf_beef",
+    counterparty_id="beef_co",
+    doc_type=DocumentType.EPD,
+    issue_date=date(2026, 3, 1),
+    valid_to=date(2031, 3, 1),
+    confidentiality=Confidentiality.NDA,
+    owner_org_id=ORG,
+)
+
+# The supplier has consented to one other client of the consultancy seeing it.
+VSME_CONSENTED = Document(
+    id="doc_vsme_bakery",
+    counterparty_id="bakery",
+    doc_type=DocumentType.VSME_RETURN,
+    issue_date=date(2026, 6, 1),
+    period_covered=2025,
+    confidentiality=Confidentiality.CONSENTED_REUSE,
+    owner_org_id=ORG,
+    consented_org_ids=frozenset({OTHER_ORG}),
+)
+
+# Extraction ran before anyone attributed it to a client. Fails closed.
+UNATTRIBUTED = Document(
+    id="doc_orphan",
+    counterparty_id="bidfood",
+    doc_type=DocumentType.INVOICE,
+    issue_date=date(2026, 7, 1),
+    confidentiality=Confidentiality.CLIENT_ONLY,
+)
+
+#: The documents the validity engine walks. Kept to the set whose ageing is
+#: under test, so adding a disclosure fixture does not change a lapse count.
 DOCUMENTS: list[Document] = [
     ISO_CERT_EXPIRED,
     ISO_CERT_EXPIRING,
@@ -287,4 +357,13 @@ DOCUMENTS: list[Document] = [
     REPORT_STALE,
     UTILITY_BILL_STALE,
     INVOICE,
+]
+
+#: Every basis, for the disclosure rules.
+DISCLOSURE_DOCUMENTS: list[Document] = [
+    REPORT_CURRENT,
+    INVOICE,
+    PCF_UNDER_NDA,
+    VSME_CONSENTED,
+    UNATTRIBUTED,
 ]

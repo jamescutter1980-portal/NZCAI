@@ -211,9 +211,40 @@ DOMINANT_ROLES: frozenset[RelationshipRole] = frozenset(
 
 
 class Direction(str, Enum):
+    """Where a role sits relative to us in the value chain.
+
+    Drives which Scope 3 categories a relationship can serve and which way
+    requests flow: upstream counterparties are ones we ask, downstream ones
+    report to us or are reported to.
+    """
+
     UPSTREAM = "upstream"
     DOWNSTREAM = "downstream"
     BOTH = "both"
+
+
+#: Value-chain position of each role. A counterparty holds a set of roles, so
+#: its overall position is the union of these.
+ROLE_DIRECTION: dict[RelationshipRole, Direction] = {
+    RelationshipRole.SUPPLIER: Direction.UPSTREAM,
+    RelationshipRole.DISTRIBUTOR: Direction.UPSTREAM,
+    RelationshipRole.LOGISTICS: Direction.UPSTREAM,
+    RelationshipRole.WASTE_CONTRACTOR: Direction.UPSTREAM,
+    RelationshipRole.FUEL_SUPPLIER: Direction.UPSTREAM,
+    # We lease from a landlord, so their building is our upstream leased asset.
+    RelationshipRole.LANDLORD: Direction.UPSTREAM,
+    RelationshipRole.CUSTOMER: Direction.DOWNSTREAM,
+    RelationshipRole.FRANCHISEE: Direction.DOWNSTREAM,
+    RelationshipRole.CONCESSION_TENANT: Direction.DOWNSTREAM,
+    RelationshipRole.CHARGING_PARTNER: Direction.DOWNSTREAM,
+    # We report to a parent or a lender; nothing flows the other way.
+    RelationshipRole.PARENT: Direction.DOWNSTREAM,
+    RelationshipRole.LENDER: Direction.DOWNSTREAM,
+    # A franchisor runs both ways and is the reason this is a set rather than a
+    # single value: it supplies brand-level product footprints we want to ask
+    # for, and it demands outlet data from us on its own schedule.
+    RelationshipRole.FRANCHISOR: Direction.BOTH,
+}
 
 
 class EngagementState(str, Enum):
@@ -302,6 +333,31 @@ class Counterparty:
         return bool(self.roles & DOMINANT_ROLES)
 
     @property
+    def directions(self) -> frozenset[Direction]:
+        """Value-chain position, unioned across every role held.
+
+        Position is not the same question as which way a request flows. We ask
+        a concession tenant for its meter data even though it sits downstream
+        of us. Request flow is answered by :attr:`is_dominant`.
+        """
+        return frozenset(
+            ROLE_DIRECTION[role] for role in self.roles if role in ROLE_DIRECTION
+        )
+
+    @property
+    def spans_value_chain(self) -> bool:
+        """True where this counterparty is both upstream and downstream of us.
+
+        Either through a role that runs both ways, or through holding one
+        upstream and one downstream role at once. A coffee chain that licenses
+        us its brand and also sells us the coffee is the worked example.
+        """
+        directions = self.directions
+        if Direction.BOTH in directions:
+            return True
+        return {Direction.UPSTREAM, Direction.DOWNSTREAM} <= directions
+
+    @property
     def may_be_asked_beyond_vsme(self) -> bool:
         """False where the voluntary SME cap applies.
 
@@ -338,11 +394,22 @@ class DocumentType(str, Enum):
 
 
 class Confidentiality(str, Enum):
-    """Enforced on read and on export, not merely recorded."""
+    """The basis on which a document may be seen.
 
+    Enforced on read and on export by :mod:`engines.disclosure`, not merely
+    recorded here. Suppliers share commercially sensitive material and a
+    consultancy acting for several clients in the same supply chain is exactly
+    where an unenforced label becomes a breach.
+    """
+
+    #: Published by the counterparty. Anyone may see it.
     PUBLIC = "public"
+    #: Shared under a non-disclosure agreement with the holding client. That
+    #: agreement does not extend to any other client.
     NDA = "nda"
+    #: Given to one client for its own reporting.
     CLIENT_ONLY = "client_only"
+    #: The counterparty has consented to named other clients seeing it.
     CONSENTED_REUSE = "consented_reuse"
 
 
@@ -354,7 +421,13 @@ class DocumentStatus(str, Enum):
 
 @dataclass(frozen=True)
 class Document:
-    """An artefact received, uploaded or harvested, with what it supports."""
+    """An artefact received, uploaded or harvested, with what it supports.
+
+    `owner_org_id` is the client the document was given to, which is not the
+    counterparty it is about. It governs disclosure. Left unset the document
+    is treated as unattributed and, for anything but a public basis, is
+    disclosed to nobody: failing closed is the only safe default here.
+    """
 
     id: str
     counterparty_id: str
@@ -364,3 +437,7 @@ class Document:
     period_covered: Optional[int] = None
     valid_to: Optional[date] = None
     supports_figures: tuple[str, ...] = field(default_factory=tuple)
+    owner_org_id: Optional[str] = None
+    #: Organisations the counterparty has consented to share this with. Only
+    #: consulted for a CONSENTED_REUSE basis.
+    consented_org_ids: frozenset[str] = field(default_factory=frozenset)

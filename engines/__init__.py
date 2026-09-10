@@ -15,6 +15,7 @@ Layout:
     plan       cadence, the escalation ladder, template choice, fatigue control
     validity   document expiry and the lapse detection that re-opens chases
     conflict   disagreements between what a counterparty tells us and publishes
+    disclosure whether a document may be shown to a given organisation
 
 Specification: docs/product/nzc-ai-scope-3-brief.md
                docs/product/nzc-ai-scope-3-engagement-brief.md
@@ -22,12 +23,24 @@ Specification: docs/product/nzc-ai-scope-3-brief.md
 
 from __future__ import annotations
 
-from . import boundary, conflict, coverage, lifecycle, plan, quality, score, types, validity
+from . import (
+    boundary,
+    conflict,
+    coverage,
+    disclosure,
+    lifecycle,
+    plan,
+    quality,
+    score,
+    types,
+    validity,
+)
 
 __all__ = [
     "boundary",
     "conflict",
     "coverage",
+    "disclosure",
     "lifecycle",
     "plan",
     "quality",

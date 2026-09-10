@@ -18,18 +18,10 @@ from tests import fixtures as fx
 
 TODAY = fx.TODAY
 
-#: Per-counterparty uplift, from engines.quality.uplift_tonnes over the fixture.
-UPLIFT = {
-    "bidfood": 60_000.0,
-    "beef_co": 36_000.0,
-    "dairy_co": 10_500.0,
-    "charging": 4_200.0,
-    "waste_co": 3_250.0,
-    "starbucks": 3_500.0,
-    "bakery": 800.0,
-    "yum": 0.0,
-    "applegreen": 0.0,
-}
+#: Derived from the fixture through the real uplift engine, not transcribed.
+#: The arithmetic itself is pinned in test_quality.py; here it is an input, so
+#: a regression in uplift_tonnes changes these scores and fails these tests.
+UPLIFT = fx.uplift_by_counterparty()
 
 
 def _score(counterparty_id: str):
@@ -39,6 +31,23 @@ def _score(counterparty_id: str):
         annual_spend_gbp=fx.ANNUAL_SPEND[counterparty_id],
         today=TODAY,
     )
+
+
+class DerivedInputs(unittest.TestCase):
+    """Guards the derivation itself, so a silent zero cannot pass unnoticed."""
+
+    def test_every_counterparty_has_an_uplift_figure(self):
+        self.assertEqual(set(UPLIFT), set(fx.COUNTERPARTIES))
+
+    def test_the_food_distributor_carries_the_largest_opportunity(self):
+        largest = max(UPLIFT, key=lambda cid: UPLIFT[cid])
+        self.assertEqual(largest, "bidfood")
+
+    def test_a_dominant_publisher_has_nothing_to_gain_from_a_request(self):
+        self.assertEqual(UPLIFT["yum"], 0.0)
+
+    def test_the_derivation_is_not_uniformly_zero(self):
+        self.assertGreater(sum(UPLIFT.values()), 0.0)
 
 
 class Winnability(unittest.TestCase):

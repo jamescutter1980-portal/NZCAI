@@ -32,17 +32,21 @@ arithmetic happens here.
 | `plan` | Cadence, the escalation ladder, template choice, fatigue control |
 | `validity` | Document expiry and the lapse detection that re-opens a chase |
 | `conflict` | Disagreements between what a counterparty tells us and publishes |
+| `disclosure` | Whether a document may be shown to a given organisation |
 
-Two design rules run through all of it. A figure cannot exist without a factor
-source and version, enforced in the constructor. A state cannot change without
-an audit row, enforced by returning both together.
+Three design rules run through all of it. A figure cannot exist without a
+factor source and version, enforced in the constructor. A state cannot change
+without an audit row, enforced by returning both together. A document's
+confidentiality basis decides who may see it, enforced in one place so an API
+handler, an export routine and a UI guard cannot drift apart, and failing
+closed on anything unattributed.
 
 ## Running it
 
 Requires Python 3.11 or later. Nothing to install.
 
 ```bash
-python3 -m unittest discover -s tests -t .   # 139 tests
+python3 -m unittest discover -s tests -t .   # 178 tests
 python3 demo.py                              # worked example, end to end
 ```
 
@@ -50,7 +54,14 @@ The demo runs a motorway services operator: franchised catering brands, a
 supermarket concession, hotels, a forecourt and a charging hub. It prints the
 inventory, the SBTi gates with the reasons a submission would fail, the data
 quality trajectory, the ranked engagement plan, the evidence needing
-replacement and the conflicts raised for a human to settle.
+replacement, the conflicts raised for a human to settle, and the same evidence
+set exported for two different clients of the same consultancy.
+
+**Not yet built.** These engines decide rules; they do not yet calculate
+emissions. `Figure.tco2e` is supplied by the caller, and there is no factor
+library or activity-times-factor arithmetic anywhere. Of the engines specified
+in the briefs, Layer 1 has 2 of 12 and Layer 2 has 6 of 10. There is no
+database, API, user interface, ingestion or agent layer.
 
 ## Specifications
 

@@ -26,8 +26,9 @@ from engines.coverage import (
     food_sector_2030_gap,
     scope3_share,
 )
+from engines.disclosure import disclosable, withheld
 from engines.plan import build_schedule, next_step, template_for
-from engines.quality import category_breakdown, trajectory, uplift_tonnes
+from engines.quality import category_breakdown, trajectory
 from engines.score import Route, assign_tiers, score_counterparty
 from engines.types import Category
 from engines.validity import lapsed
@@ -118,13 +119,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------
     heading("4", "ENGAGEMENT PLAN")
-    uplift_by_counterparty: dict[str, float] = {}
-    for figure in fx.FIGURES:
-        if figure.counterparty_id:
-            uplift_by_counterparty[figure.counterparty_id] = (
-                uplift_by_counterparty.get(figure.counterparty_id, 0.0)
-                + uplift_tonnes(figure)
-            )
+    uplift_by_counterparty = fx.uplift_by_counterparty()
 
     scores = [
         score_counterparty(
@@ -201,7 +196,24 @@ def main() -> None:
         print(f"    {c.value_a} ({c.source_a})  vs  {c.value_b} ({c.source_b})")
         print(f"    proposed: {c.proposed_resolution}")
         print(f"    {c.rationale}")
-    print(f"\n  {len(conflicts)} conflicts for human decision. None auto-applied.\n")
+    print(f"\n  {len(conflicts)} conflicts for human decision. None auto-applied.")
+
+    # ------------------------------------------------------------------
+    heading("8", "EVIDENCE APPENDIX, TWO AUDIENCES")
+    print("  The same document set, exported for two different clients of the")
+    print("  same consultancy. The basis on each document decides, not the caller.\n")
+    for label, org in (
+        (f"This client ({fx.ORG})", fx.ORG),
+        (f"Another client ({fx.OTHER_ORG})", fx.OTHER_ORG),
+    ):
+        allowed = disclosable(fx.DISCLOSURE_DOCUMENTS, to_org_id=org)
+        held = withheld(fx.DISCLOSURE_DOCUMENTS, to_org_id=org)
+        print(f"  {label}: {len(allowed)} disclosed, {len(held)} withheld")
+        for document in allowed:
+            print(f"      shown    {document.id:<20} {document.confidentiality.value}")
+        for document, decision in held:
+            print(f"      withheld {document.id:<20} {decision.reason}")
+        print()
 
 
 if __name__ == "__main__":
