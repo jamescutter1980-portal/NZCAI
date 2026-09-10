@@ -10,6 +10,7 @@ import {
   buildPortfolioEnergyExport,
   buildReadingsExport,
   buildSecrSummaryExport,
+  buildValueChainExport,
   exportHeaders,
   isExportKind,
   readingsParamsSchema,
@@ -91,6 +92,7 @@ async function build(kind: ExportKind, query: Record<string, string>): Promise<B
   const { year } = parsed.data;
   if (kind === "portfolio-energy") return { table: buildPortfolioEnergyExport(db, ctx, year) };
   if (kind === "portfolio-carbon") return { table: buildPortfolioCarbonExport(db, ctx, year) };
+  if (kind === "value-chain") return { table: buildValueChainExport(db, ctx, year) };
   return { table: buildSecrSummaryExport(db, ctx, year) };
 }
 

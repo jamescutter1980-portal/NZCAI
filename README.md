@@ -4,6 +4,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 
 - `docs/data-source-roadmap.md` – data source register, gap review and integration sequence
 - `docs/assets-and-carbon.md` – assets, meter linking, screening profile and carbon method
+- `docs/value-chain.md` – Scope 3 counterparties: the register, the engagement lifecycle, the annual report and ledger asks, allocation and tiers
 - `docs/api-implementation-plan.md` – the plan to close the remaining API gaps, phased by what actually blocks each
 - `docs/api-gap-analysis.md` – what is integrated, what changed versus the catalogue, what could not be built, verification plan
 - `docs/integrations/data-sources.md` – the sources pages, API routes and health-check CLI
@@ -21,10 +22,11 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Readings | `/readings`, `/api/readings`, `/api/readings/meters` | Daily totals, gaps, CSV, indicative cost |
 | Import | `src/lib/import`, `CsvImport` | Delimiter and preamble detection, column mapping, UK date and number parsing, all-or-nothing commit |
 | Emissions | `/emissions`, `/api/emissions/...` | Refrigerants, water and waste against picked DESNZ rows, with landfill diversion |
+| Value chain | `/value-chain`, `/value-chain/[id]`, `/api/value-chain/...` | Upstream and downstream counterparties, engagement lifecycle with audit trail, annual GHG report or activity ledger per counterparty, attributable tCO2e with data quality tier, ranked chase plan |
 | Transport | `/transport`, `/api/transport/...`, `/api/factors` | Fleet, grey fleet, travel and commuting against picked DESNZ rows; DVLA and MOT vehicle lookup |
-| Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents |
+| Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents, value chain |
 | Assessment | `/api/assets/[id]/assessment` | CRREM misalignment year and UK NZCBS indicative check |
-| Readiness | `/readiness`, `/api/readiness` | 21 checks graded blocker, gap or advisory before a return is filed |
+| Readiness | `/readiness`, `/api/readiness` | 23 checks graded blocker, gap or advisory before a return is filed |
 | Portfolio | `/portfolio`, `/api/portfolio` | Roll-up by calendar, financial or rolling-12-month period with data-quality flags |
 | Assets | `/assets`, `/assets/[id]`, `/api/assets/...`, `pnpm carbon:intensity` | Meters per building, Scope 1 and 2 with factor provenance, screening across 14 point-based sources |
 | Data sources | `/sources`, `/sources/[id]`, `/lookup`, `/api/sources/...`, `pnpm sources:check` | 111 sources, 82 connectors, 253 operations, generic forms, health checks, one-click location lookup |

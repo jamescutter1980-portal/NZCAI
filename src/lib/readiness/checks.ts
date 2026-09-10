@@ -13,6 +13,7 @@ import type { ConsentStore } from "@/lib/consent/store";
 import { toView, type ConsentRecord, type ConsentView } from "@/lib/consent/types";
 import { transportCarbon, type TransportCarbon } from "@/lib/transport/carbon";
 import { TRANSPORT_CATEGORIES } from "@/lib/transport/types";
+import { valueChainReport, type ValueChainReport } from "@/lib/value-chain";
 
 /**
  * Reporting readiness: what is still missing before a client's return can be
@@ -70,6 +71,7 @@ const FIX = {
   consents: { label: "Consents", href: "/consents" },
   transport: { label: "Transport", href: "/transport" },
   portfolio: { label: "Portfolio", href: "/portfolio" },
+  valueChain: { label: "Value chain", href: "/value-chain" },
 } as const;
 
 const MS_PER_DAY = 86_400_000;
@@ -497,6 +499,56 @@ function scopeChecks(portfolio: PortfolioReport | null, portfolioError: string |
 }
 
 /* ------------------------------------------------------------------ */
+/* value chain — the Scope 3 categories that need counterparty data   */
+/* ------------------------------------------------------------------ */
+
+function valueChainChecks(report: ValueChainReport | null, error: string | null): ReadinessCheck[] {
+  const base = (id: string, title: string): Pick<ReadinessCheck, "id" | "group" | "title" | "severity" | "fix"> => ({ id, group: "Scope coverage", title, severity: "gap", fix: FIX.valueChain });
+  const engagement = base("scope.s3_value_chain_engagement", "Scope 3 counterparty engagement");
+  const data = base("scope.s3_value_chain_data", "Scope 3 counterparty data");
+  if (!report) {
+    const detail = `The value chain could not be read, so this cannot be checked: ${error ?? "unknown error"}`;
+    return [{ ...engagement, status: "unknown", detail }, { ...data, status: "unknown", detail }];
+  }
+  const c = report.coverage;
+  if (c.active === 0) {
+    const detail = `No counterparties are recorded, so the supplier, customer and tenant categories of Scope 3 (1, 2, 4, 8, 9 and 11 to 15) rest entirely on estimates. List the upstream and downstream counterparties and ask each for an annual GHG report.`;
+    return [{ ...engagement, status: "attention", detail, count: 0 }, { ...data, status: "attention", detail, count: 0 }];
+  }
+  const unasked = report.counterparties.filter((v) => v.counterparty.status === "active" && v.state === "identified");
+  const byValue = (a: (typeof unasked)[number], b: (typeof unasked)[number]) => (b.counterparty.annualValueGbp ?? -1) - (a.counterparty.annualValueGbp ?? -1);
+  const overdue = report.plan.filter((p) => p.overdue);
+  const engagementCheck: ReadinessCheck = {
+    ...engagement,
+    status: unasked.length === 0 && overdue.length === 0 ? "ok" : "attention",
+    count: unasked.length + overdue.length,
+    detail:
+      unasked.length === 0 && overdue.length === 0
+        ? `All ${c.active} active counterparties have been asked for ${report.reportingYear} data and none is past its deadline${c.declined + c.unreachable > 0 ? `; ${c.declined} declined and ${c.unreachable} could not be reached, so those categories need a disclosed secondary estimate` : ""}.`
+        : [
+            unasked.length > 0 ? `${unasked.length} of ${c.active} active counterparties have not been asked for ${report.reportingYear} data: ${nameList([...unasked].sort(byValue).map((v) => v.counterparty.name))}.` : "",
+            overdue.length > 0 ? `${overdue.length} request${overdue.length === 1 ? " is" : "s are"} past deadline and grace with nothing received: ${nameList(overdue.map((p) => p.name))}.` : "",
+            "Until each is asked and answered, its share of Scope 3 is a secondary estimate and must be disclosed as such.",
+          ].filter(Boolean).join(" "),
+  };
+  const missing = report.counterparties.filter((v) => v.counterparty.status === "active" && v.dataSource === "none");
+  const dataCheck: ReadinessCheck = {
+    ...data,
+    status: missing.length === 0 && report.totals.unresolved === 0 ? "ok" : "attention",
+    count: missing.length + report.totals.unresolved,
+    detail:
+      missing.length === 0 && report.totals.unresolved === 0
+        ? `Every active counterparty has returned ${report.reportingYear} data, giving ${fmt(report.totals.attributableTco2e ?? 0)} tCO2e attributable, ${report.totals.primarySharePct ?? 0}% of it primary (tier A or B).`
+        : [
+            missing.length > 0 ? `${missing.length} of ${c.active} active counterparties have returned no ${report.reportingYear} data${c.valueCoveredPct === null ? "" : `, so returned data covers ${c.valueCoveredPct}% of the annual value recorded`}: ${nameList([...missing].sort(byValue).map((v) => v.counterparty.name))}.` : "",
+            report.totals.unresolved > 0 ? `${report.totals.unresolved} returned data that cannot be turned into a figure yet (a missing revenue, value or factor), so the attributable total is blank.` : "",
+            "Ask for an annual GHG report as the minimum, or an activity ledger where none exists; what is still missing at filing is estimated and disclosed as tier D or E.",
+          ].filter(Boolean).join(" "),
+  };
+  return [engagementCheck, dataCheck];
+}
+
+/* ------------------------------------------------------------------ */
 /* integrations                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -620,11 +672,20 @@ export async function assessReadiness(db: Db, ctx: OperationContext, period: Per
 
   const emissions = await probeEmissions(db, ctx, period);
 
+  let valueChain: ValueChainReport | null = null;
+  let valueChainError: string | null = null;
+  try {
+    valueChain = valueChainReport(db, ctx, period);
+  } catch (e) {
+    valueChainError = message(e);
+  }
+
   const checks = [
     ...referenceChecks(ctx, period),
     ...assetChecks(portfolio, portfolioError, period),
     ...consentChecks(db, period, views, consentError),
     ...scopeChecks(portfolio, portfolioError, transport, transportError, emissions, period),
+    ...valueChainChecks(valueChain, valueChainError),
     ...integrationChecks(db, ctx),
   ];
 
