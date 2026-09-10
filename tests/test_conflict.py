@@ -10,10 +10,12 @@ from engines.conflict import (
     certificate_scope_gap,
     collect,
     overallocation,
+    persistent_gap,
     reported_vs_published,
     restatement_without_note,
     unevidenced_renewable_claim,
     unit_mismatch,
+    variance_history,
 )
 
 
@@ -147,6 +149,37 @@ class Restatements(unittest.TestCase):
                 "Category 1 2025", 100_000, 130_000, has_note=True
             )
         )
+
+
+class VarianceOverTime(unittest.TestCase):
+    def test_history_is_ordered_by_period_whatever_the_input_order(self):
+        h = variance_history([(2026, 10, 9), (2024, 10, 9), (2025, 10, 9)])
+        self.assertEqual([v.period for v in h], [2024, 2025, 2026])
+
+    def test_relative_variance_is_signed_against_the_estimate(self):
+        v = variance_history([(2025, 12_000, 10_000)])[0]
+        self.assertAlmostEqual(v.relative, 0.2)
+        self.assertAlmostEqual(v.difference, 2_000)
+
+    def test_a_gap_in_one_direction_for_two_periods_is_a_finding(self):
+        h = variance_history([(2024, 12_000, 9_000), (2025, 12_500, 9_200), (2026, 13_000, 9_100)])
+        c = persistent_gap("Beef Co Scope 1", h)
+        self.assertIsNotNone(c)
+        self.assertIs(c.conflict_class, ConflictClass.PERSISTENT_VARIANCE)
+        self.assertIn("above", c.rationale)
+        self.assertIn("estimation method", c.proposed_resolution)
+
+    def test_a_gap_that_changes_direction_is_noise_not_a_finding(self):
+        h = variance_history([(2025, 12_000, 9_000), (2026, 7_000, 9_000)])
+        self.assertIsNone(persistent_gap("x", h))
+
+    def test_a_single_period_is_a_question_not_a_finding(self):
+        h = variance_history([(2026, 12_000, 9_000)])
+        self.assertIsNone(persistent_gap("x", h))
+
+    def test_a_gap_inside_tolerance_raises_nothing(self):
+        h = variance_history([(2025, 10_200, 10_000), (2026, 10_300, 10_000)])
+        self.assertIsNone(persistent_gap("x", h))
 
 
 class Collection(unittest.TestCase):

@@ -1,0 +1,16 @@
+activity_key,activity_label,group,unit,scope,ghg_category,factor_kgco2e,basis,gwp_basis,source,factor_year,confidence,notes
+electricity_uk_grid,Electricity: UK grid (generation),Electricity,kWh,2,Scope 2,0.17700,Generation (location-based),AR5,DESNZ 2025,2025,verified,Location-based generation factor. Market-based handled separately via supplier/residual factor.
+electricity_uk_td,Electricity: UK grid T&D losses,Electricity,kWh,3,Category 3,0.01853,Transmission & distribution losses,AR5,DESNZ 2025,2025,verified,"Auto-derived from electricity_uk_grid consumption. Scope 3 Cat 3 - NEVER add to Scope 2."
+natural_gas,Natural gas,Gaseous fuels,kWh,1,Scope 1,0.18296,Gross CV combustion,AR5,DESNZ 2025,2025,verified,Use gross (higher) calorific value as printed on UK utility bills.
+petrol,Petrol (average biofuel blend),Liquid fuels,litre,1,Scope 1,2.06916,Combustion,AR5,DESNZ 2025,2025,verified,Use when fuel volume (litres) is known.
+diesel,Diesel (average biofuel blend),Liquid fuels,litre,1,Scope 1,2.57082,Combustion,AR5,DESNZ 2025,2025,verified,Use when fuel volume (litres) is known.
+lpg,LPG,Gaseous fuels,litre,1,Scope 1,1.55713,Combustion,AR5,DESNZ 2025,2025,verified,
+car_average_km,Car: average (unknown fuel),Business travel - road,km,3,Category 6,0.17304,Tank-to-wheel,AR5,DESNZ 2025,2025,verified,"Use for grey-fleet business mileage where fuel/size unknown. WTT is a separate Cat 3 row in the official set."
+rail_national,Rail: national,Business travel - rail,passenger.km,3,Category 6,0.03546,Tank-to-wheel,AR5,DESNZ 2025,2025,verified,
+flight_short_haul_economy,Air: short-haul economy (incl. RF),Business travel - air,passenger.km,3,Category 6,0.12576,Includes radiative forcing,AR5,DESNZ 2025,2025,verified,Short-haul = typically domestic-to-near-Europe. Includes radiative forcing uplift.
+flight_long_haul_economy,Air: long-haul economy (incl. RF),Business travel - air,passenger.km,3,Category 6,0.11704,Includes radiative forcing,AR5,DESNZ 2025,2025,verified,Long-haul = >3700 km. Includes radiative forcing uplift.
+ref_r410a,Refrigerant R410A,Fugitive,kg,1,Scope 1,1924,IPCC AR5 GWP-100,AR5,IPCC AR5,2025,stable,"Fugitive emission = kg recharged/leaked x GWP. GWP is a stable scientific constant; verify DESNZ refrigerants tab if an exact match is needed."
+ref_r32,Refrigerant R32 (HFC-32),Fugitive,kg,1,Scope 1,677,IPCC AR5 GWP-100,AR5,IPCC AR5,2025,stable,kg recharged/leaked x GWP.
+ref_r134a,Refrigerant R134a,Fugitive,kg,1,Scope 1,1300,IPCC AR5 GWP-100,AR5,IPCC AR5,2025,stable,kg recharged/leaked x GWP.
+ref_r404a,Refrigerant R404A,Fugitive,kg,1,Scope 1,3943,IPCC AR5 GWP-100,AR5,IPCC AR5,2025,stable,kg recharged/leaked x GWP.
+ref_r407c,Refrigerant R407C,Fugitive,kg,1,Scope 1,1624,IPCC AR5 GWP-100,AR5,IPCC AR5,2025,stable,kg recharged/leaked x GWP.

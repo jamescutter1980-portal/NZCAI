@@ -17,6 +17,9 @@ from typing import Optional, Sequence
 __all__ = [
     "ConflictClass",
     "Conflict",
+    "Variance",
+    "variance_history",
+    "persistent_gap",
     "MATERIALITY_TOLERANCE",
     "reported_vs_published",
     "overallocation",
@@ -37,6 +40,7 @@ class ConflictClass(str, Enum):
     UNEVIDENCED_RENEWABLE_CLAIM = "unevidenced_renewable_claim"
     CERTIFICATE_SCOPE_GAP = "certificate_scope_gap"
     RESTATEMENT_WITHOUT_NOTE = "restatement_without_note"
+    PERSISTENT_VARIANCE = "persistent_variance"
 
 
 #: Relative difference below which two figures are treated as the same number
@@ -266,6 +270,74 @@ def restatement_without_note(
         rationale=(
             "A prior-year figure has moved materially with nothing explaining "
             "the change, which an assurance provider will raise."
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class Variance:
+    """One period's gap between what a counterparty reported and what we estimated."""
+
+    period: int
+    reported: float
+    estimated: float
+
+    @property
+    def difference(self) -> float:
+        return self.reported - self.estimated
+
+    @property
+    def relative(self) -> float:
+        """Signed, against the estimate. Positive means they report more than we guess."""
+        if self.estimated == 0:
+            return 0.0 if self.reported == 0 else float("inf")
+        return self.difference / self.estimated
+
+
+def variance_history(
+    pairs: Iterable[tuple[int, float, float]],
+) -> list[Variance]:
+    """(period, reported, estimated) triples into an ordered history."""
+    return sorted((Variance(p, r, e) for p, r, e in pairs), key=lambda v: v.period)
+
+
+def persistent_gap(
+    subject: str,
+    history: Sequence[Variance],
+    *,
+    threshold: float = MATERIALITY_TOLERANCE,
+    periods: int = 2,
+) -> Optional[Conflict]:
+    """A gap that has stayed large in the same direction for several periods.
+
+    A one-off difference is a question. The same difference every year is a
+    finding: either our estimation method is systematically off for this
+    counterparty, or their allocation is. Either way an auditor will ask, so
+    this raises it first.
+    """
+    if len(history) < periods:
+        return None
+    recent = history[-periods:]
+    if not all(abs(v.relative) > threshold for v in recent):
+        return None
+    signs = {v.relative > 0 for v in recent}
+    if len(signs) != 1:
+        return None
+
+    direction = "above" if recent[-1].relative > 0 else "below"
+    mean_rel = sum(v.relative for v in recent) / len(recent)
+    return Conflict(
+        conflict_class=ConflictClass.PERSISTENT_VARIANCE,
+        subject=subject,
+        value_a=", ".join(f"{v.period}: {v.reported:,.0f}" for v in recent),
+        source_a="Reported by the counterparty",
+        value_b=", ".join(f"{v.period}: {v.estimated:,.0f}" for v in recent),
+        source_b="Our estimate",
+        proposed_resolution="Review the estimation method for this counterparty",
+        rationale=(
+            f"Reported figures have sat {abs(mean_rel):.0%} {direction} our estimate "
+            f"for {periods} consecutive periods. A persistent gap in one direction "
+            "points to a method difference, not noise."
         ),
     )
 

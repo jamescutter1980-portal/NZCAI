@@ -162,12 +162,30 @@ class Figure:
     counterparty_id: Optional[str] = None
     document_id: Optional[str] = None
     achievable_tier: Optional[Tier] = None
+    #: Lineage. Filled in by the calculation engines so a reviewer can walk a
+    #: figure back to the quantity and the factor row that produced it.
+    entity_id: Optional[str] = None
+    activity_quantity: Optional[float] = None
+    activity_unit: Optional[str] = None
+    factor_key: Optional[str] = None
+    factor_kgco2e: Optional[float] = None
+    method_label: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.tco2e < 0:
             raise ValueError(f"tco2e must not be negative, got {self.tco2e}")
         if not self.factor_source or not self.factor_version:
             raise ValueError("every figure must carry a factor source and version")
+
+    @property
+    def has_lineage(self) -> bool:
+        """True where the figure can be walked back to a quantity and a factor."""
+        return (
+            self.activity_quantity is not None
+            and self.activity_unit is not None
+            and self.factor_key is not None
+            and self.factor_kgco2e is not None
+        )
 
 
 # --------------------------------------------------------------------------

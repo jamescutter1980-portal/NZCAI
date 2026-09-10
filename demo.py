@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from engines.activity import ActivityLine, calculate as calc_activity
 from engines.conflict import (
     certificate_scope_gap,
     collect,
@@ -20,6 +21,10 @@ from engines.conflict import (
     reported_vs_published,
     unevidenced_renewable_claim,
 )
+from engines.eeio import PriceIndex, SpendLine, calculate as calc_spend
+from engines.factors import DESNZ_2025, ILLUSTRATIVE, FactorLibrary, IllustrativeFactorRefused
+from engines.fuel_sold import FuelSale, calculate as calc_fuel
+from engines.partner import AllocationBasis, PartnerResponse, allocate
 from engines.coverage import (
     alignment_coverage,
     assess,
@@ -44,6 +49,45 @@ def heading(number: str, title: str) -> None:
 def main() -> None:
     print(f"\nNZC AI Scope 3 engines · demonstration run · {fx.TODAY:%d %B %Y}")
     print("Client shape: 32 motorway service areas, franchised catering, forecourt")
+
+    # ------------------------------------------------------------------
+    heading("0", "FROM ACTIVITY TO FIGURE")
+    print("  Every figure below is a quantity times a cited factor row. Nothing")
+    print("  else produces a number.\n")
+
+    verified = FactorLibrary.load()
+    print(f"  Verified library: {len(verified)} rows, {', '.join(sorted(verified.versions))}")
+    try:
+        verified.get("food_beef_kg")
+    except Exception as refused:
+        print(f"  Placeholder refused by default: {type(refused).__name__}")
+    lib = FactorLibrary.load(DESNZ_2025, ILLUSTRATIVE, allow_illustrative=True)
+    try:
+        FactorLibrary.load(DESNZ_2025, ILLUSTRATIVE).get("food_beef_kg")
+    except IllustrativeFactorRefused:
+        print("  Placeholder loaded but not opted in: IllustrativeFactorRefused\n")
+
+    examples = [
+        calc_activity(ActivityLine("flight_long_haul_economy", 12_000, "passenger.km"), lib),
+        calc_activity(ActivityLine("electricity_uk_td", 4_200_000, "kWh"), lib),
+        calc_spend(
+            SpendLine("sector_food_beverage", 10_800, 2026, vat_included=True),
+            lib,
+            price_index=PriceIndex("CPI illustrative", {2024: 100.0, 2026: 108.0}),
+        ),
+        allocate(
+            PartnerResponse("beef_co", "Northern Beef Supply", 2025, 9_500, 2_500, 0.15, AllocationBasis.VOLUME_SHARE),
+        ),
+    ]
+    examples += calc_fuel(FuelSale("petrol", 1_000_000, wtt_factor_key="petrol_wtt", buys_for_resale=True), lib)
+
+    print(f"  {'Cat':>4} {'Tier':>4} {'tCO2e':>10}  Method")
+    for f in examples:
+        print(f"  {f.category.value:>4} {f.tier.value:>4} {f.tco2e:>10,.2f}  {f.method_label}")
+    print(f"\n  {sum(1 for f in examples if f.has_lineage)} of {len(examples)} carry full lineage "
+          "(quantity, unit, factor key, factor value).")
+    print("  For the tier B line the 'factor' is the counterparty's own reported total")
+    print("  and the 'quantity' is our share of it. That is what hybrid means.")
 
     # ------------------------------------------------------------------
     heading("1", "THE INVENTORY")

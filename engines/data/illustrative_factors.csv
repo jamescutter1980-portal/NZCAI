@@ -1,0 +1,16 @@
+activity_key,activity_label,group,unit,scope,ghg_category,factor_kgco2e,basis,gwp_basis,source,factor_year,confidence,notes
+sector_food_beverage,EEIO: food and beverage products (illustrative),Spend,gbp,3,Category 1,0.50000,Spend-based EEIO,AR5,ILLUSTRATIVE,2024,illustrative,"PLACEHOLDER. Replace with Open CEDA or DESNZ spend factor before any client use. Deliberately round."
+sector_packaging,EEIO: paper and plastic packaging (illustrative),Spend,gbp,3,Category 1,0.40000,Spend-based EEIO,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+sector_construction,EEIO: construction and fit-out (illustrative),Spend,gbp,3,Category 2,0.30000,Spend-based EEIO,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+sector_professional_services,EEIO: professional services (illustrative),Spend,gbp,3,Category 1,0.05000,Spend-based EEIO,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+sector_road_freight,EEIO: road freight (illustrative),Spend,gbp,3,Category 4,0.60000,Spend-based EEIO,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+food_beef_kg,Food: beef (illustrative),Food,kg,3,Category 1,27.00000,Average-data,AR5,ILLUSTRATIVE,2024,illustrative,"PLACEHOLDER. Replace with Agribalyse, WRAP or a supplier PCF."
+food_chicken_kg,Food: chicken (illustrative),Food,kg,3,Category 1,6.00000,Average-data,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+food_dairy_milk_litre,Food: milk (illustrative),Food,litre,3,Category 1,1.20000,Average-data,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+packaging_pet_kg,Packaging: PET (illustrative),Packaging,kg,3,Category 1,3.00000,Average-data,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+waste_landfill_tonne,Waste: mixed to landfill (illustrative),Waste,tonne,3,Category 5,450.00000,Treatment route,AR5,ILLUSTRATIVE,2024,illustrative,"PLACEHOLDER. DESNZ publishes waste factors by route; load the real rows."
+waste_recycled_tonne,Waste: recycled (illustrative),Waste,tonne,3,Category 5,20.00000,Treatment route,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+waste_anaerobic_tonne,Waste: food to anaerobic digestion (illustrative),Waste,tonne,3,Category 5,10.00000,Treatment route,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+freight_hgv_tkm,Freight: HGV average (illustrative),Freight,tonne.km,3,Category 4,0.10000,Tank-to-wheel,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
+petrol_wtt,Petrol: well-to-tank (illustrative),Liquid fuels,litre,3,Category 3,0.60000,Well-to-tank,AR5,ILLUSTRATIVE,2024,illustrative,"PLACEHOLDER. DESNZ publishes WTT per fuel; load the real row."
+diesel_wtt,Diesel: well-to-tank (illustrative),Liquid fuels,litre,3,Category 3,0.62000,Well-to-tank,AR5,ILLUSTRATIVE,2024,illustrative,PLACEHOLDER.
