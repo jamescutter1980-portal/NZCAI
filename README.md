@@ -22,7 +22,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Readings | `/readings`, `/api/readings`, `/api/readings/meters` | Daily totals, gaps, CSV, indicative cost |
 | Import | `src/lib/import`, `CsvImport` | Delimiter and preamble detection, column mapping, UK date and number parsing, all-or-nothing commit |
 | Emissions | `/emissions`, `/api/emissions/...` | Refrigerants, water and waste against picked DESNZ rows, with landfill diversion |
-| Value chain | `/value-chain`, `/value-chain/[id]`, `/api/value-chain/...` | Upstream and downstream counterparties, engagement lifecycle with audit trail, annual GHG report or activity ledger per counterparty, disclosed tier D spend fallback, attributable tCO2e with data quality tier, ranked chase plan, waves, Companies House resolution |
+| Value chain | `/value-chain`, `/value-chain/[id]`, `/value-chain/inbox`, `/api/value-chain/...` | Upstream and downstream counterparties, engagement lifecycle with audit trail, annual GHG report or activity ledger per counterparty, disclosed tier D spend fallback, attributable tCO2e with data quality tier, ranked chase plan, waves, Companies House resolution; inbound requests answered from the portal's figures with a consistency guard and roll-forward |
 | Transport | `/transport`, `/api/transport/...`, `/api/factors` | Fleet, grey fleet, travel and commuting against picked DESNZ rows; DVLA and MOT vehicle lookup |
 | Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents, value chain |
 | Assessment | `/api/assets/[id]/assessment` | CRREM misalignment year and UK NZCBS indicative check |

@@ -111,7 +111,8 @@ export default function ValueChainPage() {
       <p style={{ color: "#555" }}>
         Every upstream and downstream counterparty whose emissions fall in Scope 3, where this year&apos;s request for data has got to, and what they returned.
         The minimum ask is an annual GHG report; a counterparty with none is asked for an activity ledger, which the portal converts with the same DESNZ rows as{" "}
-        <Link href="/emissions">refrigerants, water and waste</Link>. Open a counterparty to record contact, figures and documents.
+        <Link href="/emissions">refrigerants, water and waste</Link>. Open a counterparty to record contact, figures and documents. Requests that come <em>to</em> us are answered from the portal&apos;s own figures in{" "}
+        <Link href="/value-chain/inbox">Requests in</Link>.
       </p>
       <div style={{ marginBottom: 12 }}><PeriodPicker value={selection} onChange={(s) => { setSelection(s); load(s); }} disabled={busy !== null} /></div>
       {error && <p style={box("#f8d7da", "#f1aeb5")}>{error}</p>}

@@ -22,6 +22,9 @@ export default function Home() {
           <Link href="/value-chain">Value chain</Link> – upstream and downstream counterparties, each year&apos;s data request and its audit trail, and the emissions they return
         </li>
         <li>
+          <Link href="/value-chain/inbox">Requests in</Link> – data requests from franchisors, customers, parents and lenders, answered from the portal&apos;s own figures with a consistency guard
+        </li>
+        <li>
           <Link href="/portfolio">Portfolio</Link> – energy, carbon and data quality across every asset for any reporting period
         </li>
         <li>

@@ -139,6 +139,39 @@ escalation, a decline. Each counterparty is handled on its own: a transition
 its state does not allow is skipped with the reason and the rest go through,
 and every applied transition writes its audit event.
 
+## Requests in: the inbox
+
+Traffic runs both ways. A franchisor asks for outlet energy, a parent asks
+for category-level figures for its CSRD consolidation, a lender or a landlord
+asks for a return. `/value-chain/inbox` holds each as a work item: the
+requester (a counterparty with its role), the fields they ask for in their
+own wording, the reporting year and period basis (calendar or financial),
+the deadline, the owner, and whether it recurs.
+
+Each field maps to a **metric the portal can answer** from its own modules:
+energy and floor area from the portfolio roll-up; Scope 1 (gas, own vehicles,
+refrigerants), Scope 2 location and market, and category 3 losses; business
+travel, commuting and all transport Scope 3; refrigerants, waste tonnage and
+diversion, water; and the counterparties' attributable Scope 3 and its
+primary-data share. A field with no portal source is entered by hand. The
+draft response shows every value with the module it came from and what it
+covers; a value the portal cannot compute is blank with the reason, never
+zero. A hand-entered value on a computed metric is allowed but flagged and
+needs a note.
+
+**Consistency guard.** Before submission every figure is compared with what
+was already submitted for the same metric and year to any other requester.
+A difference above 0.5% is a conflict, shown with who received the earlier
+figure and when. Submission is blocked until the conflict is resolved or a
+note records why the figures differ; the note travels with the submission.
+
+**Submission** snapshots the figures as sent, so what a requester received
+is on record even after the underlying data changes. An annual request
+**rolls forward** to the next year with the same template and fields, with
+last year's hand-entered values cleared. The inbox flags what is overdue,
+what is due within thirty days, and which annual requests have not yet been
+rolled forward.
+
 ## Coverage and totals
 
 The report for a period gives: counterparties by direction; how many were
@@ -167,7 +200,7 @@ valuable first.
 
 ## Not yet built
 
-Public-report harvesting and pre-filled requests, sending mail, an inbound
-request inbox, and PACT or VSME machine exchange. The brief in the product
+Public-report harvesting and pre-filled requests, sending mail, and PACT or
+VSME machine exchange. The brief in the product
 docs covers each; this module is the graph, lifecycle and evidence layer they
 attach to.

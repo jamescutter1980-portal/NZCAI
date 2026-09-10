@@ -337,6 +337,31 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       ALTER TABLE counterparties ADD COLUMN spend_factor_source TEXT;
     `,
   },
+  {
+    id: "0012_value_chain_inbox",
+    sql: `
+      CREATE TABLE inbound_requests (
+        id TEXT PRIMARY KEY,
+        counterparty_id TEXT NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        reporting_year INTEGER NOT NULL,
+        period_start_month INTEGER NOT NULL DEFAULT 1,
+        template TEXT,
+        fields TEXT NOT NULL,
+        due_on TEXT,
+        owner TEXT,
+        cadence TEXT NOT NULL,
+        state TEXT NOT NULL,
+        submitted_on TEXT,
+        submitted_figures TEXT,
+        submission_note TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX inbound_requests_year ON inbound_requests(reporting_year, due_on);
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;
