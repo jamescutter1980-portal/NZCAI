@@ -4,6 +4,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 
 - `docs/data-source-roadmap.md` – data source register, gap review and integration sequence
 - `docs/assets-and-carbon.md` – assets, meter linking, screening profile and carbon method
+- `docs/api-implementation-plan.md` – the plan to close the remaining API gaps, phased by what actually blocks each
 - `docs/api-gap-analysis.md` – what is integrated, what changed versus the catalogue, what could not be built, verification plan
 - `docs/integrations/data-sources.md` – the sources pages, API routes and health-check CLI
 - `docs/integrations/CONNECTOR_GUIDE.md` – how to add a connector
