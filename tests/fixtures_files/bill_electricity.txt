@@ -1,0 +1,12 @@
+EDF Energy - Business electricity statement
+Account 44-1234-5678
+Supply address: Welcome Break Newport Pagnell Services, M1 J14-15
+MPAN 12 345 678 10 1234 5678 901
+Billing period 01/02/2026 to 28/02/2026
+
+Charges
+Day units 84,210 kWh @ 21.4p
+Night units 35,790 kWh @ 15.1p
+Total consumption 120,000 kWh
+Standing charge 28 days
+Total amount due £24,318.60

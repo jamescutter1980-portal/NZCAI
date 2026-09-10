@@ -1,0 +1,20 @@
+{
+ "id": "b1",
+ "specVersion": "2.2.0",
+ "version": 1,
+ "created": "2025-06-01T00:00:00Z",
+ "status": "Active",
+ "companyName": "Dairy Co",
+ "companyIds": [],
+ "productIds": [
+  "urn:sku:dairy:milk-1l"
+ ],
+ "pcf": {
+  "declaredUnit": "liter",
+  "unitaryProductAmount": 2,
+  "pCfExcludingBiogenic": 2.6,
+  "referencePeriodStart": "2024-01-01T00:00:00Z",
+  "referencePeriodEnd": "2024-12-31T00:00:00Z",
+  "validityPeriodEnd": "2027-06-01T00:00:00Z"
+ }
+}

@@ -1,0 +1,7 @@
+Ref,Nominal Code,Description,Supplier,Net Amount,Invoice Date
+INV-001,5000,Frozen chicken 12x2kg,BIDFOOD LTD,"12,450.00",14/03/2026
+INV-002,5000,Coffee beans,Starbucks Coffee Company (UK) Ltd,8200.50,2026-03-20
+INV-003,7300,Landfill collection March,Waste Co,3100,20 Mar 2026
+INV-004,5000,Credit note chicken,BIDFOOD LTD,-450.00,28/03/2026
+INV-005,5000,Missing supplier,,100,01/04/2026
+INV-006,5000,Bad amount,Bakery,abc,01/04/2026

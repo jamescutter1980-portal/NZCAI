@@ -459,3 +459,7 @@ class Document:
     #: Organisations the counterparty has consented to share this with. Only
     #: consulted for a CONSENTED_REUSE basis.
     consented_org_ids: frozenset[str] = field(default_factory=frozenset)
+    #: Where the bytes are kept and what they hash to. The hash is how a
+    #: figure's evidence is later proved to be the file it was built from.
+    storage_key: Optional[str] = None
+    sha256: Optional[str] = None

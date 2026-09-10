@@ -1,0 +1,5 @@
+Corona Energy gas invoice
+MPRN 8812345
+Supply period: 1 Jan 2026 - 31 Mar 2026
+Consumption 44,000 kWh
+Amount due £2,010.00

@@ -1,0 +1,55 @@
+{
+ "documentInfo": {
+  "documentType": "https://xbrl.org/2021/xbrl-json",
+  "taxonomy": [
+   "vsme"
+  ]
+ },
+ "facts": {
+  "f1": {
+   "value": "1250.5",
+   "dimensions": {
+    "concept": "vsme:GrossScope1GreenhouseGasEmissions",
+    "entity": "scheme:BAKERY",
+    "period": "2025-01-01T00:00:00/2026-01-01T00:00:00",
+    "unit": "utr:tCO2e"
+   }
+  },
+  "f2": {
+   "value": "310",
+   "dimensions": {
+    "concept": "vsme:GrossLocationBasedScope2GreenhouseGasEmissions",
+    "entity": "scheme:BAKERY",
+    "period": "2025-01-01T00:00:00/2026-01-01T00:00:00",
+    "unit": "utr:tCO2e"
+   }
+  },
+  "f3": {
+   "value": "290",
+   "dimensions": {
+    "concept": "vsme:GrossMarketBasedScope2GreenhouseGasEmissions",
+    "entity": "scheme:BAKERY",
+    "period": "2025-01-01T00:00:00/2026-01-01T00:00:00",
+    "unit": "utr:tCO2e"
+   }
+  },
+  "f4": {
+   "value": "40",
+   "dimensions": {
+    "concept": "vsme:NumberOfEmployeesHeadCount",
+    "entity": "scheme:BAKERY",
+    "period": "2025-12-31T00:00:00"
+   }
+  },
+  "f5": {
+   "value": "9999",
+   "dimensions": {
+    "concept": "vsme:GrossScope1GreenhouseGasEmissions",
+    "entity": "scheme:BAKERY",
+    "period": "2025-01-01T00:00:00/2026-01-01T00:00:00",
+    "unit": "utr:tCO2e",
+    "vsme:SiteAxis": "vsme:SiteA"
+   }
+  }
+ }
+}

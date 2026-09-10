@@ -1,0 +1,6 @@
+Site,Activity,Quantity,Unit,Category,Evidence
+Fleet M1 S,rail_national,"48,200",passenger.km,6,
+Fleet M1 S,car_average_km,15300,km,7,
+Fleet M1 S,electricity_uk_grid,120000,kWh,8,bill-0042
+Head office,not_a_factor,10,kWh,,
+Head office,rail_national,,passenger.km,6,

@@ -369,6 +369,8 @@ class Store:
 
     def save_document(self, org_id: str, doc: Document, *, storage_key: Optional[str] = None, sha256: Optional[str] = None) -> None:
         owner = doc.owner_org_id or org_id
+        storage_key = storage_key or doc.storage_key
+        sha256 = sha256 or doc.sha256
         self._c.execute(
             """insert or replace into document (
                 id, org_id, counterparty_id, doc_type, issue_date, confidentiality,
@@ -416,6 +418,8 @@ class Store:
             valid_to=_pd(row["valid_to"]),
             owner_org_id=row["org_id"],
             consented_org_ids=frozenset(json.loads(row["consented_org_ids"])),
+            storage_key=row["storage_key"],
+            sha256=row["sha256"],
         )
 
     # ------------------------------------------------------------------
