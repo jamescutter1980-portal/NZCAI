@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db/sqlite";
-import { CounterpartyRepository, counterpartyCreateSchema, type CounterpartyCreate } from "@/lib/value-chain";
+import { CounterpartyRepository, counterpartyCreateSchemaChecked, type CounterpartyCreate } from "@/lib/value-chain";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const prepared: CounterpartyCreate[] = [];
     const issues: { row: number; message: string }[] = [];
     batch.data.rows.forEach((raw, i) => {
-      const parsed = counterpartyCreateSchema.safeParse(raw);
+      const parsed = counterpartyCreateSchemaChecked.safeParse(raw);
       if (!parsed.success) issues.push({ row: i + 1, message: parsed.error.issues.map((x) => `${x.path.join(".") || "row"}: ${x.message}`).join("; ") });
       else prepared.push(parsed.data);
     });
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const result = repo.upsertBatch(prepared);
     return NextResponse.json({ created: result.created.length, updated: result.updated.length, counterparties: [...result.created, ...result.updated] }, { status: 201 });
   }
-  const one = counterpartyCreateSchema.safeParse(body);
+  const one = counterpartyCreateSchemaChecked.safeParse(body);
   if (!one.success) return NextResponse.json({ error: "Invalid counterparty", issues: one.error.issues }, { status: 400 });
   return NextResponse.json({ counterparty: repo.create(one.data) }, { status: 201 });
 }

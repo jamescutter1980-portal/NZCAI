@@ -23,7 +23,9 @@ import {
 interface Counterparty {
   id: string; name: string; companyNumber?: string; sector?: string; country?: string; roles: string[]; ghgCategories: string[]; annualValueGbp?: number;
   contactName?: string; contactEmail?: string; escalationName?: string; escalationEmail?: string; ask: string; status: string; notes?: string;
+  spendFactorKgCo2ePerGbp?: number; spendFactorSource?: string;
 }
+interface Candidate { companyName: string; companyNumber: string; status: string | null; type: string | null; incorporated: string | null; address: string | null }
 interface Event { id: string; at: string; action: string; fromState: string; toState: string; channel?: string; detail?: string; actor?: string }
 interface Engagement { id: string; reportingYear: number; state: EngagementState; ask: string; dueOn?: string; lastContactOn?: string; remindersSent: number; escalated: boolean; declineReason?: string; events: Event[] }
 interface ReportRecord {
@@ -40,6 +42,7 @@ interface View {
   report?: { id: string; reportedTotalTco2e: number | null; attributableTco2e: number | null; allocationDetail: string; tier: Tier | null; warnings: string[] };
   ledger: { lines: LedgerLine[]; counts: { lines: number; resolved: number; unresolved: number }; attributableTco2e: number | null; tier: Tier | null };
   reconciliation?: { detail: string };
+  spendEstimate?: { attributableTco2e: number | null; detail: string };
   next: { action: string; reason: string; due: boolean; overdue: boolean };
   warnings: string[];
 }
@@ -64,6 +67,8 @@ export default function CounterpartyPage() {
   const [lineForm, setLineForm] = useState({ label: "", activityType: "", periodStart: "", periodEnd: "", quantity: "", unit: "kWh", sharePct: "100", declaredKgCo2e: "", basis: "supplier_declared", evidence: "" });
   const [factor, setFactor] = useState<FactorRowView | null>(null);
   const [edit, setEdit] = useState<Partial<Counterparty> | null>(null);
+  const [candidates, setCandidates] = useState<{ query: string; items: Candidate[] } | null>(null);
+  const [resolution, setResolution] = useState<{ applied: string[]; warnings: string[] } | null>(null);
 
   const load = useCallback(async (s: PeriodSelection) => {
     const [d, r] = await Promise.all([fetch(`/api/value-chain/counterparties/${id}`).then((x) => x.json()), fetch(`/api/value-chain/report?${periodQuery(s)}`).then((x) => x.json())]);
@@ -146,6 +151,26 @@ export default function CounterpartyPage() {
     if (await send("Line", "/api/value-chain/activity", json(body))) setLineForm({ ...lineForm, label: "", quantity: "", declaredKgCo2e: "" });
   }
 
+  async function findOnRegister() {
+    setBusy("Find");
+    setError(null);
+    try {
+      const res = await fetch(`/api/value-chain/counterparties/${id}/resolve`);
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) setError(b.error ?? `Search failed (${res.status})`);
+      else setCandidates({ query: b.query, items: b.candidates });
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function applyCandidate(companyNumber: string) {
+    const b = await send("Resolve", `/api/value-chain/counterparties/${id}/resolve`, json({ companyNumber }));
+    if (b) {
+      setResolution({ applied: b.applied as string[], warnings: b.warnings as string[] });
+      setCandidates(null);
+    }
+  }
+
   async function saveEdit(e: FormEvent) {
     e.preventDefault();
     if (!edit) return;
@@ -173,7 +198,12 @@ export default function CounterpartyPage() {
       <section style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <h2 style={h2}>Relationship</h2>
-          {!edit && <button onClick={() => setEdit({ name: c.name, annualValueGbp: c.annualValueGbp, contactName: c.contactName ?? "", contactEmail: c.contactEmail ?? "", escalationName: c.escalationName ?? "", escalationEmail: c.escalationEmail ?? "", ask: c.ask, status: c.status, sector: c.sector ?? "", companyNumber: c.companyNumber ?? "", notes: c.notes ?? "" })} style={mini}>Edit</button>}
+          {!edit && (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={findOnRegister} disabled={busy !== null} style={mini}>{busy === "Find" ? "Searching…" : c.companyNumber ? "Re-check Companies House" : "Find on Companies House"}</button>
+              <button onClick={() => setEdit({ name: c.name, annualValueGbp: c.annualValueGbp, contactName: c.contactName ?? "", contactEmail: c.contactEmail ?? "", escalationName: c.escalationName ?? "", escalationEmail: c.escalationEmail ?? "", ask: c.ask, status: c.status, sector: c.sector ?? "", companyNumber: c.companyNumber ?? "", notes: c.notes ?? "", spendFactorKgCo2ePerGbp: c.spendFactorKgCo2ePerGbp, spendFactorSource: c.spendFactorSource ?? "" })} style={mini}>Edit</button>
+            </div>
+          )}
         </div>
         {edit ? (
           <form onSubmit={saveEdit} style={{ display: "grid", gap: 10, maxWidth: 820 }}>
@@ -193,6 +223,10 @@ export default function CounterpartyPage() {
               <label style={{ flex: 2 }}>Minimum ask<select value={edit.ask} onChange={(e) => setEdit({ ...edit, ask: e.target.value })} style={input}>{Object.entries(ASK_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
               <label style={{ flex: 1 }}>Status<select value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })} style={input}><option value="active">active</option><option value="inactive">inactive</option></select></label>
             </div>
+            <div style={row}>
+              <label style={{ flex: 1 }}>Spend factor (kgCO2e per £)<input type="number" min="0" step="any" value={edit.spendFactorKgCo2ePerGbp ?? ""} onChange={(e) => setEdit({ ...edit, spendFactorKgCo2ePerGbp: e.target.value === "" ? undefined : Number(e.target.value) })} placeholder="Tier D fallback while no data" style={input} /></label>
+              <label style={{ flex: 2 }}>Spend factor source<input value={edit.spendFactorSource ?? ""} onChange={(e) => setEdit({ ...edit, spendFactorSource: e.target.value })} placeholder="Publication, sector and year" style={input} /></label>
+            </div>
             <label>Notes<textarea value={edit.notes ?? ""} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} rows={2} style={input} /></label>
             <div style={{ display: "flex", gap: 8 }}>
               <button type="submit" disabled={busy !== null} style={{ padding: "6px 12px" }}>Save</button>
@@ -206,7 +240,31 @@ export default function CounterpartyPage() {
             <Stat label="Contact" value={c.contactName ?? "—"} sub={c.contactEmail} />
             <Stat label="Escalation" value={c.escalationName ?? "—"} sub={c.escalationEmail} />
             <Stat label="Minimum ask" value={ASK_LABELS[c.ask as keyof typeof ASK_LABELS]?.split(" (")[0] ?? c.ask} />
-            {view && <Stat label={`${year} attributable`} value={view.dataSource === "none" ? "no data" : `${fmtN(view.attributableTco2e)} tCO2e`} sub={view.tier ? `Tier ${view.tier}: ${TIER_LABELS[view.tier]}` : undefined} />}
+            {view && <Stat label={`${year} attributable`} value={view.dataSource === "none" ? "no data" : `${fmtN(view.attributableTco2e)} tCO2e`} sub={view.dataSource === "spend_estimate" ? "spend estimate, tier D" : view.tier ? `Tier ${view.tier}: ${TIER_LABELS[view.tier]}` : undefined} />}
+            {c.spendFactorKgCo2ePerGbp !== undefined && <Stat label="Spend factor" value={`${c.spendFactorKgCo2ePerGbp} kgCO2e/£`} sub={c.spendFactorSource} />}
+          </div>
+        )}
+        {candidates && (
+          <div style={{ marginTop: 10, border: "1px solid #ddd", padding: 8 }}>
+            <p style={{ fontSize: 12, margin: "0 0 6px" }}>Companies House matches for &quot;{candidates.query}&quot;. Pick one to fill the company number and sector; the recorded name is kept.</p>
+            {candidates.items.length === 0 ? <p style={{ fontSize: 12, color: "#856404", margin: 0 }}>No matches. Edit the name or search a different spelling.</p> : (
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <thead><tr>{["Registered name", "Number", "Status", "Incorporated", "Address", ""].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                <tbody>{candidates.items.map((k) => (
+                  <tr key={k.companyNumber}>
+                    <td style={td}>{k.companyName}</td><td style={td}>{k.companyNumber}</td><td style={td}>{k.status ?? ""}</td><td style={td}>{k.incorporated ?? ""}</td><td style={{ ...td, whiteSpace: "normal" }}>{k.address ?? ""}</td>
+                    <td style={td}><button onClick={() => applyCandidate(k.companyNumber)} disabled={busy !== null} style={mini}>Use</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+            <button onClick={() => setCandidates(null)} style={{ ...mini, marginTop: 6 }}>Close</button>
+          </div>
+        )}
+        {resolution && (
+          <div style={{ marginTop: 8 }}>
+            <p style={box("#e7f3e7", "#b6dfb6")}>Applied from Companies House: {resolution.applied.join("; ")}.</p>
+            {resolution.warnings.map((w, i) => <p key={i} style={box("#fff3cd", "#ffe69c")}>{w}</p>)}
           </div>
         )}
         {c.notes && !edit && <p style={{ fontSize: 12, color: "#555", whiteSpace: "pre-wrap" }}>{c.notes}</p>}
@@ -274,6 +332,22 @@ export default function CounterpartyPage() {
           {dossier && dossier.engagements.filter((e) => e.reportingYear !== year).length > 0 && (
             <p style={{ fontSize: 12, color: "#666", marginBottom: 0 }}>Other years: {dossier.engagements.filter((e) => e.reportingYear !== year).map((e) => `${e.reportingYear} ${STATE_LABELS[e.state].toLowerCase()}`).join("; ")}.</p>
           )}
+        </section>
+      )}
+
+      {dossier && dossier.reports.some((r) => r.reportingYear !== year) && (
+        <section style={card}>
+          <h2 style={h2}>Previous years</h2>
+          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead><tr>{["Year", "Period", "Scope 1", "Scope 2", "Scope 3", "Allocation", "Assurance", "Evidence"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+            <tbody>{dossier.reports.filter((r) => r.reportingYear !== year).map((r) => (
+              <tr key={r.id}>
+                <td style={td}>{r.reportingYear}</td><td style={td}>{r.periodStart} to {r.periodEnd}</td><td style={td}>{fmtT(r.scope1Tco2e)}</td><td style={td}>{fmtT(r.scope2MarketTco2e ?? r.scope2LocationTco2e)}</td><td style={td}>{fmtT(r.scope3Tco2e)}</td>
+                <td style={td}>{ALLOCATION_LABELS[r.allocationMethod as keyof typeof ALLOCATION_LABELS] ?? r.allocationMethod}{r.allocatedTco2e !== undefined ? ` (${fmtN(r.allocatedTco2e)} tCO2e)` : ""}</td><td style={td}>{r.assurance}</td><td style={{ ...td, whiteSpace: "normal" }}>{r.evidence ?? ""}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <p style={{ fontSize: 12, color: "#666", marginBottom: 0 }}>Last year&apos;s figures are the starting point for this year&apos;s ask: confirm or correct, then request only what is new.</p>
         </section>
       )}
 

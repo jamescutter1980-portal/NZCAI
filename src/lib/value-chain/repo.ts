@@ -41,7 +41,7 @@ const stamp = (d: Date) => d.toISOString();
 interface CounterpartyRow {
   id: string; name: string; company_number: string | null; sector: string | null; country: string | null; roles: string; ghg_categories: string;
   annual_value_gbp: number | null; contact_name: string | null; contact_email: string | null; escalation_name: string | null; escalation_email: string | null;
-  ask: string; status: string; notes: string | null; created_at: string; updated_at: string;
+  ask: string; status: string; spend_factor_kgco2e_per_gbp: number | null; spend_factor_source: string | null; notes: string | null; created_at: string; updated_at: string;
 }
 
 export class CounterpartyRepository {
@@ -76,11 +76,12 @@ export class CounterpartyRepository {
     this.db
       .prepare(
         `INSERT INTO counterparties (id, name, company_number, sector, country, roles, ghg_categories, annual_value_gbp, contact_name, contact_email,
-           escalation_name, escalation_email, ask, status, notes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           escalation_name, escalation_email, ask, status, spend_factor_kgco2e_per_gbp, spend_factor_source, notes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(record.id, record.name, n(record.companyNumber), n(record.sector), n(record.country), JSON.stringify(record.roles), JSON.stringify(record.ghgCategories),
-        n(record.annualValueGbp), n(record.contactName), n(record.contactEmail), n(record.escalationName), n(record.escalationEmail), record.ask, record.status, n(record.notes), at, at);
+        n(record.annualValueGbp), n(record.contactName), n(record.contactEmail), n(record.escalationName), n(record.escalationEmail), record.ask, record.status,
+        n(record.spendFactorKgCo2ePerGbp), n(record.spendFactorSource), n(record.notes), at, at);
     return record;
   }
 
@@ -118,10 +119,11 @@ export class CounterpartyRepository {
     this.db
       .prepare(
         `UPDATE counterparties SET name = ?, company_number = ?, sector = ?, country = ?, roles = ?, ghg_categories = ?, annual_value_gbp = ?, contact_name = ?,
-           contact_email = ?, escalation_name = ?, escalation_email = ?, ask = ?, status = ?, notes = ?, updated_at = ? WHERE id = ?`,
+           contact_email = ?, escalation_name = ?, escalation_email = ?, ask = ?, status = ?, spend_factor_kgco2e_per_gbp = ?, spend_factor_source = ?, notes = ?, updated_at = ? WHERE id = ?`,
       )
       .run(next.name, n(next.companyNumber), n(next.sector), n(next.country), JSON.stringify(next.roles), JSON.stringify(next.ghgCategories), n(next.annualValueGbp),
-        n(next.contactName), n(next.contactEmail), n(next.escalationName), n(next.escalationEmail), next.ask, next.status, n(next.notes), next.updatedAt, id);
+        n(next.contactName), n(next.contactEmail), n(next.escalationName), n(next.escalationEmail), next.ask, next.status, n(next.spendFactorKgCo2ePerGbp), n(next.spendFactorSource),
+        n(next.notes), next.updatedAt, id);
     return next;
   }
 
@@ -135,7 +137,8 @@ function counterpartyFromRow(r: CounterpartyRow): CounterpartyRecord {
     id: r.id, name: r.name, companyNumber: r.company_number ?? undefined, sector: r.sector ?? undefined, country: r.country ?? undefined,
     roles: JSON.parse(r.roles) as string[], ghgCategories: JSON.parse(r.ghg_categories) as string[], annualValueGbp: r.annual_value_gbp ?? undefined,
     contactName: r.contact_name ?? undefined, contactEmail: r.contact_email ?? undefined, escalationName: r.escalation_name ?? undefined, escalationEmail: r.escalation_email ?? undefined,
-    ask: r.ask as Ask, status: r.status as CounterpartyRecord["status"], notes: r.notes ?? undefined, createdAt: r.created_at, updatedAt: r.updated_at,
+    ask: r.ask as Ask, status: r.status as CounterpartyRecord["status"], spendFactorKgCo2ePerGbp: r.spend_factor_kgco2e_per_gbp ?? undefined,
+    spendFactorSource: r.spend_factor_source ?? undefined, notes: r.notes ?? undefined, createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
 

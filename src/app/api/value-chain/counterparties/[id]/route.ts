@@ -39,7 +39,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const parsed = counterpartyUpdateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid update", issues: parsed.error.issues }, { status: 400 });
   try {
-    return NextResponse.json({ counterparty: new CounterpartyRepository(getDb()).update(id, parsed.data) });
+    const repo = new CounterpartyRepository(getDb());
+    const current = repo.get(id);
+    if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const factor = parsed.data.spendFactorKgCo2ePerGbp ?? current.spendFactorKgCo2ePerGbp;
+    const source = parsed.data.spendFactorSource ?? current.spendFactorSource;
+    if (factor !== undefined && !source) return NextResponse.json({ error: "A spend factor needs its source (publication, sector and year).", issues: [{ path: ["spendFactorSource"], message: "required with a spend factor" }] }, { status: 400 });
+    return NextResponse.json({ counterparty: repo.update(id, parsed.data) });
   } catch (e) {
     if (e instanceof CounterpartyNotFoundError) return NextResponse.json({ error: "Not found" }, { status: 404 });
     throw e;

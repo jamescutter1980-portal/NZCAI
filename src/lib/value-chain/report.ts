@@ -80,7 +80,15 @@ export interface LedgerSummary {
   warnings: string[];
 }
 
-export type DataSource = "report" | "ledger" | "none";
+/** Where the figure came from. A spend estimate is a fallback, never returned data. */
+export type DataSource = "report" | "ledger" | "spend_estimate" | "none";
+
+export interface SpendEstimate {
+  attributableTco2e: number | null;
+  factorKgCo2ePerGbp: number;
+  source: string;
+  detail: string;
+}
 
 export interface CounterpartyView {
   counterparty: CounterpartyRecord;
@@ -90,6 +98,8 @@ export interface CounterpartyView {
   state: EngagementState;
   report?: ReportFigure;
   ledger: LedgerSummary;
+  /** Present only while no report or ledger is held and a spend factor is recorded. */
+  spendEstimate?: SpendEstimate;
   dataSource: DataSource;
   attributableTco2e: number | null;
   tier: Tier | null;
@@ -119,7 +129,10 @@ export interface ValueChainReport {
     downstream: number;
     both: number;
     asked: number;
+    /** Returned a report or a ledger. A spend estimate does not count. */
     withData: number;
+    /** Neither report nor ledger, but a disclosed tier D spend estimate stands in. */
+    estimated: number;
     verified: number;
     declined: number;
     unreachable: number;
@@ -133,7 +146,12 @@ export interface ValueChainReport {
     unvalued: number;
   };
   totals: {
+    /** Returned data plus disclosed spend estimates. */
     attributableTco2e: number | null;
+    /** The part of the total that is returned data. */
+    returnedTco2e: number | null;
+    /** The part of the total that is a tier D spend estimate. */
+    estimatedTco2e: number | null;
     resolved: number;
     unresolved: number;
     primaryTco2e: number | null;
@@ -165,7 +183,9 @@ export function valueChainReport(db: Db, ctx: OperationContext, period: Period, 
   for (const v of views) for (const w of v.warnings) warnings.push(`${v.counterparty.name}: ${w}`);
 
   const active = views.filter((v) => v.counterparty.status === "active");
-  const withData = active.filter((v) => v.dataSource !== "none");
+  const withData = active.filter((v) => v.dataSource === "report" || v.dataSource === "ledger");
+  const estimated = active.filter((v) => v.dataSource === "spend_estimate");
+  const withFigure = [...withData, ...estimated];
   const valueOf = (v: CounterpartyView) => v.counterparty.annualValueGbp ?? 0;
   const valueTotal = active.reduce((n, v) => n + valueOf(v), 0);
   const valueWithData = withData.reduce((n, v) => n + valueOf(v), 0);
@@ -173,16 +193,19 @@ export function valueChainReport(db: Db, ctx: OperationContext, period: Period, 
   if (unvalued > 0) warnings.push(`${unvalued} active counterpart${unvalued === 1 ? "y has" : "ies have"} no annual value recorded, so the value-covered figure and the ranking leave ${unvalued === 1 ? "it" : "them"} out.`);
 
   const resolvedViews = active.filter((v) => v.attributableTco2e !== null);
-  const unresolved = withData.filter((v) => v.attributableTco2e === null).length;
+  const unresolved = withFigure.filter((v) => v.attributableTco2e === null).length;
   const sum = (vs: CounterpartyView[]) => (vs.some((v) => v.attributableTco2e === null) ? null : round3(vs.reduce((n, v) => n + (v.attributableTco2e ?? 0), 0)));
-  const attributable = withData.length === 0 ? 0 : sum(withData);
+  const attributable = withFigure.length === 0 ? 0 : sum(withFigure);
+  const returnedTco2e = withData.length === 0 ? 0 : sum(withData);
+  const estimatedTco2e = estimated.length === 0 ? 0 : sum(estimated);
   const primaryViews = withData.filter((v) => v.primary);
   const primaryTco2e = primaryViews.length === 0 ? 0 : sum(primaryViews);
   const primarySharePct = attributable === null || primaryTco2e === null ? null : attributable > 0 ? round3((primaryTco2e / attributable) * 100) : null;
   if (unresolved > 0) warnings.push(`${unresolved} counterpart${unresolved === 1 ? "y" : "ies"} returned data that cannot be turned into a figure yet, so the attributable total is blank rather than understated.`);
+  if (estimated.length > 0 && estimatedTco2e !== null) warnings.push(`${estimated.length} counterpart${estimated.length === 1 ? "y is" : "ies are"} estimated from spend at tier D (${round3(estimatedTco2e)} tCO2e of the total). Disclose the estimate and replace it with returned data.`);
 
   const byDirection = (dir: "upstream" | "downstream") => {
-    const own = withData.filter((v) => v.direction === dir || v.direction === "both");
+    const own = withFigure.filter((v) => v.direction === dir || v.direction === "both");
     return own.length === 0 ? 0 : sum(own);
   };
   const byTier: Record<Tier, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
@@ -205,6 +228,7 @@ export function valueChainReport(db: Db, ctx: OperationContext, period: Period, 
       both: active.filter((v) => v.direction === "both").length,
       asked: active.filter((v) => v.state !== "identified").length,
       withData: withData.length,
+      estimated: estimated.length,
       verified: active.filter((v) => v.state === "verified").length,
       declined: active.filter((v) => v.state === "declined").length,
       unreachable: active.filter((v) => v.state === "unreachable").length,
@@ -217,6 +241,8 @@ export function valueChainReport(db: Db, ctx: OperationContext, period: Period, 
     },
     totals: {
       attributableTco2e: attributable,
+      returnedTco2e,
+      estimatedTco2e,
       resolved: resolvedViews.length,
       unresolved,
       primaryTco2e,
@@ -253,9 +279,11 @@ function buildView(
   if (report) warnings.push(...report.warnings);
   warnings.push(...ledger.warnings);
 
-  const dataSource: DataSource = report ? "report" : ledger.counts.lines > 0 ? "ledger" : "none";
-  const attributableTco2e = dataSource === "report" ? report!.attributableTco2e : dataSource === "ledger" ? ledger.attributableTco2e : null;
-  const tier = dataSource === "report" ? report!.tier : dataSource === "ledger" ? ledger.tier : null;
+  const spendEstimate = !report && ledger.counts.lines === 0 ? spendEstimateFor(c) : undefined;
+  const dataSource: DataSource = report ? "report" : ledger.counts.lines > 0 ? "ledger" : spendEstimate ? "spend_estimate" : "none";
+  const attributableTco2e = dataSource === "report" ? report!.attributableTco2e : dataSource === "ledger" ? ledger.attributableTco2e : dataSource === "spend_estimate" ? spendEstimate!.attributableTco2e : null;
+  const tier: Tier | null = dataSource === "report" ? report!.tier : dataSource === "ledger" ? ledger.tier : dataSource === "spend_estimate" && attributableTco2e !== null ? "D" : null;
+  if (spendEstimate) warnings.push(spendEstimate.detail);
 
   let reconciliation: CounterpartyView["reconciliation"];
   if (report && ledger.counts.lines > 0) {
@@ -286,6 +314,7 @@ function buildView(
     state,
     report,
     ledger,
+    spendEstimate,
     dataSource,
     attributableTco2e,
     tier,
@@ -293,6 +322,30 @@ function buildView(
     reconciliation,
     next: nextAction(engagement, c, { report: report !== undefined, ledgerLines: ledger.counts.lines }, today),
     warnings: [...new Set(warnings)],
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* spend-based fallback (tier D)                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * annual value × sector factor, only while nothing has been returned. It is
+ * the estimate the chase ladder says will be used and disclosed; it never
+ * counts as returned data and never lifts the primary share.
+ */
+export function spendEstimateFor(c: CounterpartyRecord): SpendEstimate | undefined {
+  if (c.spendFactorKgCo2ePerGbp === undefined) return undefined;
+  const source = c.spendFactorSource ?? "source not recorded";
+  if (c.annualValueGbp === undefined) {
+    return { attributableTco2e: null, factorKgCo2ePerGbp: c.spendFactorKgCo2ePerGbp, source, detail: `A spend factor is recorded (${c.spendFactorKgCo2ePerGbp} kgCO2e/£, ${source}) but no annual value, so no spend estimate can be made.` };
+  }
+  const t = round3((c.annualValueGbp * c.spendFactorKgCo2ePerGbp) / 1000);
+  return {
+    attributableTco2e: t,
+    factorKgCo2ePerGbp: c.spendFactorKgCo2ePerGbp,
+    source,
+    detail: `No report or ledger for the year: estimated at tier D from spend, £${c.annualValueGbp} × ${c.spendFactorKgCo2ePerGbp} kgCO2e/£ = ${t} tCO2e (${source}). Disclose as an estimate; replace with counterparty data.`,
   };
 }
 
@@ -473,13 +526,13 @@ function categoryTotals(views: CounterpartyView[]): CategoryTotal[] {
   }
   return [...groups.entries()]
     .map(([category, g]) => {
-      const withData = g.views.filter((v) => v.dataSource !== "none");
+      const withFigure = g.views.filter((v) => v.dataSource !== "none");
       return {
         category,
         label: category === "multiple" ? "Several categories (not split)" : categoryLabel(category),
         counterparties: g.views.length,
-        withData: withData.length,
-        tco2e: withData.length === 0 ? 0 : withData.some((v) => v.attributableTco2e === null) ? null : round3(withData.reduce((n, v) => n + (v.attributableTco2e ?? 0), 0)),
+        withData: g.views.filter((v) => v.dataSource === "report" || v.dataSource === "ledger").length,
+        tco2e: withFigure.length === 0 ? 0 : withFigure.some((v) => v.attributableTco2e === null) ? null : round3(withFigure.reduce((n, v) => n + (v.attributableTco2e ?? 0), 0)),
       };
     })
     .sort((a, b) => (a.category === "multiple" ? 1 : b.category === "multiple" ? -1 : Number(a.category) - Number(b.category)));

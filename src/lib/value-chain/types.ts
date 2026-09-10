@@ -154,6 +154,25 @@ export const DECLINE_REASONS = {
 } as const;
 export const DECLINE_REASON_IDS = Object.keys(DECLINE_REASONS) as [string, ...string[]];
 
+/** A wave: the same action recorded against many counterparties at once. */
+export const bulkEngagementActionSchema = z.object({
+  reportingYear: year,
+  /** Explicit ids, or every active counterparty whose engagement is in one of the given states. */
+  counterpartyIds: z.array(z.string().min(1)).max(5000).optional(),
+  inStates: z.array(z.enum(ENGAGEMENT_STATES)).optional(),
+  action: z.enum(ENGAGEMENT_ACTIONS),
+  on: isoDate.optional(),
+  channel: z.enum(CHANNELS).optional(),
+  detail: optionalText(2000),
+  actor: optionalText(120),
+  dueOn: isoDate.optional(),
+  ask: z.enum(ASKS).optional(),
+  complete: z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean().optional()),
+  declineReason: z.enum(DECLINE_REASON_IDS).optional(),
+}).refine((v) => (v.counterpartyIds && v.counterpartyIds.length > 0) || (v.inStates && v.inStates.length > 0), { message: "give counterpartyIds or inStates", path: ["counterpartyIds"] })
+  .refine((v) => v.action !== "declined" || v.declineReason !== undefined, { message: "a decline needs a reason", path: ["declineReason"] });
+export type BulkEngagementActionInput = z.infer<typeof bulkEngagementActionSchema>;
+
 /* ------------------------------------------------------------------ */
 /* data quality tiers (GHG Protocol Scope 3 technical guidance)         */
 /* ------------------------------------------------------------------ */
@@ -198,9 +217,19 @@ export const counterpartyCreateSchema = z.object({
   escalationEmail: optionalText(200),
   ask: z.enum(ASKS).default("annual_ghg_report"),
   status: z.enum(COUNTERPARTY_STATUSES).default("active"),
+  /**
+   * Spend-based fallback (tier D): kgCO2e per £ for the counterparty's sector,
+   * used only while no report or ledger is held, and always disclosed as an
+   * estimate. The source is required so the factor can be traced.
+   */
+  spendFactorKgCo2ePerGbp: optionalNumber.pipe(z.number().nonnegative().optional()),
+  spendFactorSource: optionalText(300),
   notes: optionalText(2000),
 });
 export type CounterpartyCreate = z.infer<typeof counterpartyCreateSchema>;
+
+const spendFactorRule = { message: "a spend factor needs its source (publication, sector and year)", path: ["spendFactorSource"] as (string | number)[] };
+export const counterpartyCreateSchemaChecked = counterpartyCreateSchema.refine((v) => v.spendFactorKgCo2ePerGbp === undefined || v.spendFactorSource !== undefined, spendFactorRule);
 
 export const counterpartyUpdateSchema = counterpartyCreateSchema.partial();
 export type CounterpartyUpdate = z.infer<typeof counterpartyUpdateSchema>;

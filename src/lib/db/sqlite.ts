@@ -330,6 +330,13 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       CREATE INDEX counterparty_activity_year ON counterparty_activity(counterparty_id, reporting_year);
     `,
   },
+  {
+    id: "0011_value_chain_spend_factor",
+    sql: `
+      ALTER TABLE counterparties ADD COLUMN spend_factor_kgco2e_per_gbp REAL;
+      ALTER TABLE counterparties ADD COLUMN spend_factor_source TEXT;
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;

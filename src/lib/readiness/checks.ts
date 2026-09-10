@@ -531,7 +531,7 @@ function valueChainChecks(report: ValueChainReport | null, error: string | null)
             "Until each is asked and answered, its share of Scope 3 is a secondary estimate and must be disclosed as such.",
           ].filter(Boolean).join(" "),
   };
-  const missing = report.counterparties.filter((v) => v.counterparty.status === "active" && v.dataSource === "none");
+  const missing = report.counterparties.filter((v) => v.counterparty.status === "active" && (v.dataSource === "none" || v.dataSource === "spend_estimate"));
   const dataCheck: ReadinessCheck = {
     ...data,
     status: missing.length === 0 && report.totals.unresolved === 0 ? "ok" : "attention",
@@ -542,6 +542,7 @@ function valueChainChecks(report: ValueChainReport | null, error: string | null)
         : [
             missing.length > 0 ? `${missing.length} of ${c.active} active counterparties have returned no ${report.reportingYear} data${c.valueCoveredPct === null ? "" : `, so returned data covers ${c.valueCoveredPct}% of the annual value recorded`}: ${nameList([...missing].sort(byValue).map((v) => v.counterparty.name))}.` : "",
             report.totals.unresolved > 0 ? `${report.totals.unresolved} returned data that cannot be turned into a figure yet (a missing revenue, value or factor), so the attributable total is blank.` : "",
+            c.estimated > 0 ? `${c.estimated} of those stand${c.estimated === 1 ? "s" : ""} at a tier D spend estimate meanwhile, which must be disclosed as such.` : "",
             "Ask for an annual GHG report as the minimum, or an activity ledger where none exists; what is still missing at filing is estimated and disclosed as tier D or E.",
           ].filter(Boolean).join(" "),
   };

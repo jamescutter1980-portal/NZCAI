@@ -109,6 +109,11 @@ export interface DataHeld {
   ledgerLines: number;
 }
 
+const fallbackText = (c: CounterpartyRecord) =>
+  c.spendFactorKgCo2ePerGbp !== undefined && c.annualValueGbp !== undefined
+    ? `The recorded spend factor (${c.spendFactorKgCo2ePerGbp} kgCO2e/£) stands in at tier D until data arrives.`
+    : "Record a sector spend factor with its source so a tier D estimate can stand in until data arrives.";
+
 /**
  * Deterministic chase ladder from the state, the dates and what has arrived:
  * request, reminder, reminder, escalation, final notice, fall back. The engine
@@ -154,9 +159,9 @@ export function nextAction(engagement: EngagementRecord | undefined, counterpart
     case "verified":
       return { action: "Nothing due", reason: hasData ? `${e.reportingYear} data is verified. It will need re-requesting for the next reporting year.` : `Marked verified but no report or ledger for ${e.reportingYear} is recorded; reopen or enter the data.`, due: !hasData, overdue: false };
     case "declined":
-      return { action: "Use a secondary estimate and disclose it", reason: `${counterparty.name} declined${e.declineReason ? ` (${DECLINE_REASONS[e.declineReason as keyof typeof DECLINE_REASONS] ?? e.declineReason})` : ""}. Estimate the category from spend or average data, state the basis, and re-approach next period${e.declineReason === "vsme_right_to_refuse" ? " with a VSME-only ask" : ""}.`, due: true, overdue: false };
+      return { action: "Use a secondary estimate and disclose it", reason: `${counterparty.name} declined${e.declineReason ? ` (${DECLINE_REASONS[e.declineReason as keyof typeof DECLINE_REASONS] ?? e.declineReason})` : ""}. ${fallbackText(counterparty)} Re-approach next period${e.declineReason === "vsme_right_to_refuse" ? " with a VSME-only ask" : ""}.`, due: true, overdue: false };
     case "unreachable":
-      return { action: "Use a secondary estimate and disclose it", reason: `No contact could be reached at ${counterparty.name}. Estimate the category from spend or average data, state the basis, and find a contact before next period.`, due: true, overdue: false };
+      return { action: "Use a secondary estimate and disclose it", reason: `No contact could be reached at ${counterparty.name}. ${fallbackText(counterparty)} Find a contact before next period.`, due: true, overdue: false };
     case "identified":
       return { action: "Send the data request", reason: `${counterparty.name} has not been asked for ${e.reportingYear} data.`, due: true, overdue: false };
   }

@@ -112,13 +112,41 @@ is also chosen, a variance above 10% is reported and the factor figure used.
 Where both a report and a ledger exist for the year the report is used and
 the variance between the two is shown; above 25% it is raised as a warning.
 
+### Spend-based fallback (tier D)
+
+A counterparty may carry a sector spend factor in kgCO2e per £ with its
+source (publication, sector and year). While no report or ledger is held for
+the year, annual value × factor stands in as a **tier D estimate**. It is
+shown and exported as an estimate, counted separately from returned data in
+the totals, never lifts the primary share, never counts as "data returned",
+and never stops the chase. The moment a report or ledger arrives it is
+dropped. A factor without a source is refused.
+
+## Companies House
+
+"Find on Companies House" on the dossier searches the register for the
+counterparty's name and lists the candidates; picking one fills the company
+number, the sector from the SIC codes where none is recorded, and the country.
+The recorded name is kept, a differing register name is reported, and a
+company the register shows as dissolved or in liquidation is flagged. Needs
+`COMPANIES_HOUSE_API_KEY`; nothing is applied without the pick.
+
+## Waves
+
+On the register, select counterparties (or "select not yet asked") and record
+one action for all of them: request sent with a deadline, a reminder, an
+escalation, a decline. Each counterparty is handled on its own: a transition
+its state does not allow is skipped with the reason and the rest go through,
+and every applied transition writes its audit event.
+
 ## Coverage and totals
 
 The report for a period gives: counterparties by direction; how many were
 asked, returned data, were verified, declined or could not be reached; the
 share of annual value backed by returned data; the attributable tCO2e (null if
-any counterparty with data cannot be resolved); the primary-data share (tiers
-A and B) for the ESRS E1-6 split; totals by direction, by Scope 3 category
+any counterparty with data cannot be resolved), split into returned data and
+tier D spend estimates; the primary-data share (tiers A and B) for the ESRS
+E1-6 split; totals by direction, by Scope 3 category
 (a counterparty serving several categories is listed under "several", not
 split) and by tier.
 
@@ -139,8 +167,7 @@ valuable first.
 
 ## Not yet built
 
-Companies House enrichment of counterparties, public-report harvesting and
-pre-filled requests, sending mail, an inbound request inbox, PACT or VSME
-machine exchange, and spend-based (tier D) estimation for counterparties with
-no data. The brief in the product docs covers each; this module is the graph,
-lifecycle and evidence layer they attach to.
+Public-report harvesting and pre-filled requests, sending mail, an inbound
+request inbox, and PACT or VSME machine exchange. The brief in the product
+docs covers each; this module is the graph, lifecycle and evidence layer they
+attach to.

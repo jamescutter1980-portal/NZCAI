@@ -91,8 +91,13 @@ export const counterpartyImportSpec: ImportSpec = {
     { name: "escalationEmail", label: "Escalation email", aliases: ["escalation email address", "senior contact email"], example: "j.smith@example.com", parse: textField({ maxLength: 200 }) },
     { name: "ask", label: "Ask", aliases: ["request type", "data requested", "minimum ask"], help: "annual_ghg_report (the default), activity_ledger or either.", example: "annual_ghg_report", parse: enumField(ASKS, { aliases: { report: "annual_ghg_report", ghgreport: "annual_ghg_report", ledger: "activity_ledger", activity: "activity_ledger", both: "either" } }) },
     { name: "status", label: "Status", aliases: ["active"], example: "active", parse: enumField(["active", "inactive"] as const, { aliases: { yes: "active", y: "active", live: "active", no: "inactive", n: "inactive", dormant: "inactive", closed: "inactive" } }) },
+    { name: "spendFactorKgCo2ePerGbp", label: "Spend factor (kgCO2e per £)", aliases: ["spend factor", "eeio factor", "kgco2e per gbp", "kgco2e/£"], help: "Sector factor for the tier D fallback, used only while no report or ledger is held. Needs a source.", example: "0.21", parse: numberField({ min: 0 }) },
+    { name: "spendFactorSource", label: "Spend factor source", aliases: ["factor source", "eeio source"], example: "Exiobase 3.8 UK, food wholesale, 2024", parse: textField({ maxLength: 300 }) },
     { name: "notes", label: "Notes", aliases: ["comment", "comments"], parse: textField({ maxLength: 2000 }) },
   ],
+  rowCheck(row, rowNumber) {
+    return row.spendFactorKgCo2ePerGbp !== undefined && row.spendFactorSource === undefined ? [`Row ${rowNumber}: a spend factor needs its source.`] : [];
+  },
 };
 
 export const counterpartyImportFields = counterpartyImportSpec.fields.map((f) => ({ name: f.name, label: f.label, required: f.required, help: f.help, example: f.example, parse: f.parse }));
