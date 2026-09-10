@@ -1,9 +1,10 @@
 import type { Db } from "@/lib/db/sqlite";
 import type { OperationContext } from "@/lib/integrations/framework";
-import { desnzRowById, type ResolvedFactor } from "@/lib/carbon/factors";
+import type { ResolvedFactor } from "@/lib/carbon/factors";
+import { resolveFactorLine, round3 } from "@/lib/carbon/factor-line";
 import type { Period } from "@/lib/carbon/period";
 import { TransportRepository } from "./repo";
-import { TRANSPORT_CATEGORIES, normaliseUnit, unitConversion, type ActivityRecord, type TransportCategory, type VehicleRecord } from "./types";
+import { TRANSPORT_CATEGORIES, type ActivityRecord, type TransportCategory, type VehicleRecord } from "./types";
 
 /**
  * Transport and business travel emissions for a reporting period.
@@ -58,7 +59,7 @@ export interface TransportCarbon {
   warnings: string[];
 }
 
-const round = (n: number) => Math.round(n * 1000) / 1000;
+const round = round3;
 
 export function transportCarbon(db: Db, ctx: OperationContext, period: Period, vehicles?: VehicleRecord[]): TransportCarbon {
   const repo = new TransportRepository(db);
@@ -145,51 +146,23 @@ function buildLine(
     warnings: lineWarnings,
   };
 
-  if (!a.factorId || a.factorYear === undefined) {
-    return {
-      ...base,
-      convertedQuantity: null,
-      factorUnit: null,
-      factor: { value: null, unit: "", basis: "unavailable", source: "desnz-conversion-factors", reference: "no factor chosen", detail: "No conversion factor has been chosen for this activity." },
-      kgCo2e: null,
-    };
-  }
-
-  const factorYear = a.factorYear;
-  const { row, factor } = desnzRowById(ctx, factorYear, a.factorId);
-  if (factorYear !== period.factorYear) {
-    lineWarnings.push(`Uses the ${factorYear} factor set while the period reports against ${period.factorYear}.`);
-  }
-  if (row && meta.expectedScope && !row.scope.toLowerCase().startsWith(meta.expectedScope.toLowerCase())) {
-    lineWarnings.push(`Filed under ${meta.ghgCategory} but the chosen DESNZ row is published as ${row.scope}. Check the category or the factor.`);
-  }
-  if (factor.value === null) {
-    if (factor.detail) lineWarnings.push(factor.detail);
-    return { ...base, convertedQuantity: null, factorUnit: row ? row.uom : null, factor, kgCo2e: null };
-  }
-
-  const factorUnit = row?.uom ?? "";
-  const conversion = unitConversion(a.unit, factorUnit);
-  if (conversion === null) {
-    lineWarnings.push(`Quantity is in ${a.unit} but the factor is per ${factorUnit}. Convert the quantity or choose a factor in ${a.unit}.`);
-    return {
-      ...base,
-      convertedQuantity: null,
-      factorUnit,
-      factor: { ...factor, basis: "unavailable", detail: `Unit mismatch: ${a.unit} against a factor per ${factorUnit}.` },
-      kgCo2e: null,
-    };
-  }
-  const converted = round(a.quantity * conversion);
-  const conversionNote =
-    conversion === 1 ? undefined : `${a.quantity} ${a.unit} converted to ${converted} ${factorUnit} at ${conversion} ${factorUnit} per ${normaliseUnit(a.unit)}.`;
-  factorReferences.add(factor.reference);
+  const resolved = resolveFactorLine(ctx, {
+    factorId: a.factorId,
+    factorYear: a.factorYear,
+    quantity: a.quantity,
+    unit: a.unit,
+    periodFactorYear: period.factorYear,
+    expectedScope: meta.expectedScope,
+    categoryLabel: meta.ghgCategory,
+  });
+  lineWarnings.push(...resolved.warnings);
+  if (resolved.factor.value !== null && resolved.kgCo2e !== null) factorReferences.add(resolved.factor.reference);
   return {
     ...base,
-    convertedQuantity: converted,
-    factorUnit,
-    conversionNote,
-    factor,
-    kgCo2e: round(converted * factor.value),
+    convertedQuantity: resolved.convertedQuantity,
+    factorUnit: resolved.factorUnit,
+    conversionNote: resolved.conversionNote,
+    factor: resolved.factor,
+    kgCo2e: resolved.kgCo2e,
   };
 }

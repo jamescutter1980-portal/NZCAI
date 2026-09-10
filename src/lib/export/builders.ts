@@ -13,6 +13,7 @@ import { toView, type ConsentRecord } from "@/lib/consent/types";
 import type { CsvValue } from "./csv";
 import { safeFilename } from "./csv";
 import { transportCarbon } from "@/lib/transport";
+import { emissionsCarbon } from "@/lib/emissions";
 
 /**
  * Export builders.
@@ -323,15 +324,22 @@ export const SECR_EXCLUSIONS: [string, string][] = [
   ["Transport energy and emissions", "No transport activity has been recorded for this period. SECR requires transport energy for UK operations; add it on the Transport page before disclosing."],
   ["Business travel (Scope 3 category 6)", "No business travel has been recorded for this period."],
   ["Other Scope 3 categories", "Only category 3 (transmission and distribution losses) is calculated from meter data. Purchased goods and services, waste, downstream leased assets and the rest are not captured."],
-  ["Fugitive emissions (refrigerants)", "Not captured by the portal; these are Scope 1 and are usually material for air-conditioned buildings."],
+  ["Fugitive emissions (refrigerants)", "No refrigerant top-ups recorded for this period. These are Scope 1 and are usually material for air-conditioned buildings."],
   ["Non-metered fuels", "Oil, LPG and biomass are not captured; only electricity and gas meter data is held."],
-  ["Water, waste and embodied carbon", "Not captured by the portal."],
+  ["Water", "No water supply or treatment recorded for this period."],
+  ["Waste", "No waste recorded for this period."],
+  ["Embodied carbon", "Not captured by the portal. A whole life carbon assessment is a separate exercise."],
 ];
 
 export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: number): ExportTable {
   const roll = portfolioRollup(db, ctx, year);
   const transport = transportCarbon(db, ctx, calendarYear(year));
   const hasTransport = transport.counts.lines > 0;
+  const site = emissionsCarbon(db, ctx, calendarYear(year));
+  const hasRefrigerant = site.lines.some((l) => l.family === "refrigerant");
+  const hasWater = site.lines.some((l) => l.family === "water");
+  const hasWaste = site.lines.some((l) => l.family === "waste");
+  const refrigerantScope1 = hasRefrigerant ? site.byFamily.refrigerant : 0;
   const transportEnergyKwh = transport.lines
     .filter((l) => l.unit.trim().toLowerCase() === "kwh")
     .reduce((n, l) => n + l.quantity, 0);
@@ -372,7 +380,7 @@ export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: numb
   const scope2Market = sumOrNull(roll.assets.map((a) => a.carbon.totals.scope2Market));
   const scope3Td = sumOrNull(roll.assets.flatMap((a) => a.carbon.scope3TandD.map((l) => l.kgCo2e)));
   const transportScope1 = hasTransport ? transport.totals.scope1 : 0;
-  const scope1Total = sumOrNull([scope1, transportScope1]);
+  const scope1Total = sumOrNull([scope1, transportScope1, refrigerantScope1]);
   const totalLocation = sumOrNull([scope1Total, scope2Location]);
   const missingNote = (v: number | null) => (v === null ? "Blank because at least one required factor is unavailable. See the portfolio-carbon export for which asset and which factor." : "");
 
@@ -386,6 +394,15 @@ export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: numb
         ? "Blank because at least one fleet line could not be calculated. See the Transport page for which."
         : "",
   );
+  add(
+    "Emissions", "Scope 1 (fugitive, refrigerants)", nn(refrigerantScope1), "kgCO2e",
+    refrigerantScope1 === null ? "unavailable" : hasRefrigerant ? "measured" : "not_applicable", "desnz-conversion-factors", "",
+    !hasRefrigerant
+      ? "No refrigerant top-ups recorded for this period."
+      : refrigerantScope1 === null
+        ? "Blank because at least one refrigerant line could not be calculated. See the Emissions page for which."
+        : "Mass-balance approach: refrigerant added over the period is taken as the quantity that leaked.",
+  );
   add("Emissions", "Scope 1 total", nn(scope1Total), "kgCO2e", scope1Total === null ? "unavailable" : "measured", "nzc-portal", "", missingNote(scope1Total));
   add("Emissions", "Scope 2 location-based", nn(scope2Location), "kgCO2e", scope2Location === null ? "unavailable" : "measured", "desnz-conversion-factors", "", missingNote(scope2Location));
   add("Emissions", "Scope 2 market-based", nn(scope2Market), "kgCO2e", scope2Market === null ? "unavailable" : "measured", "asset_meters, aib-residual-mix", "", missingNote(scope2Market));
@@ -396,6 +413,20 @@ export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: numb
       g.kgCo2e === null ? "unavailable" : "measured", "desnz-conversion-factors", "",
       `${g.lines} transport activity line${g.lines === 1 ? "" : "s"}${g.unresolved > 0 ? `, ${g.unresolved} of which could not be calculated, so this is blank rather than partial` : ""}. Voluntary under SECR; required for a GHG Protocol inventory.`,
     );
+  }
+  for (const g of site.byGhgCategory.filter((c) => c.scope === 3)) {
+    add(
+      "Emissions", `Scope 3 ${g.ghgCategory.toLowerCase()}`, nn(g.kgCo2e), "kgCO2e",
+      g.kgCo2e === null ? "unavailable" : "measured", "desnz-conversion-factors", "",
+      `${g.lines} water or waste line${g.lines === 1 ? "" : "s"}${g.unresolved > 0 ? `, ${g.unresolved} of which could not be calculated, so this is blank rather than partial` : ""}. Voluntary under SECR; required for a GHG Protocol inventory.`,
+    );
+  }
+  if (hasWaste) {
+    const w = site.waste;
+    add("Waste", "Total waste", nn(w.totalTonnes), "tonnes", w.totalTonnes === null ? "unavailable" : "measured", "nzc-portal", "", w.detail);
+    add("Waste", "Diverted from landfill", nn(w.divertedTonnes), "tonnes", w.divertedTonnes === null ? "unavailable" : "measured", "nzc-portal");
+    add("Waste", "Landfill", nn(w.landfillTonnes), "tonnes", w.landfillTonnes === null ? "unavailable" : "measured", "nzc-portal");
+    add("Waste", "Diversion rate", nn(w.diversionRatePct), "%", w.diversionRatePct === null ? "unavailable" : "measured", "nzc-portal", "", "Energy recovery counts as diverted from landfill.");
   }
   add("Emissions", "Total gross (Scope 1 + Scope 2 location-based)", nn(totalLocation), "kgCO2e", totalLocation === null ? "unavailable" : "measured", "nzc-portal", "", `${missingNote(totalLocation)} Scope 1 includes mobile combustion where transport activity is recorded. Scope 3 is excluded from this total, as SECR requires.`.trim());
 
@@ -441,6 +472,9 @@ export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: numb
   const exclusions = SECR_EXCLUSIONS.filter(([item]) => {
     if (item.startsWith("Transport energy") && hasTransport) return false;
     if (item.startsWith("Business travel") && travelRecorded) return false;
+    if (item.startsWith("Fugitive emissions") && hasRefrigerant) return false;
+    if (item === "Water" && hasWater) return false;
+    if (item === "Waste" && hasWaste) return false;
     return true;
   });
   for (const [item, note] of exclusions) {

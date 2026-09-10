@@ -19,6 +19,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Sync | `/sync`, `/api/n3rgy/sync`, `pnpm n3rgy:sync` | Scheduled pull, gaps, expiry warnings, tariffs |
 | Readings | `/readings`, `/api/readings`, `/api/readings/meters` | Daily totals, gaps, CSV, indicative cost |
 | Import | `src/lib/import`, `CsvImport` | Delimiter and preamble detection, column mapping, UK date and number parsing, all-or-nothing commit |
+| Emissions | `/emissions`, `/api/emissions/...` | Refrigerants, water and waste against picked DESNZ rows, with landfill diversion |
 | Transport | `/transport`, `/api/transport/...`, `/api/factors` | Fleet, grey fleet, travel and commuting against picked DESNZ rows; DVLA and MOT vehicle lookup |
 | Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents |
 | Assessment | `/api/assets/[id]/assessment` | CRREM misalignment year and UK NZCBS indicative check |

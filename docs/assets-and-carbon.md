@@ -115,3 +115,20 @@ Two rules make an import safe to trust: a blank optional cell leaves the field a
 With transport recorded, the SECR summary now includes mobile combustion in Scope 1 and lists business travel and commuting under their GHG Protocol categories. The transport exclusion rows disappear once there is data to replace them.
 
 Transport **energy** in kWh only appears where fuel was recorded in kWh. Distance-based lines give emissions but not energy, and the export says so on the row rather than leaving the reader to work it out. Converting distance to energy needs a calorific value the portal does not hold.
+
+
+## Refrigerants, water and waste
+
+`/emissions` covers the Scope 1 fugitive and Scope 3 sources that meter data does not reach. It follows the contract transport established, and shares the same factor-resolution code, so the three checks behave identically: the unit must match the factor's, the chosen row's published scope is checked against the category, and a row running past the period end is counted whole with a warning.
+
+**Refrigerants** use the mass-balance approach: the refrigerant added to a system over the period is taken as the quantity that leaked. Record top-ups from service records, not the system charge. A row that does not name the gas is flagged, because the factor cannot then be checked against the refrigerant it is supposed to represent. This is Scope 1 and is usually material for air-conditioned buildings.
+
+**Water** splits supply from treatment. Supply is reported under category 1 and treatment under category 5, which is the common UK treatment; the category note on each says so, because some organisations report both under category 5. Where there is no wastewater meter, treated volume is often taken as a percentage of supply, and the assumption belongs in the evidence field.
+
+**Waste** carries the treatment route in the category, which is what makes the diversion rate computable. Diversion is a mass ratio, so **every waste line must reconcile to tonnes**; a line recorded in skips or bins returns no diversion rate at all rather than a rate computed from part of the waste. Energy recovery counts as diverted from landfill, and the summary says so wherever the rate appears.
+
+### Effect on SECR
+
+Refrigerant leakage now sits in Scope 1 alongside gas and mobile combustion. Water and waste appear under their GHG Protocol categories, and waste adds a section with total, diverted, landfill and the diversion rate.
+
+The exclusions list has gone from seven items to four. What remains excluded is the other Scope 3 categories, non-metered fuels such as oil, LPG and biomass, embodied carbon, and the standing statement that the return still needs review before it is filed.

@@ -13,6 +13,9 @@ export default function Home() {
           <Link href="/transport">Transport and travel</Link> – fleet, grey fleet, business travel and commuting with DESNZ factors
         </li>
         <li>
+          <Link href="/emissions">Refrigerants, water and waste</Link> – Scope 1 fugitive and the Scope 3 sources meters do not cover
+        </li>
+        <li>
           <Link href="/portfolio">Portfolio</Link> – energy, carbon and data quality across every asset for any reporting period
         </li>
         <li>

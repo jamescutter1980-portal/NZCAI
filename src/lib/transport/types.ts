@@ -113,24 +113,4 @@ export interface ActivityRecord extends ActivityCreate {
   updatedAt: string;
 }
 
-/** Distance conversions the engine will apply, stating what it did. */
-export const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
-  miles: { km: 1.609344 },
-  km: { miles: 0.621371192 },
-  "passenger.miles": { "passenger.km": 1.609344 },
-  "passenger.km": { "passenger.miles": 0.621371192 },
-  "tonne.miles": { "tonne.km": 1.609344 },
-  "tonne.km": { "tonne.miles": 0.621371192 },
-};
-
-export function normaliseUnit(unit: string): string {
-  return unit.trim().toLowerCase().replace(/\s+/g, "").replace(/^passengerkm$/, "passenger.km").replace(/^tonnekm$/, "tonne.km");
-}
-
-/** Conversion factor from `from` to `to`, 1 when identical, null when unrelated. */
-export function unitConversion(from: string, to: string): number | null {
-  const a = normaliseUnit(from);
-  const b = normaliseUnit(to);
-  if (a === b) return 1;
-  return UNIT_CONVERSIONS[a]?.[b] ?? null;
-}
+export { UNIT_CONVERSIONS, normaliseUnit, unitConversion } from "@/lib/carbon/units";

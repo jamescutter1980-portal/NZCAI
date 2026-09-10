@@ -205,6 +205,32 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       CREATE INDEX transport_activity_period ON transport_activity(period_start);
     `,
   },
+  {
+    id: "0009_site_activity",
+    sql: `
+      CREATE TABLE site_activity (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        label TEXT NOT NULL,
+        asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
+        period_start TEXT NOT NULL,
+        period_end TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        refrigerant_type TEXT,
+        waste_material TEXT,
+        factor_id TEXT,
+        factor_year INTEGER,
+        basis TEXT NOT NULL,
+        evidence TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX site_activity_period ON site_activity(period_start);
+      CREATE INDEX site_activity_asset ON site_activity(asset_id);
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;
