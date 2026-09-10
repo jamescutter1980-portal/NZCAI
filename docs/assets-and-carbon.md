@@ -44,3 +44,39 @@ EUI is import kWh (electricity plus gas) divided by floor area, for the calendar
 - Fiscal-year and rolling-12-month periods.
 - Water and waste per asset.
 - Persisting screening rows to the spatial layers the roadmap describes rather than calling each service per screening.
+
+## Reporting periods
+
+Every energy and carbon figure can be reported over a calendar year, a financial year (any start month, April by default) or a rolling twelve months. A period is a half-open UTC interval, so a reading on 1 January belongs to that year and not the one before.
+
+A financial or rolling period reports against the DESNZ factor set for the year it **starts** in, the usual UK convention. The factor year is shown with every result and can be overridden with `factorYear` on the API, because the right choice depends on the disclosure basis.
+
+## Shared meters and allocation
+
+A meter can serve several assets. Each link carries a **share** above 0 and up to 1, and only that share of the metered energy, cost and carbon counts towards the asset. `meteredKwh` keeps the unallocated figure alongside the allocated `kwh`, so nothing is lost.
+
+The portfolio page checks the shares for every shared meter and flags two mistakes: **over-allocated** (shares add up to more than 100%, so energy is double counted) and **under-allocated** (they add up to less, so some energy belongs to no asset). Neither is corrected automatically, because only the user knows which asset the remainder belongs to.
+
+## Portfolio
+
+`/portfolio` rolls the assets up for a period: energy, EUI, the four carbon lines, intensity per m², and data completeness as the percentage of elapsed period days with readings. Sorting is by any column.
+
+A scope total is **blank rather than zero** whenever any asset in it could not be calculated, and the number of assets behind each total is always shown. Data-quality issues are grouped by kind, with over-allocation, missing factors and missing readings shown first because they change the numbers rather than just limiting them.
+
+## Net zero alignment
+
+`/assets/<id>` runs two assessments on demand.
+
+**CRREM** resolves the decarbonisation pathway for the asset's country, property type, scenario and pathway type from the loaded CRREM file, then carries today's intensity forward with no modelled improvement to find the misalignment year. The chart shows both lines and marks the crossing. Cumulative excess emissions to the horizon are reported where the asset exceeds the pathway.
+
+**UK NZCBS** compares the asset against the limits in the loaded NZCBS file for its sector and year. Only a metric that is clearly operational energy in kWh/m² is compared against the portal's EUI; every other metric in the file is carried through as not assessable with the reason, since the portal cannot yet compute embodied carbon or on-site renewables. It is an indicative check against a loaded limit table, not a verified assessment.
+
+Both need their reference file in `data/reference/`; without it the result says so rather than guessing.
+
+## Exports
+
+CSV exports at `/api/exports/<kind>`: `readings`, `asset-carbon`, `portfolio-energy`, `portfolio-carbon`, `secr-summary` and `consents`. They open cleanly in Excel (UTF-8 BOM, formula-injection guarded) and carry provenance in columns rather than preamble rows.
+
+Exports are **calendar-year only** for now; the pages hide the link when another period is selected rather than exporting the wrong window.
+
+The SECR summary is deliberately incomplete and says so on its face: transport, business travel, refrigerants, non-metered fuels, water, waste and embodied carbon are each a labelled exclusion row, and the table ends with a row stating it is not a complete disclosure. It is a starting point for a return, not the return.

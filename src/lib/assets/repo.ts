@@ -8,7 +8,7 @@ interface AssetRow {
   floor_area_m2: number | null; property_type: string | null; country: string | null; notes: string | null; created_at: string; updated_at: string;
 }
 interface MeterRow {
-  asset_id: string; mpxn: string; utility: string; direction: string; label: string | null; supplier_factor_kgco2e_per_kwh: number | null; supplier_factor_evidence: string | null; created_at: string;
+  asset_id: string; mpxn: string; utility: string; direction: string; label: string | null; supplier_factor_kgco2e_per_kwh: number | null; supplier_factor_evidence: string | null; share: number | null; created_at: string;
 }
 
 export class AssetNotFoundError extends Error {
@@ -68,17 +68,34 @@ export class AssetsRepository {
     const stamp = now.toISOString();
     this.db
       .prepare(
-        `INSERT INTO asset_meters (asset_id, mpxn, utility, direction, label, supplier_factor_kgco2e_per_kwh, supplier_factor_evidence, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO asset_meters (asset_id, mpxn, utility, direction, label, supplier_factor_kgco2e_per_kwh, supplier_factor_evidence, share, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(asset_id, mpxn, utility, direction) DO UPDATE SET label = excluded.label,
-           supplier_factor_kgco2e_per_kwh = excluded.supplier_factor_kgco2e_per_kwh, supplier_factor_evidence = excluded.supplier_factor_evidence`,
+           supplier_factor_kgco2e_per_kwh = excluded.supplier_factor_kgco2e_per_kwh, supplier_factor_evidence = excluded.supplier_factor_evidence,
+           share = excluded.share`,
       )
-      .run(assetId, input.mpxn, input.utility, input.direction, n(input.label), n(input.supplierFactorKgCo2ePerKwh), n(input.supplierFactorEvidence), stamp);
+      .run(assetId, input.mpxn, input.utility, input.direction, n(input.label), n(input.supplierFactorKgCo2ePerKwh), n(input.supplierFactorEvidence), input.share ?? 1, stamp);
     return { assetId, ...input, createdAt: stamp };
   }
 
   unlinkMeter(assetId: string, mpxn: string, utility: string, direction: string): boolean {
     return this.db.prepare("DELETE FROM asset_meters WHERE asset_id = ? AND mpxn = ? AND utility = ? AND direction = ?").run(assetId, mpxn, utility, direction).changes > 0;
+  }
+
+  /**
+   * Total share allocated across every asset for a meter. More than 1 means
+   * the same energy is counted twice; less than 1 means some is unallocated.
+   */
+  allocationForMeter(mpxn: string, utility: string, direction: string): { total: number; links: { assetId: string; assetName: string; share: number }[] } {
+    const rows = this.db
+      .prepare(
+        `SELECT m.asset_id AS assetId, a.name AS assetName, m.share AS share
+         FROM asset_meters m JOIN assets a ON a.id = m.asset_id
+         WHERE m.mpxn = ? AND m.utility = ? AND m.direction = ? ORDER BY a.name`,
+      )
+      .all(mpxn, utility, direction) as unknown as { assetId: string; assetName: string; share: number | null }[];
+    const links = rows.map((r) => ({ ...r, share: r.share ?? 1 }));
+    return { total: Math.round(links.reduce((n, l) => n + l.share, 0) * 1000) / 1000, links };
   }
 
   /** Which assets a meter is linked to (a shared supply can serve several). */
@@ -120,6 +137,7 @@ function fromRow(r: AssetRow): AssetRecord {
 function meterFromRow(r: MeterRow): AssetMeter {
   return {
     assetId: r.asset_id, mpxn: r.mpxn, utility: r.utility as "electricity" | "gas", direction: r.direction as "import" | "export", label: r.label ?? undefined,
-    supplierFactorKgCo2ePerKwh: r.supplier_factor_kgco2e_per_kwh ?? undefined, supplierFactorEvidence: r.supplier_factor_evidence ?? undefined, createdAt: r.created_at,
+    supplierFactorKgCo2ePerKwh: r.supplier_factor_kgco2e_per_kwh ?? undefined, supplierFactorEvidence: r.supplier_factor_evidence ?? undefined,
+    share: r.share ?? 1, createdAt: r.created_at,
   };
 }

@@ -83,7 +83,7 @@ describe("assetCarbon", () => {
     expect(c.scope2Market.find((l) => l.meters?.[0] === "1000000000001")?.kgCo2e).toBeCloseTo(200 * 0.3333, 2);
     expect(c.totals.scope2Market).toBeCloseTo(200 * 0.3333, 2);
     expect(c.timeVarying.kgCo2e).toBeNull();
-    expect(c.warnings.join(" ")).toMatch(/Partial year.*1 of \d+ days/);
+    expect(c.warnings.join(" ")).toMatch(/Partial period.*1 of \d+ days/);
     expect(c.energy[0].days).toBe(1);
     const empty = assetCarbon(db, ctx, meters, 2024, "SW1A");
     expect(empty.totals.scope1).toBe(0);

@@ -159,6 +159,10 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       );
     `,
   },
+  {
+    id: "0007_meter_allocation",
+    sql: `ALTER TABLE asset_meters ADD COLUMN share REAL NOT NULL DEFAULT 1.0;`,
+  },
 ];
 
 export type Db = DatabaseSync;

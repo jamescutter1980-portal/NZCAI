@@ -286,7 +286,11 @@ export default function ConsentsPage() {
         </form>
       </details>
 
-      <h2 style={{ fontSize: 18 }}>Recorded consents ({consents.length})</h2>
+      <h2 style={{ fontSize: 18 }}>
+        Recorded consents ({consents.length}){" "}
+        {/* A file download, not navigation, so an anchor is correct here. */}
+        {consents.length > 0 && <a href="/api/exports/consents" download style={{ fontSize: 13, fontWeight: 400 }}>Export CSV</a>}
+      </h2>
       {consents.length === 0 && <p>None yet.</p>}
       <div style={{ overflowX: "auto" }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>

@@ -34,6 +34,13 @@ export const assetMeterSchema = z.object({
   utility: z.enum(["electricity", "gas"]),
   direction: z.enum(["import", "export"]).default("import"),
   label: optionalText(120),
+  /**
+   * Share of this meter's energy that belongs to this asset, above 0 and up to
+   * 1. Use less than 1 where one supply serves several assets; the shares
+   * across assets should add up to 1. The repository stores 1 when omitted, and
+   * every consumer treats an absent share as 1.
+   */
+  share: z.preprocess((v) => (v === "" || v === null || v === undefined ? undefined : Number(v)), z.number().gt(0).max(1).optional()),
   /** Supplier-specific factor for market-based Scope 2, kgCO2e/kWh, with evidence. */
   supplierFactorKgCo2ePerKwh: optionalNumber.pipe(z.number().min(0).optional()),
   supplierFactorEvidence: optionalText(300),

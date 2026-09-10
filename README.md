@@ -18,6 +18,9 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Consents | `/consents`, `/api/consents`, `/api/consents/{id}`, `/api/consents/{id}/verify` | Gate on all live retrieval |
 | Sync | `/sync`, `/api/n3rgy/sync`, `pnpm n3rgy:sync` | Scheduled pull, gaps, expiry warnings, tariffs |
 | Readings | `/readings`, `/api/readings`, `/api/readings/meters` | Daily totals, gaps, CSV, indicative cost |
+| Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents |
+| Assessment | `/api/assets/[id]/assessment` | CRREM misalignment year and UK NZCBS indicative check |
+| Portfolio | `/portfolio`, `/api/portfolio` | Roll-up by calendar, financial or rolling-12-month period with data-quality flags |
 | Assets | `/assets`, `/assets/[id]`, `/api/assets/...`, `pnpm carbon:intensity` | Meters per building, Scope 1 and 2 with factor provenance, screening across 14 point-based sources |
 | Data sources | `/sources`, `/sources/[id]`, `/lookup`, `/api/sources/...`, `pnpm sources:check` | 111 sources, 82 connectors, 253 operations, generic forms, health checks, one-click location lookup |
 | Storage | `data/portal.sqlite` | Node built-in SQLite, migrations on open |

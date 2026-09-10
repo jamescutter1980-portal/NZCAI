@@ -3,15 +3,33 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { PeriodPicker, defaultPeriodSelection, periodQuery, type PeriodSelection } from "@/components/PeriodPicker";
+import { CrremChart, type PathwayPoint } from "@/components/CrremChart";
 
 interface Asset { id: string; name: string; uprn?: string; address?: string; postcode?: string; latitude?: number; longitude?: number; floorAreaM2?: number; propertyType?: string; country?: string; notes?: string }
-interface Meter { mpxn: string; utility: string; direction: string; label?: string; supplierFactorKgCo2ePerKwh?: number; supplierFactorEvidence?: string; readings: number; latest: string | null; consentStatus: string; consent: { id: string; expiresOn: string } | null }
+interface Meter { mpxn: string; utility: string; direction: string; label?: string; share?: number; supplierFactorKgCo2ePerKwh?: number; supplierFactorEvidence?: string; readings: number; latest: string | null; consentStatus: string; consent: { id: string; expiresOn: string } | null }
 interface Result { sourceId: string; sourceName: string; opId: string; opLabel: string; section: string; status: string; summary: string; rowCount: number; columns?: string[]; rows?: Record<string, unknown>[]; warnings?: string[]; error?: string; durationMs: number }
 interface Screening { id: string; ranAt: string; results: Result[]; okCount: number; errorCount: number }
 interface Factor { value: number | null; unit: string; basis: string; source: string; reference: string; detail?: string }
+interface AssetIntensity { ghgKgCo2ePerM2: number | null; energyKwhPerM2: number | null; floorAreaM2: number | null; basis: string; reasons: string[] }
+interface Crrem {
+  assessable: boolean; summary: string; reasons: string[]; year: number; country: string; propertyType: string | null;
+  scenario: string; pathwayType: string; unit: string | null; assumption: string; intensity: AssetIntensity;
+  assetValue: number | null; misalignmentYear: number | null; pathway: PathwayPoint[];
+  cumulativeExcess: { fromYear: number; toYear: number; perM2: number; total: number | null; totalUnit: string; detail: string } | null;
+  provenance: { version: string | null; file: string | null }; warnings: string[];
+}
+interface Nzcbs {
+  assessable: boolean; summary: string; reasons: string[]; year: number; sector: string | null; version: string | null;
+  rows: { metric: string; limitValue: number | null; unit: string; assetValue: number | null; status: string; gap: number | null; reason: string; notes: string }[];
+  counts: { pass: number; fail: number; notAssessable: number };
+  provenance: { version: string | null; file: string | null }; disclaimer: string; warnings: string[];
+}
 interface Line { label: string; kwh: number; factor: Factor; kgCo2e: number | null; meters?: string[] }
 interface Carbon {
-  year: number; energy: { mpxn: string; utility: string; direction: string; kwh: number; intervals: number }[];
+  year: number;
+  period: { label: string; from: string; to: string; days: number; factorYear: number };
+  energy: { mpxn: string; utility: string; direction: string; kwh: number; meteredKwh: number; share: number; intervals: number }[];
   scope1: Line[]; scope2Location: Line[]; scope2Market: Line[]; scope3TandD: Line[];
   timeVarying: { kwhMatched: number; kwhUnmatched: number; kgCo2e: number | null; region?: string; detail: string };
   totals: { scope1: number | null; scope2Location: number | null; scope2Market: number | null }; warnings: string[];
@@ -27,12 +45,14 @@ export default function AssetPage() {
   const [screening, setScreening] = useState<Screening | null>(null);
   const [history, setHistory] = useState<{ id: string; ranAt: string; okCount: number; errorCount: number }[]>([]);
   const [carbon, setCarbon] = useState<{ carbon: Carbon; eui: { kwhPerM2: number } | null; intensityCoverage: { intervals: number } | null } | null>(null);
-  const [year, setYear] = useState(new Date().getUTCFullYear() - 1);
+  const [selection, setSelection] = useState<PeriodSelection>(() => defaultPeriodSelection());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [meterForm, setMeterForm] = useState({ mpxn: "", utility: "electricity", direction: "import", label: "", supplierFactorKgCo2ePerKwh: "", supplierFactorEvidence: "" });
+  const [meterForm, setMeterForm] = useState({ mpxn: "", utility: "electricity", direction: "import", label: "", share: "1", supplierFactorKgCo2ePerKwh: "", supplierFactorEvidence: "" });
   const [edit, setEdit] = useState<{ latitude: string; longitude: string; floorAreaM2: string; uprn: string } | null>(null);
+  const [assessment, setAssessment] = useState<{ crrem: Crrem; nzcbs: Nzcbs } | null>(null);
+  const [assessBusy, setAssessBusy] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/assets/${id}`);
@@ -47,14 +67,14 @@ export default function AssetPage() {
     setHistory(b.screenings ?? []);
   }, [id]);
 
-  const loadCarbon = useCallback(async (y: number) => {
-    const res = await fetch(`/api/assets/${id}/carbon?year=${y}`);
+  const loadCarbon = useCallback(async (s: PeriodSelection) => {
+    const res = await fetch(`/api/assets/${id}/carbon?${periodQuery(s)}`);
     if (res.ok) setCarbon(await res.json());
   }, [id]);
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetch(`/api/assets/${id}`).then((r) => r.json()), fetch(`/api/assets/${id}/carbon?year=${year}`).then((r) => (r.ok ? r.json() : null))])
+    Promise.all([fetch(`/api/assets/${id}`).then((r) => r.json()), fetch(`/api/assets/${id}/carbon?${periodQuery(defaultPeriodSelection())}`).then((r) => (r.ok ? r.json() : null))])
       .then(([b, c]) => {
         if (!active) return;
         if (b.error) { setError(b.error); return; }
@@ -63,7 +83,6 @@ export default function AssetPage() {
       })
       .catch((e: Error) => { if (active) setError(e.message); });
     return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function action(label: string, fn: () => Promise<Response>, after?: () => Promise<void>) {
@@ -81,11 +100,31 @@ export default function AssetPage() {
     }
   }
 
+  async function runAssessment() {
+    setAssessBusy(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ year: String(selection.year) });
+      if (asset?.propertyType) {
+        params.set("propertyType", asset.propertyType);
+        params.set("sector", asset.propertyType);
+      }
+      const res = await fetch(`/api/assets/${id}/assessment?${params}`);
+      const b = await res.json();
+      if (!res.ok) setError(b.error ?? `Assessment failed (${res.status})`);
+      else setAssessment(b);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAssessBusy(false);
+    }
+  }
+
   async function addMeter(e: FormEvent) {
     e.preventDefault();
     await action("Link meter", () => fetch(`/api/assets/${id}/meters`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(meterForm) }));
-    setMeterForm({ ...meterForm, mpxn: "", label: "", supplierFactorKgCo2ePerKwh: "", supplierFactorEvidence: "" });
-    loadCarbon(year);
+    setMeterForm({ ...meterForm, mpxn: "", label: "", share: "1", supplierFactorKgCo2ePerKwh: "", supplierFactorEvidence: "" });
+    loadCarbon(selection);
   }
 
   async function saveEdit(e: FormEvent) {
@@ -137,7 +176,7 @@ export default function AssetPage() {
         <h2 style={h2}>Meters</h2>
         {meters.length === 0 ? <p style={{ fontSize: 13 }}>No meters linked.</p> : (
           <table style={{ borderCollapse: "collapse", width: "100%" }}>
-            <thead><tr>{["MPxN", "Utility", "Direction", "Label", "Consent", "Readings", "Latest", "Supplier factor", ""].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead><tr>{["MPxN", "Utility", "Direction", "Label", "Share", "Consent", "Readings", "Latest", "Supplier factor", ""].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
             <tbody>
               {meters.map((m) => (
                 <tr key={`${m.mpxn}-${m.utility}-${m.direction}`}>
@@ -145,6 +184,7 @@ export default function AssetPage() {
                   <td style={td}>{m.utility}</td>
                   <td style={td}>{m.direction}</td>
                   <td style={td}>{m.label ?? ""}</td>
+                  <td style={{ ...td, color: (m.share ?? 1) < 1 ? "#856404" : undefined }}>{Math.round((m.share ?? 1) * 100)}%</td>
                   <td style={{ ...td, color: m.consentStatus === "active" ? "#1e7e34" : "#b02a37" }}>{m.consentStatus}{m.consent ? ` to ${m.consent.expiresOn}` : ""}</td>
                   <td style={td}>{m.readings}</td>
                   <td style={td}>{m.latest ? m.latest.slice(0, 10) : ""}</td>
@@ -160,21 +200,42 @@ export default function AssetPage() {
           <label>Utility<select value={meterForm.utility} onChange={(e) => setMeterForm({ ...meterForm, utility: e.target.value })} style={input}><option value="electricity">electricity</option><option value="gas">gas</option></select></label>
           <label>Direction<select value={meterForm.direction} onChange={(e) => setMeterForm({ ...meterForm, direction: e.target.value })} style={input}><option value="import">import</option><option value="export">export</option></select></label>
           <label>Label<input value={meterForm.label} onChange={(e) => setMeterForm({ ...meterForm, label: e.target.value })} style={input} /></label>
+          <label title="Share of this meter that belongs to this asset. Use less than 1 when one supply serves several assets.">Share<input type="number" step="0.01" min="0.01" max="1" value={meterForm.share} onChange={(e) => setMeterForm({ ...meterForm, share: e.target.value })} style={{ ...input, width: 80 }} /></label>
           <label>Supplier factor kgCO2e/kWh<input value={meterForm.supplierFactorKgCo2ePerKwh} onChange={(e) => setMeterForm({ ...meterForm, supplierFactorKgCo2ePerKwh: e.target.value })} placeholder="market-based" style={input} /></label>
           <label>Evidence<input value={meterForm.supplierFactorEvidence} onChange={(e) => setMeterForm({ ...meterForm, supplierFactorEvidence: e.target.value })} placeholder="REGO / PPA reference" style={input} /></label>
           <button type="submit" disabled={busy !== null} style={btn}>Link meter</button>
         </form>
-        <p style={{ fontSize: 12, color: "#666" }}>Readings arrive via the <Link href="/sync">n3rgy sync</Link> once a <Link href="/consents">consent</Link> is active.</p>
+        <p style={{ fontSize: 12, color: "#666" }}>
+          Readings arrive via the <Link href="/sync">n3rgy sync</Link> once a <Link href="/consents">consent</Link> is active.
+          Share splits one supply between assets; shares across assets should add up to 100%, and the <Link href="/portfolio">portfolio</Link> flags any that do not.
+        </p>
       </section>
 
       <section style={card}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <h2 style={{ ...h2, margin: 0 }}>Energy and carbon</h2>
-          <label style={{ fontSize: 13 }}>Year <input type="number" value={year} onChange={(e) => { const y = Number(e.target.value); setYear(y); if (y > 2000 && y < 2100) loadCarbon(y); }} style={{ width: 90, padding: 6 }} /></label>
-          <button onClick={() => action("Grid intensity", () => fetch(`/api/assets/${id}/intensity`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: `${year}-01-01`, to: `${year}-12-31` }) }), () => loadCarbon(year))} disabled={!asset.postcode || busy !== null} style={btn}>Fetch grid intensity for {year}</button>
+          <PeriodPicker value={selection} onChange={(s) => { setSelection(s); loadCarbon(s); }} disabled={busy !== null} />
+          {carbon && (
+            <button
+              onClick={() => action("Grid intensity", () => fetch(`/api/assets/${id}/intensity`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: carbon.carbon.period.from.slice(0, 10), to: new Date(Date.parse(carbon.carbon.period.to) - 86400000).toISOString().slice(0, 10) }) }), () => loadCarbon(selection))}
+              disabled={!asset.postcode || busy !== null}
+              style={btn}
+            >
+              Fetch grid intensity for {carbon.carbon.period.label}
+            </button>
+          )}
+          {carbon &&
+            (selection.kind === "calendar" ? (
+              <a href={`/api/exports/asset-carbon?asset=${id}&year=${selection.year}`} style={{ fontSize: 12 }}>Export CSV</a>
+            ) : (
+              <span style={{ fontSize: 12, color: "#666" }}>CSV export covers calendar years only</span>
+            ))}
         </div>
         {!carbon ? <p style={{ fontSize: 13 }}>No carbon data.</p> : (
           <>
+            <p style={{ fontSize: 12, color: "#666", margin: "8px 0 0" }}>
+              {carbon.carbon.period.label} · {carbon.carbon.period.from.slice(0, 10)} to {carbon.carbon.period.to.slice(0, 10)} · factor set {carbon.carbon.period.factorYear}
+            </p>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "12px 0" }}>
               <Stat label="Electricity import kWh" value={fmt(carbon.carbon.energy.filter((e) => e.utility === "electricity" && e.direction === "import").reduce((n, e) => n + e.kwh, 0))} />
               <Stat label="Gas kWh" value={fmt(carbon.carbon.energy.filter((e) => e.utility === "gas").reduce((n, e) => n + e.kwh, 0))} />
@@ -201,6 +262,57 @@ export default function AssetPage() {
                 ))}
               </tbody>
             </table>
+          </>
+        )}
+      </section>
+
+      <section style={card}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <h2 style={{ ...h2, margin: 0 }}>Net zero alignment</h2>
+          <button onClick={runAssessment} disabled={assessBusy} style={btn}>{assessBusy ? "Assessing…" : "Assess CRREM and NZCBS"}</button>
+          <span style={{ fontSize: 12, color: "#666" }}>Needs floor area, readings, and the pathway and limit files in data/reference.</span>
+        </div>
+        {assessment && (
+          <>
+            <h3 style={{ fontSize: 14, margin: "12px 0 4px" }}>CRREM {assessment.crrem.scenario} · {assessment.crrem.propertyType ?? "no property type"} · {assessment.crrem.country}</h3>
+            <p style={{ fontSize: 13, margin: "0 0 4px" }}>{assessment.crrem.summary}</p>
+            {!assessment.crrem.assessable && assessment.crrem.reasons.length > 0 && (
+              <ul style={{ fontSize: 12, color: "#856404" }}>{assessment.crrem.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
+            )}
+            {assessment.crrem.assessable && (
+              <>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "8px 0" }}>
+                  <Stat label={`Intensity ${assessment.crrem.unit ?? ""}`} value={assessment.crrem.assetValue?.toFixed(1) ?? "—"} />
+                  <Stat label="Misalignment year" value={assessment.crrem.misalignmentYear ? String(assessment.crrem.misalignmentYear) : "not before the horizon"} />
+                  {assessment.crrem.cumulativeExcess && <Stat label="Cumulative excess" value={fmtN(assessment.crrem.cumulativeExcess.total)} />}
+                </div>
+                <CrremChart points={assessment.crrem.pathway} unit={assessment.crrem.unit ?? ""} misalignmentYear={assessment.crrem.misalignmentYear} />
+                <p style={{ fontSize: 12, color: "#666" }}>{assessment.crrem.assumption} Pathway file {assessment.crrem.provenance.file ?? "unknown"}.</p>
+              </>
+            )}
+            {assessment.crrem.warnings.map((w, i) => <p key={i} style={box("#fff3cd", "#ffe69c")}>{w}</p>)}
+
+            <h3 style={{ fontSize: 14, margin: "16px 0 4px" }}>UK NZCBS {assessment.nzcbs.version ?? ""} · {assessment.nzcbs.sector ?? "no sector"}</h3>
+            <p style={{ fontSize: 13, margin: "0 0 4px" }}>{assessment.nzcbs.summary}</p>
+            {assessment.nzcbs.rows.length > 0 && (
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <thead><tr>{["Metric", "Limit", "Asset", "Unit", "Gap", "Status", "Why"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {assessment.nzcbs.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td style={td}>{r.metric}</td>
+                      <td style={td}>{r.limitValue ?? "—"}</td>
+                      <td style={td}>{r.assetValue?.toFixed(1) ?? "—"}</td>
+                      <td style={td}>{r.unit}</td>
+                      <td style={td}>{r.gap === null ? "—" : r.gap.toFixed(1)}</td>
+                      <td style={{ ...td, fontWeight: 600, color: r.status === "pass" ? "#1e7e34" : r.status === "fail" ? "#b02a37" : "#6c757d" }}>{r.status.replace("_", " ")}</td>
+                      <td style={{ ...td, color: "#666" }}>{r.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p style={{ fontSize: 12, color: "#666" }}>{assessment.nzcbs.disclaimer}</p>
           </>
         )}
       </section>
