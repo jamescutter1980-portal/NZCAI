@@ -132,3 +132,18 @@ Transport **energy** in kWh only appears where fuel was recorded in kWh. Distanc
 Refrigerant leakage now sits in Scope 1 alongside gas and mobile combustion. Water and waste appear under their GHG Protocol categories, and waste adds a section with total, diverted, landfill and the diversion rate.
 
 The exclusions list has gone from seven items to four. What remains excluded is the other Scope 3 categories, non-metered fuels such as oil, LPG and biomass, embodied carbon, and the standing statement that the return still needs review before it is filed.
+
+
+## Reporting readiness
+
+`/readiness` answers the question asked before a deadline: what is still missing before this return can be filed? Twenty-one checks across reference data, assets, consents, scope coverage and integrations, each graded by consequence rather than by how loud it is.
+
+| Grade | Meaning |
+|---|---|
+| Blocker | A figure would be wrong, or the return unlawful to file. Meters allocated to more than 100%, readings held with no live consent, no conversion factors loaded. |
+| Gap | A figure is incomplete and must be disclosed as such. A scope with nothing recorded, assets with no floor area, coverage below 95%. |
+| Advisory | Limits analysis but not the return. No coordinates, so no screening; no CRREM file, so no stranding date. |
+
+Two rules keep it honest. A check that cannot run is **unknown**, never "ok", and the reason is given. And the summary will not say a return is ready to file while any blocker-severity check is unknown; with no assets loaded it says readiness cannot be confirmed and names which checks did not run.
+
+The scope-coverage wording matches the SECR export's exclusion list word for word, so the two never disagree about what is missing.

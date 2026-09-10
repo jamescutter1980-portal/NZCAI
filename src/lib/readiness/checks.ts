@@ -196,7 +196,7 @@ function referenceChecks(ctx: OperationContext, period: Period): ReadinessCheck[
     detail:
       missing.length === 0
         ? `The DESNZ ${period.factorYear} flat file is loaded and all three factors the portal converts with resolve (${resolved[0].factor.reference}).`
-        : `${missing.length} of ${resolved.length} DESNZ ${period.factorYear} factors could not be resolved: ${missing.map((m) => `${m.label} — ${m.factor.detail ?? "no matching row"}`).join("; ")} Nothing converts to kgCO2e until data/reference/desnz-conversion-factors/${period.factorYear}.csv is loaded, so every carbon figure in this return is blank.`,
+        : `${missing.length} of ${resolved.length} DESNZ ${period.factorYear} factors are unavailable, so nothing converts to kgCO2e and every carbon figure in this return is blank. Load data/reference/desnz-conversion-factors/${period.factorYear}.csv. ${missing.map((m) => `${m.label}: ${m.factor.detail ?? "no matching row"}`).join(" ")}`,
     fix: FIX.sources,
   };
 
@@ -318,7 +318,7 @@ function assetChecks(portfolio: PortfolioReport | null, portfolioError: string |
       detail:
         allocation.length === 0
           ? `Every shared meter's allocation shares add up to 100%, so no energy is double counted or left unattributed.`
-          : `${allocation.length} allocation problem${allocation.length === 1 ? "" : "s"}${over.length > 0 ? `, ${over.length} of them over-allocated so energy and carbon are counted twice` : ", all under-allocated so some energy belongs to no asset"}: ${allocation.map((i) => `${i.assetName ?? i.assetId}: ${i.detail}`).join(" ")}`,
+          : `${allocation.length} asset-to-meter link${allocation.length === 1 ? " is" : "s are"} allocated wrongly${over.length > 0 ? `, ${over.length} of them over-allocated so energy and carbon are double counted` : ", all under-allocated so some energy belongs to no asset"}. ${allocation.map((i) => `${i.assetName ?? i.assetId}: ${i.detail}`).join(" ")}`,
       fix: FIX.assets,
     },
     {
@@ -341,7 +341,7 @@ function assetChecks(portfolio: PortfolioReport | null, portfolioError: string |
 /* consents                                                            */
 /* ------------------------------------------------------------------ */
 
-function consentChecks(db: Db, period: Period, views: ConsentView[] | null, consentError: string | null, now: Date): ReadinessCheck[] {
+function consentChecks(db: Db, period: Period, views: ConsentView[] | null, consentError: string | null): ReadinessCheck[] {
   const periodEndMs = Date.parse(period.to) - 1;
   const periodEnd = new Date(periodEndMs).toISOString().slice(0, 10);
   if (!views) {
@@ -378,7 +378,7 @@ function consentChecks(db: Db, period: Period, views: ConsentView[] | null, cons
             ? metersInPeriod === 0
               ? `No meter has readings inside ${period.label}, so no consent is relied on for this period.`
               : `All ${metersInPeriod} meters with readings in ${period.label} are covered by an active consent.`
-            : `${uncovered.length} of ${metersInPeriod} meters have readings in ${period.label} with no active consent: ${nameList(uncovered)}. The data is held without a live basis; record or renew the consent, or remove the readings, before anything derived from them is filed.`,
+            : `${uncovered.length} of ${metersInPeriod} meter${metersInPeriod === 1 ? "" : "s"} ${uncovered.length === 1 ? "has" : "have"} readings in ${period.label} with no active consent, so the data is held without a live basis. Record or renew the consent, or remove the readings, before anything derived from them is filed: ${nameList(uncovered)}.`,
         fix: FIX.consents,
       };
 
@@ -401,7 +401,6 @@ function consentChecks(db: Db, period: Period, views: ConsentView[] | null, cons
         : `${expiring.length} consent${expiring.length === 1 ? "" : "s"} expire on or before ${windowEnd} (${EXPIRY_WINDOW_DAYS} days after the period end ${periodEnd}): ${nameList(expiring.map((c) => `${c.mpxn} on ${c.expiresOn}${c.effectiveStatus === "expired" ? ", already expired" : ""}`))}. Retrieval stops when they lapse, so the next period's data will be incomplete.`,
     fix: FIX.consents,
   };
-  void now;
   return [held, expiries];
 }
 
@@ -560,6 +559,13 @@ function integrationChecks(db: Db, ctx: OperationContext): ReadinessCheck[] {
 /* assembly                                                            */
 /* ------------------------------------------------------------------ */
 
+/** First sentence of a detail, short enough to sit in a summary line. */
+function brief(detail: string): string {
+  const first = detail.split(/(?<=\.)\s/)[0] ?? detail;
+  if (first.length <= 120) return first.replace(/\.$/, "");
+  return `${first.slice(0, 117).replace(/\s\S*$/, "")}…`;
+}
+
 export function summarise(checks: ReadinessCheck[], period: Period): string {
   const blockers = checks.filter((c) => c.severity === "blocker" && c.status === "attention");
   const gaps = checks.filter((c) => c.severity === "gap" && c.status === "attention").length;
@@ -572,7 +578,13 @@ export function summarise(checks: ReadinessCheck[], period: Period): string {
   ].filter(Boolean);
   const counts = `${tail.slice(0, -1).join(", ")}${tail.length > 1 ? " and " : ""}${tail[tail.length - 1]}.`;
   if (blockers.length > 0) {
-    return `${blockers.length} blocker${blockers.length === 1 ? "" : "s"} must be cleared before the ${period.label} return can be filed: ${blockers.map((b) => `${b.title} — ${b.detail.split(". ")[0]}`).join("; ")}. Alongside ${blockers.length === 1 ? "it" : "them"}, ${counts}`;
+    return `${blockers.length} blocker${blockers.length === 1 ? "" : "s"} must be cleared before the ${period.label} return can be filed: ${blockers.map((b) => `${b.title} — ${brief(b.detail)}`).join("; ")}. Alongside ${blockers.length === 1 ? "it" : "them"}, ${counts}`;
+  }
+  // An unrun blocker-severity check is not the same as a cleared one, so the
+  // summary must not lead with "ready to file" while any of them is unknown.
+  const unrunBlockers = checks.filter((c) => c.severity === "blocker" && c.status === "unknown");
+  if (unrunBlockers.length > 0) {
+    return `Readiness for ${period.label} cannot be confirmed: ${unrunBlockers.length} check${unrunBlockers.length === 1 ? "" : "s"} that would block filing could not be run — ${unrunBlockers.map((b) => `${b.title} (${brief(b.detail)})`).join("; ")}. No blockers were found among the checks that did run, and ${counts}`;
   }
   return `No blockers for ${period.label}: the return is ready to file subject to the exclusions the SECR export lists. ${counts.charAt(0).toUpperCase()}${counts.slice(1)}`;
 }
@@ -611,7 +623,7 @@ export async function assessReadiness(db: Db, ctx: OperationContext, period: Per
   const checks = [
     ...referenceChecks(ctx, period),
     ...assetChecks(portfolio, portfolioError, period),
-    ...consentChecks(db, period, views, consentError, now),
+    ...consentChecks(db, period, views, consentError),
     ...scopeChecks(portfolio, portfolioError, transport, transportError, emissions, period),
     ...integrationChecks(db, ctx),
   ];

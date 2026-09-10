@@ -23,6 +23,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Transport | `/transport`, `/api/transport/...`, `/api/factors` | Fleet, grey fleet, travel and commuting against picked DESNZ rows; DVLA and MOT vehicle lookup |
 | Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents |
 | Assessment | `/api/assets/[id]/assessment` | CRREM misalignment year and UK NZCBS indicative check |
+| Readiness | `/readiness`, `/api/readiness` | 21 checks graded blocker, gap or advisory before a return is filed |
 | Portfolio | `/portfolio`, `/api/portfolio` | Roll-up by calendar, financial or rolling-12-month period with data-quality flags |
 | Assets | `/assets`, `/assets/[id]`, `/api/assets/...`, `pnpm carbon:intensity` | Meters per building, Scope 1 and 2 with factor provenance, screening across 14 point-based sources |
 | Data sources | `/sources`, `/sources/[id]`, `/lookup`, `/api/sources/...`, `pnpm sources:check` | 111 sources, 82 connectors, 253 operations, generic forms, health checks, one-click location lookup |

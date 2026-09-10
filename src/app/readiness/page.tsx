@@ -70,9 +70,23 @@ export default function ReadinessPage() {
     }
   }, []);
 
+  // Initial load: state is set from the response, never synchronously in the effect body.
   useEffect(() => {
-    load(defaultPeriodSelection());
-  }, [load]);
+    let active = true;
+    fetch(`/api/readiness?${periodQuery(defaultPeriodSelection())}`)
+      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
+      .then(({ ok, b }) => {
+        if (!active) return;
+        if (ok) setReport(b);
+        else setError(b.error ?? "Failed to load readiness");
+      })
+      .catch((e: Error) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function change(s: PeriodSelection) {
     setSelection(s);

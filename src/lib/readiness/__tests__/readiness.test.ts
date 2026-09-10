@@ -9,7 +9,7 @@ import { openDatabase } from "@/lib/db/sqlite";
 import type { ConsentRecord } from "@/lib/consent/types";
 import { testContext, routedFetch } from "@/lib/integrations/testing";
 import type { MeterReading } from "@/lib/integrations/n3rgy";
-import { assessReadiness, setEmissionsLoader, type ReadinessCheck, type ReadinessReport } from "..";
+import { assessReadiness, setEmissionsLoader, type ReadinessCheck, type ReadinessReport, summarise } from "..";
 
 /**
  * Factor values in this file are SYNTHETIC (0.1 / 0.01 / 0.2 and a 300 gCO2/kWh
@@ -226,5 +226,27 @@ describe("assessReadiness", () => {
       expect(["blocker", "gap", "advisory"]).toContain(c.severity);
     }
     expect(r.period.label).toBe("2025");
+  });
+});
+
+describe("summary honesty", () => {
+  it("does not claim a return is ready to file while a blocker-severity check could not be run", () => {
+    const period = calendarYear(2025);
+    const unrun = summarise(
+      [
+        { id: "assets.allocation", group: "Assets", title: "Meter allocation", severity: "blocker", status: "unknown", detail: "No assets have been added, so there is nothing to check." },
+        { id: "reference.desnz_factors", group: "Reference data", title: "DESNZ factors", severity: "blocker", status: "ok", detail: "Loaded." },
+      ],
+      period,
+    );
+    expect(unrun).toMatch(/cannot be confirmed/);
+    expect(unrun).not.toMatch(/ready to file/);
+    expect(unrun).toMatch(/Meter allocation/);
+
+    const clean = summarise(
+      [{ id: "assets.allocation", group: "Assets", title: "Meter allocation", severity: "blocker", status: "ok", detail: "Every shared meter adds up to 100%." }],
+      period,
+    );
+    expect(clean).toMatch(/ready to file/);
   });
 });

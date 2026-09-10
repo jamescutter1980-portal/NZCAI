@@ -7,6 +7,9 @@ export default function Home() {
       <p>Integration modules. See docs/data-source-roadmap.md for the full plan.</p>
       <ul>
         <li>
+          <Link href="/readiness">Reporting readiness</Link> – what is still missing before a return can be filed
+        </li>
+        <li>
           <Link href="/lookup">Location lookup</Link> – every location check for a postcode or point in one click, nothing saved
         </li>
         <li>
