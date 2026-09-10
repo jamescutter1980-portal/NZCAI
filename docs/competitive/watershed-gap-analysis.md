@@ -33,7 +33,7 @@ The strategic conclusion is not to chase Watershed on carbon-accounting breadth.
 | 4 | No security attestation (SOC 2, ISO 27001, Cyber Essentials Plus) or public trust page | Procurement gate for any fund or listed company | Cyber Essentials Plus now; ISO 27001 within 12 months; trust page this quarter |
 | 5 | No in-product AI (chat, flagging, OCR) | Watershed's entire 2026 narrative; NZC AI has the better knowledge base but nothing live | Build the sidecar Phase 0–2 (specified July 2026); ship PDF bill OCR into the portal |
 | 6 | No Scope 3 product: no spend-based engine, no categories 2, 4, 8–15, no operator-role boundaries, no partner data collection, no data-quality tiers | This is the gap that lost Welcome Break; Watershed covers all 15 categories with supplier engagement and a CSRD builder | Build the Scope 3 module in the companion brief: Open CEDA (free, CC BY-SA, released by Watershed itself) plus DESNZ, ledger import, outlet roles, partner requests, ESRS E1-6 and SBTi outputs |
-| 7 | No finance/HR/utility integrations beyond CSV | "60+ integrations" versus manual upload | Perse (meter data), EPC register, accounting packages, M365 mail for consent |
+| 7 | No finance/HR/utility integrations beyond CSV | "60+ integrations" versus manual upload | EPC register, accounting packages, M365 mail for consent (Perse withdrawn Sep 2026, see `docs/spine/DECISIONS.md` D-4) |
 | 8 | No report builder for SECR, GHG statement, TCFD/UK SRS inside the portal | Reports are a consultancy workflow, not a product feature | Generate branded packs from the ledger via existing skills (ECR §17 item 8) |
 | 9 | No references, case studies, analyst coverage or public pricing | Small-vendor risk with nothing to offset it | Three named case studies, a pricing page with tiers, Verdantix briefing |
 | 10 | No supplier engagement / targets / clean-power tracking | Table stakes on Watershed's "Act" pillar | REGO/PPA instrument tracking (already in ECR spec); SBTi target module; supplier survey lite later |
@@ -127,7 +127,7 @@ Sources: nzcportal.co.uk (public pages), Hidden Brains proposal (25 Aug 2026), N
 
 | Programme | Content | Effort per brief |
 |---|---|---|
-| ECR ledger (Measurabl parity) | Fund/site/space hierarchy, meter ledger, data integrity and completeness engines, expected usage, dual Scope 2 carbon engine, trends, targets, projects, Decarb/CRREM action plans and optimiser, EPC risk, SFDR/GRESB outlier, climate-risk stub, bulk import, Perse connector | 10 weeks, 7 phases |
+| ECR ledger (Measurabl parity) | Fund/site/space hierarchy, meter ledger, data integrity and completeness engines, expected usage, dual Scope 2 carbon engine, trends, targets, projects, Decarb/CRREM action plans and optimiser, EPC risk, SFDR/GRESB outlier, climate-risk stub, bulk import, meter-data connector (Perse withdrawn Sep 2026, D-4) | 10 weeks, 7 phases |
 | Portfolio Intelligence (Arbnco parity) | Fund→asset→unit→meter, tenant-meter consent workflow, water, data sources screen, map, calendar, MCP skill feed | Target Jan 2027 |
 | NZC AI sidecar | Claude Agent SDK service: assistant chat, nightly missing-document flagging, fault detection, regulatory guidance monitor; 14 scoped tools; audit log | 9–14 weeks |
 | EPC register + MEES engine + mapping | Non-domestic EPC API lookup, MEES rules incl. 2031 EPC B, satellite hero map, pins, Solar fix | Briefed Aug 2026 |
@@ -200,7 +200,7 @@ Legend for "NZC today": **Live** (deployed), **Partial** (deployed with gaps), *
 | Scope 3 spend-based (cat 1, 2) | CEDA EEIO | None | High | Open CEDA + DESNZ; Xero/Sage/QuickBooks spend import |
 | Emission-factor management | Versioned library with metadata | Factor selector "no versions configured" | Critical | Ship DESNZ/DEFRA sets by year as managed reference data |
 | Utility bill OCR | AI, GA 2026 | PDF extraction in engine (local) | High | Wire extraction into portal readings with confidence flag |
-| Meter data connectors | Arcadia/Urjanet | Perse Spec | High | Perse connector (ECR WS14) |
+| Meter data connectors | Arcadia/Urjanet | None | High | **Open.** Perse withdrawn Sep 2026 (D-4); no replacement chosen |
 | Finance/HR integrations | 60+ | None | High | Accounting packages first; HR later |
 | Data quality checks | 150+ checks, issue queue | Spec (ECR WS3) | Critical | ECR P2 |
 | Lineage / audit trail in UI | Full, auditor access | Design only; Review Centre in ESOS | Critical | "Audit" screen + change-log export |
@@ -216,7 +216,7 @@ Legend for "NZC today": **Live** (deployed), **Partial** (deployed with gaps), *
 | NZCBS | None | Skill; proforma schema | NZC advantage | Portal proforma module |
 | GRESB | None | Skill | NZC advantage | GRESB outlier + Asset Portal export (ECR P6) |
 | Landlord / tenant boundary, consent | None | Portfolio Intelligence Spec | NZC advantage | Phase D consent workflow |
-| Half-hourly / interval analytics | None | Spec | NZC advantage | Perse HH storage + profiles |
+| Half-hourly / interval analytics | None | Spec | NZC advantage | Half-hourly storage and load profiles; source open since Perse withdrawn (D-4) |
 | Energy audit, measure NPV/SPP | None | Skill | NZC advantage | Projects registry unified with audit outputs (ECR P4) |
 | Solar PV design, PPA billing | None | Skill; microgen prototype | NZC advantage | Complete microgeneration; fix Solar API |
 | Targets (SBTi, CRREM, custom) | SBTi/FLAG | Spec (ECR WS6) | High | ECR P4 with SBTi 4.2%/yr and CRREM-derived |
@@ -276,7 +276,7 @@ The ordering principle: first remove reasons to say no, then ship the things Wat
 |---|---|---|
 | 2.1 | ECR ledger P1, P3–P6: hierarchy, meter ledger, dual Scope 2 carbon engine, trends, targets, projects, Decarb/CRREM action plans, EPC risk, GRESB outlier, exports | ECR brief |
 | 2.2 | EPC register API + MEES risk engine with 2031 EPC B and gas-risk flags; portfolio map with status rings | Dev brief 14 Aug |
-| 2.3 | Perse connector with half-hourly storage and load profiles | ECR WS14 |
+| 2.3 | Half-hourly storage and load profiles. **Perse withdrawn Sep 2026** (D-4); data source to be re-chosen | ECR WS14 |
 | 2.4 | Tenant-meter consent workflow and landlord/occupier perspective flip | Portfolio Intelligence Phase D |
 | 2.5 | One-click branded packs from the ledger: ESOS pack, SECR statement, NZC assessment, GHG report, GRESB workbook, TCFD narrative, with human sign-off gate | ECR §17 item 8 |
 | 2.6 | NZC AI sidecar Phase 0–2: chat with citations, nightly missing-document flags | System Design |

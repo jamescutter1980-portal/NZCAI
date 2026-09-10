@@ -8,6 +8,7 @@ numbers come from.
 ```
 docs/competitive/   market analysis
 docs/product/       feature briefs, written to be built from
+docs/spine/         Data Spine brief, S0 discovery and decision log
 engines/            deterministic calculation engines (no dependencies)
 tests/              unit tests derived from the briefs' acceptance criteria
 demo.py             end-to-end walkthrough on a worked example
@@ -60,6 +61,10 @@ replacement and the conflicts raised for a human to settle.
   the chase engine, the inbound Request Inbox, the agent fleet.
 - `docs/competitive/watershed-gap-analysis.md` — competitive evaluation and the
   prioritised development plan behind both.
+- `docs/spine/BRIEF.md` — Data Spine: one dataset, quality tiers, cited lineage.
+  Filed 10 Sep 2026. Its S0 discovery is in `docs/spine/AUDIT.md` and found that
+  the brief targets a codebase this repository does not contain; two escalations
+  are open in `docs/spine/DECISIONS.md` and S1 has not started.
 
 Test names map to the acceptance criteria in the briefs, so a rule change
 should break a test that names the rule.
