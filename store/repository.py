@@ -83,7 +83,10 @@ class Store:
 
     @classmethod
     def open(cls, path: str = ":memory:") -> "Store":
-        return cls(sqlite3.connect(path, isolation_level=None))
+        # check_same_thread=False so a single-threaded HTTP adapter can serve
+        # from a thread other than the one that opened the store; the store
+        # itself is not made thread-safe by this.
+        return cls(sqlite3.connect(path, isolation_level=None, check_same_thread=False))
 
     def close(self) -> None:
         self._c.close()
@@ -217,6 +220,17 @@ class Store:
             sql += " and status = 'active'"
         rows = self._c.execute(sql + " order by id", (org_id, period)).fetchall()
         return [self._figure(r) for r in rows]
+
+    def list_figure_rows(
+        self, org_id: str, period: int, *, include_superseded: bool = False
+    ) -> list[tuple[int, Figure, str]]:
+        """As list_figures, with each figure's row id and status, for callers
+        that need to point at a figure (lineage, supersession, the UI)."""
+        sql = "select * from figure where org_id = ? and period = ?"
+        if not include_superseded:
+            sql += " and status = 'active'"
+        rows = self._c.execute(sql + " order by id", (org_id, period)).fetchall()
+        return [(r["id"], self._figure(r), r["status"]) for r in rows]
 
     def figure_lineage(self, org_id: str, figure_id: int) -> list[dict]:
         """The chain of corrections ending at this figure, oldest first."""
