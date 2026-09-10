@@ -25,8 +25,10 @@ def seed(store: Store, *, today: date = date(2026, 9, 10)) -> None:
     for cp in fx.COUNTERPARTIES.values():
         store.save_counterparty(fx.ORG, cp)
     store.save_figures(fx.ORG, fx.REPORTING_PERIOD, fx.FIGURES, created_by="seed")
-    for d in fx.DISCLOSURE_DOCUMENTS:
-        if d.owner_org_id:
+    seen: set[str] = set()
+    for d in fx.DOCUMENTS + fx.DISCLOSURE_DOCUMENTS:
+        if d.owner_org_id and d.id not in seen:
+            seen.add(d.id)
             store.save_document(d.owner_org_id, d)
 
     deadline = today + timedelta(weeks=14)

@@ -188,7 +188,7 @@ class Documents(Base):
         mine = {d["id"] for d in self.call("GET", "/api/documents")[1]["documents"]}
         self.assertIn(fx.PCF_UNDER_NDA.id, mine)
         theirs = {d["id"] for d in self.call("GET", "/api/documents", ctx=self.other)[1]["documents"]}
-        self.assertEqual(theirs, {fx.REPORT_CURRENT.id, fx.VSME_CONSENTED.id})
+        self.assertEqual(theirs, {fx.REPORT_CURRENT.id, fx.REPORT_STALE.id, fx.VSME_CONSENTED.id})
 
     def test_a_created_document_is_owned_by_the_caller(self):
         status, p = self.call("POST", "/api/documents", body={"id": "d1", "counterparty_id": "bidfood", "doc_type": "invoice", "issue_date": "2026-03-01"})

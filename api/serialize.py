@@ -21,7 +21,8 @@ def to_json(value: Any) -> Any:
         out = {f.name: to_json(getattr(value, f.name)) for f in dataclasses.fields(value)}
         # Derived properties the UI wants without recomputing them.
         for name in ("has_lineage", "is_dominant", "spans_value_chain", "may_be_asked_beyond_vsme",
-                     "submission_ready", "usable", "complete_for_allocation", "scope2_tco2e"):
+                     "submission_ready", "usable", "complete_for_allocation", "scope2_tco2e",
+                     "resolved", "needs_review", "days", "share_gain"):
             if hasattr(type(value), name) and isinstance(getattr(type(value), name), property):
                 out[name] = to_json(getattr(value, name))
         return out
