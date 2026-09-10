@@ -4,7 +4,7 @@
 **Date:** 9 September 2026
 **Status:** Draft v1 for internal review (James, Iain, Matthew)
 **Trigger:** Welcome Break (Applegreen group) selected Watershed (watershed.com) over NZC Portal for Scope 3 measurement across its franchise and concession partners
-**Companion brief:** `docs/product/nzc-ai-scope-3-brief.md` (Scope 3 for multi-brand site operators)
+**Companion briefs:** `docs/product/nzc-ai-scope-3-brief.md` (Layer 1 — boundary, ledger, factors, engines) and `docs/product/nzc-ai-scope-3-engagement-brief.md` (Layer 2 — counterparty graph, engagement, document intelligence, inbound requests, agents)
 
 ---
 
@@ -150,7 +150,7 @@ Sources: nzcportal.co.uk (public pages), Hidden Brains proposal (25 Aug 2026), N
 
 Welcome Break operates some 60 locations including 32 motorway service areas and 31 hotels, with 6,000+ staff and 85 million customers a year. On its sites it is simultaneously a franchisee (KFC, Starbucks, Burger King, Taco Bell, Subway, Greggs, Pret, PizzaExpress, Krispy Kreme, Chopstix), a retail partner (Waitrose, WHSmith), a hotel franchisee (Ramada, Days Inn), a landlord to concession and charging tenants (Tesla, GRIDSERVE, Revolution Laundry) and a fuel and EV-charging retailer. Its parent, Applegreen (Dublin, €3.85bn revenue 2025, ~15,000 staff, owned by Blackstone Infrastructure and B&J Holdings), has a net-zero 2050 goal across Scopes 1 to 3, has completed a first Scope 3 assessment and is building an SBTi-aligned transition plan.
 
-The stated reason was Scope 3: the number of subcontracted brands on the estate. Three obligations converge on that:
+The stated reason, from their ESG manager, was blunt: **"you are weak on Scope 3."** Pressed further, the substance was that NZC AI records ledgers and basic in and out. It is a two-dimensional recording system, and the whole difficulty in Scope 3 is the data you do not yet hold: who has it, whether you have asked, what came back, whether it is any good, and who is asking you for the same thing. Three obligations converge on that:
 
 | Driver | Requirement | What Welcome Break needs |
 |---|---|---|
@@ -161,6 +161,8 @@ The stated reason was Scope 3: the number of subcontracted brands on the estate.
 Extra MSA, a direct peer, became the first motorway service operator with SBTi-validated net-zero targets in 2025. That raised the bar for Welcome Break's board.
 
 NZC Portal could not answer any of that. The GHG skill covers categories 1, 3, 5, 6 and 7 for organisations holding their own data; there is no spend-based engine, no operator-role boundary logic, no partner data collection, no data-quality tiering and no ESRS or SBTi output. Watershed covers all 15 categories with CEDA, supplier engagement and a CSRD builder, and sells an assurance guarantee on top.
+
+There is one thing Watershed does not do either, and it is half of Welcome Break's actual workload. Every platform in this market models the client as the *requester* who sends suppliers a survey. Welcome Break is also the *requested*: Yum! Brands, Starbucks and Wyndham demand per-restaurant data from it, Applegreen demands category-level Scope 3 for the CSRD consolidation, and its lenders demand ESG KPIs. The leverage runs the wrong way with a franchisor — Welcome Break cannot compel Yum! to disclose, but Yum! can compel Welcome Break. A Request Inbox that answers inbound obligations from one governed dataset is unclaimed territory, and it is the wedge back into this account.
 
 ### 4.2 The wider lessons
 
@@ -177,7 +179,13 @@ The honest self-assessment: Welcome Break needed a Scope 3 system NZC does not y
 
 ### 4.3 What this means for the roadmap
 
-The Scope 3 gap moves from Tier 3 to Tier 2. The companion brief specifies a module for multi-brand, multi-site operators: outlet operator roles (franchisee, franchisor, landlord, retail partner, fuel retailer) that set the boundary automatically, purchase-ledger import with EEIO mapping on Open CEDA and DESNZ, physical activity data for food, packaging, fuel sold and waste, partner data requests reusing the RFI and consent workflow (VSME by default for suppliers under 1,000 employees), data-quality tiers with the ESRS primary/secondary split, SBTi coverage tests with the mandatory category 11 flag, franchisor packs, and consolidation to a parent. It is a ten-week build that reuses the ECR ledger for categories 8 and 13.
+The Scope 3 gap moves from Tier 3 to Tier 2, and splits into two layers built in parallel.
+
+**Layer 1, the ledger** (ten weeks): outlet operator roles that set the boundary automatically, purchase-ledger import with EEIO mapping on Open CEDA and DESNZ, physical activity data for food, packaging, fuel sold and waste, data-quality tiers with the ESRS primary/secondary split, SBTi coverage tests with the mandatory category 11 flag, franchisor packs, consolidation to a parent. Reuses the ECR ledger for categories 8 and 13.
+
+**Layer 2, engagement and document intelligence** (eleven weeks): the answer to "weak on Scope 3". A counterparty graph where one entity holds several roles at once, an engagement state machine per relationship per period, a public-first enrichment pipeline that harvests reports, CDP, SBTi and EPD registries so requests arrive pre-filled, typed documents with extraction schemas and validity windows that re-open a chase automatically when a certificate expires, conflict detection against a counterparty's own published figures, a chase engine back-planned from the deadline with a contact escalation ladder and cross-client fatigue control, machine exchange over PACT and VSME, a Request Inbox that answers franchisor and parent obligations from the same dataset, and an agent fleet that finds, drafts, reads and reconciles while the deterministic engines compute and a human approves.
+
+Three external developments make the timing right: PACT's v3.0.3 REST API means product footprints can arrive machine-to-machine with native data-quality fields, SBTi's Net-Zero Standard V2 turns supplier engagement into a target type with a 2030 deadline for food-intensive suppliers, and EFRAG's free VSME template and XBRL converter give SMEs a format they can fill once for everyone.
 
 ---
 
@@ -213,7 +221,9 @@ Legend for "NZC today": **Live** (deployed), **Partial** (deployed with gaps), *
 | Solar PV design, PPA billing | None | Skill; microgen prototype | NZC advantage | Complete microgeneration; fix Solar API |
 | Targets (SBTi, CRREM, custom) | SBTi/FLAG | Spec (ECR WS6) | High | ECR P4 with SBTi 4.2%/yr and CRREM-derived |
 | Decarbonisation scenarios | Scenario modelling, ROI | Retrofit what-if in engine; Decarb Spec | Medium | ECR P5 |
-| Supplier engagement | Portal, surveys, 20M database | None | Low–Medium | Survey-lite in occupier portal later |
+| Supplier engagement (outbound) | Portal, surveys, 20M firm database, EcoVadis | None | Critical | Layer 2: enrichment-first requests, tiering, chase engine, PACT/VSME exchange |
+| Inbound data requests (Request Inbox) | **None** | None | NZC advantage | Layer 2 §11.1 — unclaimed by every vendor in this market |
+| Document intelligence and provenance | Lineage on ingested data | PDF extraction in engine | Critical | Layer 2: typed documents, validity, conflict detection, confidentiality |
 | Clean power / REGO / PPA instruments | EAC allocation, VPPAs | Spec (instruments in ECR) | Medium | Instrument tracking zeroes MB Scope 2 (acceptance test 4) |
 | Carbon removal marketplace | 30+ projects | Offset schedule skill | Low | Partner referral, not a build |
 | Physical climate risk | Via partners (Finance) | Spec stub | Low | EA open flood data free tier |
@@ -273,7 +283,8 @@ The ordering principle: first remove reasons to say no, then ship the things Wat
 | 2.7 | PDF bill OCR wired into readings with confidence and one-click accept | ECR X4 |
 | 2.8 | Microgeneration completion incl. Solar API fix and PPA billing | Hidden Brains Phase 3; microgen skill |
 | 2.9 | NZCBS proforma module mirroring rev03 workbook | nzcbs-standard skill |
-| 2.10 | Scope 3 module for multi-brand site operators: outlet roles, ledger import and EEIO mapping, activity data, partner requests, quality tiers, ESRS E1-6 and SBTi outputs, franchisor packs | Scope 3 brief (docs/product) |
+| 2.10 | Scope 3 Layer 1: outlet roles, ledger import and EEIO mapping, activity data, quality tiers, ESRS E1-6 and SBTi outputs, franchisor packs | Scope 3 brief (docs/product) |
+| 2.11 | Scope 3 Layer 2: counterparty graph, engagement lifecycle, public-first enrichment, document intelligence, chase engine, Request Inbox, PACT and VSME exchange, agent fleet | Scope 3 engagement brief (docs/product) |
 
 ### Tier 3 — parity where clients ask (9–18 months)
 

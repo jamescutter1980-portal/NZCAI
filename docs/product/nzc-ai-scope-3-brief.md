@@ -5,6 +5,8 @@
 **Status:** Draft v1, 9 September 2026 · for build/priority decision
 **Trigger:** Welcome Break (Applegreen group) selected Watershed for Scope 3, citing the number of franchise and concession partners on its sites (KFC, Starbucks, Burger King, Waitrose, WHSmith and others)
 
+> **This is Layer 1: boundary, ledger, factors, engines and outputs.** It is deliberately a recording system. Welcome Break's ESG manager's follow-up — that a ledger with basic in and out is not a Scope 3 offering — is answered by **Layer 2, `nzc-ai-scope-3-engagement-brief.md`**: the counterparty graph, engagement lifecycle, public-first enrichment, document intelligence, the chase engine, the inbound Request Inbox and the agent fleet. Section 6 below is superseded in detail by that brief. Build them in parallel; Layer 1 computes, Layer 2 obtains and evidences.
+
 ---
 
 ## 0. How to use this brief
@@ -151,11 +153,13 @@ All arithmetic lives here. The frontend and the LLM read results; they never com
 
 ## 6. Data collection
 
+> Summary only. The full design — counterparty graph, engagement states, enrichment before asking, document intelligence, chase cadence, inbound obligations, agents — is in `nzc-ai-scope-3-engagement-brief.md` (Layer 2). Items 4 and 5 below are the parts that brief replaces outright.
+
 1. **Purchase ledger import.** CSV/XLSX templates plus connectors for Xero, Sage, QuickBooks and NetSuite exports; dedupe partners; company-number enrichment. Import history and validation report as in the ECR unit upload.
 2. **Distributor feeds.** Brand-mandated distributors (Bidfood, Brakes, Martin Brower, Starbucks supply) can supply line-level product volumes by outlet. Template with item, kg, outlet, period; maps to tier C automatically and to tier A when the distributor also supplies item footprints.
 3. **Franchisor data.** Brand-level product carbon footprints and packaging specs from franchisor sustainability teams (Yum!, Starbucks, RBI, Wyndham publish or share on request). Stored as `s3_partner_response` with `pcf_items`.
-4. **Partner data requests.** Reuse the RFI portal and consent wizard: tokenised page, reminders, evidence upload. Templates: VSME-basic for suppliers (the Omnibus cap means a supplier under 1,000 employees can refuse anything beyond VSME, so ask for VSME by default), concession energy consent (category 13), waste contractor annual return by route, logistics tkm return, fuel supplier litres by type.
-5. **Bill and invoice OCR.** Existing PDF extraction writes to `s3_activity_line` with confidence; one-click accept writes an auditable row.
+4. **Partner data requests.** *(Superseded by Layer 2 §5–§8.)* Reuse the RFI portal and consent wizard: tokenised page, reminders, evidence upload. Templates: VSME-basic for suppliers (the Omnibus cap means a supplier under 1,000 employees can refuse anything beyond VSME, so ask for VSME by default), concession energy consent (category 13), waste contractor annual return by route, logistics tkm return, fuel supplier litres by type. Layer 2 adds: enrichment and pre-fill before any request, the engagement state machine, tiering and ranked effort, back-planned cadence with a contact escalation ladder, cross-client fatigue control, reply-by-email ingestion, PACT and VSME machine exchange.
+5. **Bill and invoice OCR.** *(Superseded by Layer 2 §7.)* Existing PDF extraction writes to `s3_activity_line` with confidence; one-click accept writes an auditable row. Layer 2 generalises this into document intelligence: every inbound or harvested artefact becomes a typed Document with an extraction schema, a validity window that drives automatic re-chase, conflict detection against the counterparty's other disclosures, and a confidentiality basis enforced on read and export.
 6. **Meter ledger.** Site and outlet energy come from the ECR ledger; no re-entry.
 
 Every request, response, reminder and confirmation writes an audit row. Bill-payer and supplier contact PII follows the existing retention job.
@@ -193,7 +197,7 @@ Chat/MCP tools: `s3_category_summary`, `s3_coverage_status`, `s3_partner_status`
 | S1 Foundation | 1–2 | Schema, outlet roles, factor library loaded (DESNZ 2025, Open CEDA current release, food and packaging classes), screening engine, golden fixtures shaped on a 32-site multi-brand operator |
 | S2 Spend | 3–4 | Ledger import, sector mapping with review queue, EEIO engine, Spend and Categories screens, category 1 and 2 results with tiers |
 | S3 Activity and site | 5–6 | Activity import, OCR bridge, distributor template, category 3, 4, 5, 6, 7 engines, category 8/13 from the ECR ledger with allocation, category 11 fuel sold |
-| S4 Partners | 7–8 | Partner requests (VSME, franchisor, concession, waste, logistics), responses, supplier-specific and hybrid tiers, category 14 |
+| S4 Partners | 7–8 | Supplier-specific and hybrid tiers, category 14. **Collection itself is Layer 2 phases E1–E6, running in parallel from week 1** — this phase consumes what E2–E4 deliver |
 | S5 Outputs | 9 | Quality and coverage engines, ESRS E1-6 export, SBTi pack, franchisor packs, SECR, XLSX with method sheet, branded docx |
 | S6 Insight | 10 | Hotspots and levers, consolidation to parent, chat tools, data-quality roadmap |
 
@@ -241,3 +245,4 @@ Depends on ECR P1 (ledger) for categories 8 and 13; everything else can proceed 
 2. Food factors: license a commercial ingredient database or rely on Agribalyse plus WRAP and DESNZ classes for v1?
 3. EV kWh sold: default to gross reporting with a documented election, or ask the client each time?
 4. Should Open CEDA be UK-adjusted in-house (price level and grid mix) or used as published for v1 with a disclosed limitation?
+5. Layer 2 carries its own open questions (PACT conformance registration, auto-send policy, the consented data commons, mailbox model) — see that brief §19.
