@@ -1,0 +1,40 @@
+services:
+  # Long-lived HTTP transport: one service many clients connect to. This is the
+  # shape the portal uses. For the stdio shape the client spawns the container
+  # itself -- see README.
+  mcp:
+    build: .
+    image: nzcai-mcp:dev
+    environment:
+      NZCAI_MCP_TRANSPORT: http
+      NZCAI_MCP_HOST: 0.0.0.0
+      NZCAI_MCP_PORT: 8080
+      NZCAI_DATA_DIR: /data
+      # Host header allowlist for DNS-rebinding protection. Unset means the check
+      # is OFF, which is only acceptable while the port stays on loopback.
+      NZCAI_MCP_ALLOWED_HOSTS: ${NZCAI_MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*}
+    ports:
+      # Loopback only. Put a reverse proxy in front before this is reachable off
+      # the host -- the server has no authentication of its own yet.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # Factor tables and pathways, read-only: the server never writes reference data.
+      - ./data:/data:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
