@@ -4,6 +4,25 @@ Per BRIEF §0.4: decide and log, escalate only what is irreversible. Newest firs
 
 ---
 
+## D-6 · Substrate built here; the spine's own phases remain
+
+**Date:** 10 September 2026
+**Status:** Decided and applied.
+
+With D-1 resolved, the store, ingestion, API, agent fleet and front end
+were built in this repository (`store/`, `ingest/`, `api/`, `agents/`,
+`web/`). These are the seven things §3.2 asked to reuse, now existing
+here for the first time. The spine's S1 onward should extend these rather
+than add parallel modules: `store/repository.py` for the ledger tables,
+`ingest/` for the bill and export readers, `engines/quality.py` for
+roll-ups per D-3.
+
+Not done here, and still open: the source-tier column per D-2, the SECR
+methodology section, MESOS flags. Nothing in the substrate assumes an
+answer to D-2; `Figure.tier` remains the method tier throughout.
+
+---
+
 ## D-1 · The brief's target repository is not this one — RESOLVED by instruction
 
 **Date:** 10 September 2026, resolved the same day

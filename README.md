@@ -10,6 +10,11 @@ docs/competitive/   market analysis
 docs/product/       feature briefs, written to be built from
 docs/spine/         Data Spine brief, S0 discovery and decision log
 engines/            deterministic calculation engines (no dependencies)
+store/              SQLite repository, Postgres migrations with row-level security
+ingest/             parsers: ledger and activity CSV, PACT, VSME, utility bills
+api/                pure request handlers, router, stdlib HTTP adapter, demo seed
+agents/             the agent fleet: guarded tools, proposals only, stub model
+web/                React front end (Vite), served by the adapter when built
 tests/              unit tests derived from the briefs' acceptance criteria
 demo.py             end-to-end walkthrough on a worked example
 ```
@@ -68,9 +73,22 @@ anything unattributed.
 Requires Python 3.11 or later. Nothing to install.
 
 ```bash
-python3 -m unittest discover -s tests -t .   # 319 tests
+python3 -m unittest discover -s tests -t .   # 423 tests, no network
 python3 demo.py                              # worked example, end to end
 ```
+
+To run the portal locally, build the front end once (Node 22) and start the
+adapter with the demo data:
+
+```bash
+cd web && npm install && npm run build && cd ..
+python3 -m api.server --seed --static --port 8765
+# open http://127.0.0.1:8765/
+```
+
+For front-end development, `npm run dev` in `web/` proxies `/api` to the
+adapter on port 8765. The Playwright smoke test is `node web/smoke.mjs <port>`
+against a seeded, static-serving adapter.
 
 The demo runs a motorway services operator: franchised catering brands, a
 supermarket concession, hotels, a forecourt and a charging hub. It starts from
@@ -94,14 +112,52 @@ to serve one unless opened with `allow_illustrative=True`. Tests and the demo
 opt in. **Nothing client-facing may.** Before production use, load the real
 DESNZ waste, WTT and freight rows and an Open CEDA or equivalent spend table.
 
+## The layers around the engines
+
+**Store.** `store/repository.py` persists what the engines produce, scoped by
+organisation on every query. Figures and audit rows are append-only at the
+database level: a correction inserts a replacement and marks the old row
+superseded, and the chain is what the lineage drawer shows. A lifecycle
+transition writes its state change and its audit row in one transaction or
+not at all. `store/migrations/` is the same model for Postgres with row-level
+security keyed on organisation membership; `tests/test_store.py` checks the
+migration's CHECK lists against the enums in `engines/types.py`.
+
+**Ingest.** Five parsers turn external shapes into engine inputs and nothing
+more. Each returns the rows that parsed and the rows that did not, by
+position, so a bad line is reported rather than lost. PACT accepts 2.x and
+3.x field names; VSME reads the EFRAG xlsx template by label and xBRL-JSON by
+concept; bill reading takes an injected PDF-to-text function.
+
+**API.** `api/handlers.py` is the API: functions taking a context and
+returning a status and payload, tested directly. `api/server.py` is a
+standard-library adapter for local runs and the front end; the organisation
+comes from a header there and from the session in production. Ingestion
+routes persist figures and documents only when the parse is clean, or when
+asked to accept a partial batch.
+
+**Agents.** Eight named agents from the Layer 2 brief, each with an explicit
+allowlist and write budget. Every write tool is a proposal into the review
+queue: nothing in `agents/` can write a figure, move an engagement or send a
+message, and `tests/test_agents.py` greps the package to hold that. Each
+agent's `prepare` step does the deterministic work with the engines before a
+model is asked anything; the model is behind a protocol with a scripted stub
+for tests and thin Anthropic and Ollama adapters.
+
+**Web.** A Vite and React front end with the plan, counterparties, dossier,
+inventory with lineage drawer, target readiness with a boundary selector,
+and the review queue. `web/smoke.mjs` drives the built app through Playwright
+against the seeded adapter.
+
 ## What is not built
 
-Every engine specified in the two Scope 3 briefs now exists with tests. What
-does not exist is everything around them: the database schema and migrations,
-the API, the user interface, ingestion parsers for CSV, bill PDFs, PACT
-payloads and the EFRAG SME template, the agent fleet, and persistence for the
-audit rows the engines hand back. The Data Spine brief in `docs/spine/` is
-blocked on which repository it targets; see `docs/spine/DECISIONS.md`.
+Sending. Drafts land in the review queue and stop there: there is no mailbox,
+no tokenised confirmation page and no SFTP or PACT endpoint, because those
+are outward-facing and the brief's own questions on auto-send policy and
+the monitored mailbox are still open. Authentication and the production
+host are the adapter's job and are not in this repository. Annual spend per
+counterparty is passed to the plan by the caller rather than held in the
+store. The front end reads one fixed reporting period.
 
 ## Specifications
 
@@ -113,9 +169,9 @@ blocked on which repository it targets; see `docs/spine/DECISIONS.md`.
 - `docs/competitive/watershed-gap-analysis.md` — competitive evaluation and the
   prioritised development plan behind both.
 - `docs/spine/BRIEF.md` — Data Spine: one dataset, quality tiers, cited lineage.
-  Filed 10 Sep 2026. Its S0 discovery is in `docs/spine/AUDIT.md` and found that
-  the brief targets a codebase this repository does not contain; two escalations
-  are open in `docs/spine/DECISIONS.md` and S1 has not started.
+  Filed 10 Sep 2026. Its S0 discovery is in `docs/spine/AUDIT.md`. D-1 in
+  `docs/spine/DECISIONS.md` is resolved: this repository is the home. D-2, the
+  tier naming collision, is still open.
 
 Test names map to the acceptance criteria in the briefs, so a rule change
 should break a test that names the rule.
