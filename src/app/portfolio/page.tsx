@@ -21,6 +21,11 @@ interface Report {
   };
   issues: Issue[];
   factorReferences: string[];
+  transport?: {
+    totals: { scope1: number | null; scope3: number | null; total: number | null };
+    counts: { lines: number; resolved: number; unresolved: number };
+    byGhgCategory: { ghgCategory: string; scope: number; kgCo2e: number | null; lines: number; unresolved: number }[];
+  };
 }
 
 const ISSUE_LABELS: Record<string, string> = {
@@ -122,6 +127,28 @@ export default function PortfolioPage() {
             <Stat label="Scope 2 market" value={fmtN(report.totals.scope2Market)} sub={`${report.totals.contributing.scope2Market} assets`} />
             <Stat label="Scope 3 T&D" value={fmtN(report.totals.scope3TandD)} sub={`${report.totals.contributing.scope3TandD} assets`} />
           </div>
+
+          <section style={{ marginBottom: 16, background: "#fff", border: "1px solid #ddd", padding: 12 }}>
+            <h2 style={{ fontSize: 16, marginTop: 0 }}>Transport and business travel</h2>
+            {!report.transport || report.transport.counts.lines === 0 ? (
+              <p style={{ fontSize: 13, margin: 0 }}>
+                Nothing recorded for this period. Transport is organisation-level rather than per building, and without it the
+                SECR summary is incomplete. <Link href="/transport">Add transport activity</Link>.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Stat label="Scope 1 mobile" value={fmtN(report.transport.totals.scope1)} />
+                  <Stat label="Scope 3 travel" value={fmtN(report.transport.totals.scope3)} />
+                  <Stat label="Transport total" value={fmtN(report.transport.totals.total)} sub={`${report.transport.counts.resolved} of ${report.transport.counts.lines} lines`} />
+                </div>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 0 }}>
+                  {report.transport.byGhgCategory.map((g) => `${g.ghgCategory}: ${g.kgCo2e === null ? "unavailable" : fmt(g.kgCo2e)} kgCO2e`).join(" · ")}.{" "}
+                  Not included in the per-asset totals above, which are buildings only. <Link href="/transport">Transport page</Link>.
+                </p>
+              </>
+            )}
+          </section>
 
           {report.issues.length > 0 && (
             <section style={{ marginBottom: 16 }}>

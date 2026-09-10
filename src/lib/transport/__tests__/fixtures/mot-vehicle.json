@@ -1,0 +1,18 @@
+{
+  "registration": "AB12CDE",
+  "make": "FORD",
+  "model": "MONDEO",
+  "firstUsedDate": "2016-03-14",
+  "fuelType": "Diesel",
+  "primaryColour": "Blue",
+  "registrationDate": "2016-03-14",
+  "manufactureDate": "2016-01-20",
+  "engineSize": "1997",
+  "hasOutstandingRecall": "Unknown",
+  "motTests": [
+    { "completedDate": "2023-02-10T09:11:00.000Z", "testResult": "PASSED", "expiryDate": "2024-02-09", "odometerValue": "62150", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "111100001", "defects": [] },
+    { "completedDate": "2024-02-08T10:02:00.000Z", "testResult": "PASSED", "expiryDate": "2025-02-07", "odometerValue": "74980", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "111100002", "defects": [{ "text": "Nearside front tyre worn", "type": "ADVISORY", "dangerous": false }] },
+    { "completedDate": "2025-02-06T08:45:00.000Z", "testResult": "PASSED", "expiryDate": "2026-02-05", "odometerValue": "88010", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "111100003", "defects": [] },
+    { "completedDate": "2026-02-05T11:30:00.000Z", "testResult": "PASSED", "expiryDate": "2027-02-04", "odometerValue": "101200", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "111100004", "defects": [] }
+  ]
+}

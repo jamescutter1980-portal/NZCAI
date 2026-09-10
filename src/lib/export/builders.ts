@@ -12,6 +12,7 @@ import { gridRegionKey } from "@/lib/carbon/intensity-sync";
 import { toView, type ConsentRecord } from "@/lib/consent/types";
 import type { CsvValue } from "./csv";
 import { safeFilename } from "./csv";
+import { transportCarbon } from "@/lib/transport";
 
 /**
  * Export builders.
@@ -319,9 +320,9 @@ export const SECR_COLUMNS = ["section", "item", "value", "unit", "basis", "sourc
  * the face of the export, not left for the reader to notice.
  */
 export const SECR_EXCLUSIONS: [string, string][] = [
-  ["Transport energy and emissions", "The portal holds no vehicle fuel, mileage or grey fleet data. SECR requires transport energy for UK operations; add it before disclosing."],
-  ["Business travel (Scope 3 category 6)", "Not captured by the portal."],
-  ["Other Scope 3 categories", "Only category 3 (transmission and distribution losses) is calculated. Purchased goods and services, waste, commuting, downstream leased assets and the rest are not captured."],
+  ["Transport energy and emissions", "No transport activity has been recorded for this period. SECR requires transport energy for UK operations; add it on the Transport page before disclosing."],
+  ["Business travel (Scope 3 category 6)", "No business travel has been recorded for this period."],
+  ["Other Scope 3 categories", "Only category 3 (transmission and distribution losses) is calculated from meter data. Purchased goods and services, waste, downstream leased assets and the rest are not captured."],
   ["Fugitive emissions (refrigerants)", "Not captured by the portal; these are Scope 1 and are usually material for air-conditioned buildings."],
   ["Non-metered fuels", "Oil, LPG and biomass are not captured; only electricity and gas meter data is held."],
   ["Water, waste and embodied carbon", "Not captured by the portal."],
@@ -329,6 +330,11 @@ export const SECR_EXCLUSIONS: [string, string][] = [
 
 export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: number): ExportTable {
   const roll = portfolioRollup(db, ctx, year);
+  const transport = transportCarbon(db, ctx, calendarYear(year));
+  const hasTransport = transport.counts.lines > 0;
+  const transportEnergyKwh = transport.lines
+    .filter((l) => l.unit.trim().toLowerCase() === "kwh")
+    .reduce((n, l) => n + l.quantity, 0);
   const rows: CsvValue[][] = [];
   const add = (section: string, item: string, value: CsvValue, unit = "", basis = "", source = "", reference = "", note = "") =>
     rows.push([section, item, value, unit, basis, source, reference, note]);
@@ -351,22 +357,47 @@ export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: numb
   const exported = r3(roll.assets.reduce((n, a) => n + a.exportKwh, 0));
   add("Energy consumption", "Electricity purchased", elec, "kWh", "measured", "n3rgy", "Half-hourly meter readings stored in the portal.");
   add("Energy consumption", "Natural gas", gas, "kWh", "measured", "n3rgy", "Half-hourly meter readings stored in the portal, gross CV as metered.");
-  add("Energy consumption", "Transport fuel", "", "kWh", "unavailable", "", "", "NOT CAPTURED. The portal holds no transport energy data. This is a required SECR disclosure and is left blank rather than reported as zero.");
-  add("Energy consumption", "Total energy (electricity and gas only)", r3(elec + gas), "kWh", "measured", "nzc-portal", "", "Excludes transport and any non-metered fuel. Not a complete SECR energy total.");
+  if (!hasTransport) {
+    add("Energy consumption", "Transport fuel", "", "kWh", "unavailable", "", "", "NOT CAPTURED. No transport activity is recorded for this period. This is a required SECR disclosure and is left blank rather than reported as zero.");
+  } else if (transportEnergyKwh > 0) {
+    add("Energy consumption", "Transport fuel", r3(transportEnergyKwh), "kWh", "measured", "nzc-portal", "", `From ${transport.counts.lines} transport activity lines recorded in kWh. Distance-based lines contribute emissions below but no kWh.`);
+  } else {
+    add("Energy consumption", "Transport fuel", "", "kWh", "unavailable", "", "", `${transport.counts.lines} transport lines are recorded, but all are distance, passenger-km or room-night based, which give emissions and not energy. SECR asks for transport energy in kWh: record fuel volumes or kWh, or convert using a calorific value the portal does not hold.`);
+  }
+  add("Energy consumption", "Total energy (electricity and gas only)", r3(elec + gas), "kWh", "measured", "nzc-portal", "", "Excludes transport unless recorded in kWh above, and any non-metered fuel. Not a complete SECR energy total.");
   add("Energy consumption", "Electricity exported (memo)", exported, "kWh", "measured", "n3rgy", "", "Memo only. Not deducted from consumption.");
 
   const scope1 = sumOrNull(roll.assets.map((a) => a.carbon.totals.scope1));
   const scope2Location = sumOrNull(roll.assets.map((a) => a.carbon.totals.scope2Location));
   const scope2Market = sumOrNull(roll.assets.map((a) => a.carbon.totals.scope2Market));
   const scope3Td = sumOrNull(roll.assets.flatMap((a) => a.carbon.scope3TandD.map((l) => l.kgCo2e)));
-  const totalLocation = sumOrNull([scope1, scope2Location]);
+  const transportScope1 = hasTransport ? transport.totals.scope1 : 0;
+  const scope1Total = sumOrNull([scope1, transportScope1]);
+  const totalLocation = sumOrNull([scope1Total, scope2Location]);
   const missingNote = (v: number | null) => (v === null ? "Blank because at least one required factor is unavailable. See the portfolio-carbon export for which asset and which factor." : "");
 
   add("Emissions", "Scope 1 (natural gas combustion)", nn(scope1), "kgCO2e", scope1 === null ? "unavailable" : "measured", "desnz-conversion-factors", "", missingNote(scope1));
+  add(
+    "Emissions", "Scope 1 (mobile combustion, own and leased vehicles)", nn(transportScope1), "kgCO2e",
+    transportScope1 === null ? "unavailable" : hasTransport ? "measured" : "not_applicable", "desnz-conversion-factors", "",
+    !hasTransport
+      ? "No transport activity recorded for this period."
+      : transportScope1 === null
+        ? "Blank because at least one fleet line could not be calculated. See the Transport page for which."
+        : "",
+  );
+  add("Emissions", "Scope 1 total", nn(scope1Total), "kgCO2e", scope1Total === null ? "unavailable" : "measured", "nzc-portal", "", missingNote(scope1Total));
   add("Emissions", "Scope 2 location-based", nn(scope2Location), "kgCO2e", scope2Location === null ? "unavailable" : "measured", "desnz-conversion-factors", "", missingNote(scope2Location));
   add("Emissions", "Scope 2 market-based", nn(scope2Market), "kgCO2e", scope2Market === null ? "unavailable" : "measured", "asset_meters, aib-residual-mix", "", missingNote(scope2Market));
   add("Emissions", "Scope 3 category 3 (transmission and distribution)", nn(scope3Td), "kgCO2e", scope3Td === null ? "unavailable" : "measured", "desnz-conversion-factors", "", missingNote(scope3Td));
-  add("Emissions", "Total gross (Scope 1 + Scope 2 location-based)", nn(totalLocation), "kgCO2e", totalLocation === null ? "unavailable" : "measured", "nzc-portal", "", missingNote(totalLocation));
+  for (const g of transport.byGhgCategory.filter((c) => c.scope === 3)) {
+    add(
+      "Emissions", `Scope 3 ${g.ghgCategory.toLowerCase()}`, nn(g.kgCo2e), "kgCO2e",
+      g.kgCo2e === null ? "unavailable" : "measured", "desnz-conversion-factors", "",
+      `${g.lines} transport activity line${g.lines === 1 ? "" : "s"}${g.unresolved > 0 ? `, ${g.unresolved} of which could not be calculated, so this is blank rather than partial` : ""}. Voluntary under SECR; required for a GHG Protocol inventory.`,
+    );
+  }
+  add("Emissions", "Total gross (Scope 1 + Scope 2 location-based)", nn(totalLocation), "kgCO2e", totalLocation === null ? "unavailable" : "measured", "nzc-portal", "", `${missingNote(totalLocation)} Scope 1 includes mobile combustion where transport activity is recorded. Scope 3 is excluded from this total, as SECR requires.`.trim());
 
   const intensity = totalLocation !== null && floorArea > 0 ? r3(totalLocation / floorArea) : null;
   add(
@@ -406,12 +437,20 @@ export function buildSecrSummaryExport(db: Db, ctx: OperationContext, year: numb
   add("Methodology", "Data completeness", nn(completeness), "%", completeness === null ? "unavailable" : "measured", "nzc-portal", "", `Mean share of the ${roll.expectedDays} expected days in the period with at least one reading, across all assets.`);
   add("Methodology", "Calculation basis", "GHG Protocol Corporate Standard, dual reporting of Scope 2", "", "", "nzc-portal", "", "Location-based from the DESNZ UK grid average; market-based from supplier factors where contractual evidence is held, otherwise the AIB residual mix.");
 
-  for (const [item, note] of SECR_EXCLUSIONS) {
+  const travelRecorded = transport.lines.some((l) => l.scope === 3);
+  const exclusions = SECR_EXCLUSIONS.filter(([item]) => {
+    if (item.startsWith("Transport energy") && hasTransport) return false;
+    if (item.startsWith("Business travel") && travelRecorded) return false;
+    return true;
+  });
+  for (const [item, note] of exclusions) {
     add("Exclusions: NOT INCLUDED in the figures above", item, "", "", "unavailable", "", "", note);
   }
   add(
     "Exclusions: NOT INCLUDED in the figures above", "Readiness for disclosure", "", "", "", "", "",
-    "THIS IS NOT A COMPLETE SECR DISCLOSURE. Transport energy, business travel and the other Scope 3 categories listed above are not yet captured by the portal and must be added, and the whole return reviewed, before it is used in a Directors' Report or filed.",
+    hasTransport
+      ? "THIS IS NOT A COMPLETE SECR DISCLOSURE. Transport is included, but the exclusions listed above are not, and transport energy in kWh is only present where fuel volumes were recorded. Review the whole return before it is used in a Directors' Report or filed."
+      : "THIS IS NOT A COMPLETE SECR DISCLOSURE. Transport energy, business travel and the other Scope 3 categories listed above are not yet captured by the portal and must be added, and the whole return reviewed, before it is used in a Directors' Report or filed.",
   );
 
   return table("secr-summary", `secr-summary-${year}`, SECR_COLUMNS, rows, DEFAULT_ROW_LIMIT);

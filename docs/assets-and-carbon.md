@@ -80,3 +80,30 @@ CSV exports at `/api/exports/<kind>`: `readings`, `asset-carbon`, `portfolio-ene
 Exports are **calendar-year only** for now; the pages hide the link when another period is selected rather than exporting the wrong window.
 
 The SECR summary is deliberately incomplete and says so on its face: transport, business travel, refrigerants, non-metered fuels, water, waste and embodied carbon are each a labelled exclusion row, and the table ends with a row stating it is not a complete disclosure. It is a starting point for a return, not the return.
+
+## Transport and business travel
+
+`/transport` covers what meter data cannot: mobile combustion from own and leased vehicles, grey fleet, air, rail, road and sea travel, hotel stays, employee commuting, freight and well-to-tank. It is organisation-level, so it sits alongside the per-asset roll-up rather than inside it.
+
+**Every line points at a published DESNZ row by its id in the flat file**, rather than at a number the portal carries. The factor picker only offers rows from the file you have loaded, so the portal can never present a factor it does not hold, and each line records which row, which year's file, and what the published value and unit were.
+
+Three checks run on every line, and each reports rather than overrules:
+
+- **Unit.** The activity's unit must match the factor's. Distance units convert between miles and kilometres with the conversion stated on the line; anything else, such as litres against a per-kilometre factor, is refused with an explanation instead of a guess.
+- **Scope.** Each category maps to a GHG Protocol scope and category. If the chosen DESNZ row is published under a different scope, the line says so.
+- **Period.** Activity is attributed by its start date. A row running past the end of the reporting period is counted whole, with a warning, rather than silently split.
+
+A line with no usable factor reports null with the reason, and the category total it belongs to goes blank rather than partial.
+
+### Vehicles
+
+The fleet register holds registration, make, model, fuel, engine size and ownership. **Look up** fills those from DVLA and estimates annual distance from MOT odometer readings, ignoring readings that do not increase and saying so. Two caveats travel with the data and appear in the interface:
+
+- MOT odometer distance cannot separate business from private use, so it is an upper bound for grey-fleet business mileage, never the business figure.
+- The DVLA CO2 value is a type-approval laboratory figure. It classifies and compares vehicles; it is not a substitute for a DESNZ factor in a calculation.
+
+### Effect on SECR
+
+With transport recorded, the SECR summary now includes mobile combustion in Scope 1 and lists business travel and commuting under their GHG Protocol categories. The transport exclusion rows disappear once there is data to replace them.
+
+Transport **energy** in kWh only appears where fuel was recorded in kWh. Distance-based lines give emissions but not energy, and the export says so on the row rather than leaving the reader to work it out. Converting distance to energy needs a calorific value the portal does not hold.

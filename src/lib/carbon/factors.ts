@@ -1,5 +1,6 @@
 import type { OperationContext } from "@/lib/integrations/framework";
 import { loadYears, type FactorRow, type YearIndex } from "@/lib/integrations/desnz-conversion-factors";
+export type { FactorRow } from "@/lib/integrations/desnz-conversion-factors";
 import { parseResidualMix, type ResidualMixRow } from "@/lib/integrations/aib-residual-mix";
 import { listReferenceFiles, loadReferenceFile } from "@/lib/integrations/_shared/reference-data";
 import type { Basis } from "@/lib/provenance";
@@ -61,6 +62,37 @@ export function desnzFactor(ctx: OperationContext, reportingYear: number, spec: 
     return { value: null, unit: "kgCO2e/kWh", basis: "unavailable", source: "desnz-conversion-factors", reference: `DESNZ ${reportingYear} row ${row.id}`, detail: `Factor published as not available.` };
   }
   return { value: row.factor, unit: `${row.ghg_unit}/${row.uom}`, basis: "measured", source: "desnz-conversion-factors", reference: `DESNZ ${reportingYear} row ${row.id} (${year.file.name})` };
+}
+
+/**
+ * Resolves a DESNZ factor by its row id in the published flat file. Activities
+ * that can pick any factor (transport, travel, waste) reference a row this way,
+ * so the portal never carries its own copy of a factor value and the row's own
+ * Scope and unit can be checked against how it is being used.
+ */
+export function desnzRowById(ctx: OperationContext, reportingYear: number, id: string): { row?: FactorRow; factor: ResolvedFactor } {
+  const years = loadYears(ctx);
+  const year = years.find((y) => y.year === reportingYear);
+  if (!year) {
+    return {
+      factor: { value: null, unit: "", basis: "unavailable", source: "desnz-conversion-factors", reference: `DESNZ ${reportingYear} row ${id}`, detail: `No DESNZ ${reportingYear} flat file loaded (loaded: ${years.map((y) => y.year).join(", ") || "none"}).` },
+    };
+  }
+  const row = year.byId.get(String(id).trim());
+  if (!row) {
+    return {
+      factor: { value: null, unit: "", basis: "unavailable", source: "desnz-conversion-factors", reference: `DESNZ ${reportingYear} row ${id}`, detail: `Row ${id} is not in the ${reportingYear} flat file (${year.file.name}). Factor ids change between years, so re-pick the factor for this year.` },
+    };
+  }
+  if (row.availability === "unavailable" || row.factor === null) {
+    return { row, factor: { value: null, unit: `${row.ghg_unit}/${row.uom}`, basis: "unavailable", source: "desnz-conversion-factors", reference: `DESNZ ${reportingYear} row ${row.id} (${year.file.name})`, detail: "Factor published as not available." } };
+  }
+  return { row, factor: { value: row.factor, unit: `${row.ghg_unit}/${row.uom}`, basis: "measured", source: "desnz-conversion-factors", reference: `DESNZ ${reportingYear} row ${row.id} (${year.file.name})` } };
+}
+
+/** Rows of the loaded flat file, for a factor picker. Empty when no file is loaded. */
+export function desnzRows(ctx: OperationContext, reportingYear: number): FactorRow[] {
+  return loadYears(ctx).find((y) => y.year === reportingYear)?.rows ?? [];
 }
 
 export function residualMixFactor(ctx: OperationContext, dataYear: number, countryCode = "GB"): ResolvedFactor {

@@ -163,6 +163,48 @@ const MIGRATIONS: { id: string; sql: string }[] = [
     id: "0007_meter_allocation",
     sql: `ALTER TABLE asset_meters ADD COLUMN share REAL NOT NULL DEFAULT 1.0;`,
   },
+  {
+    id: "0008_transport",
+    sql: `
+      CREATE TABLE vehicles (
+        id TEXT PRIMARY KEY,
+        registration TEXT,
+        make TEXT,
+        model TEXT,
+        fuel_type TEXT,
+        engine_capacity_cc INTEGER,
+        co2_g_per_km REAL,
+        year_of_manufacture INTEGER,
+        ownership TEXT NOT NULL,
+        enrichment_source TEXT,
+        enriched_at TEXT,
+        enrichment_detail TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX vehicles_registration ON vehicles(registration);
+      CREATE TABLE transport_activity (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        label TEXT NOT NULL,
+        period_start TEXT NOT NULL,
+        period_end TEXT NOT NULL,
+        asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
+        vehicle_id TEXT REFERENCES vehicles(id) ON DELETE SET NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        factor_id TEXT,
+        factor_year INTEGER,
+        basis TEXT NOT NULL,
+        evidence TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX transport_activity_period ON transport_activity(period_start);
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;

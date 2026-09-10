@@ -1,0 +1,20 @@
+{
+  "registrationNumber": "AB12CDE",
+  "make": "FORD",
+  "colour": "BLUE",
+  "fuelType": "DIESEL",
+  "engineCapacity": 1997,
+  "co2Emissions": 119,
+  "yearOfManufacture": 2016,
+  "monthOfFirstRegistration": "2016-03",
+  "taxStatus": "Taxed",
+  "taxDueDate": "2027-03-01",
+  "motStatus": "Valid",
+  "motExpiryDate": "2027-02-14",
+  "euroStatus": "EURO 6",
+  "typeApproval": "M1",
+  "wheelplan": "2 AXLE RIGID BODY",
+  "markedForExport": false,
+  "revenueWeight": 2100,
+  "dateOfLastV5CIssued": "2023-06-11"
+}
