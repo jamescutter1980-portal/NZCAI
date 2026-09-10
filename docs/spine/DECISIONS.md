@@ -4,10 +4,12 @@ Per BRIEF §0.4: decide and log, escalate only what is irreversible. Newest firs
 
 ---
 
-## D-1 · The brief's target repository is not this one — ESCALATED
+## D-1 · The brief's target repository is not this one — RESOLVED by instruction
 
-**Date:** 10 September 2026
-**Status:** Needs James. Not blocking the filing of the brief, blocking S1.
+**Date:** 10 September 2026, resolved the same day
+**Status:** James instructed "build the rest" in this repository. Taken as option 2 below: this repository is the home, and the substrate is built here rather than extended from elsewhere. The "reuse, don't duplicate" constraint in BRIEF §3.2 therefore has nothing to reuse and is treated as "build once, cleanly". If `C:\nzc-group-ai` turns out to hold a real codebase, the two must be reconciled before either is deployed; nothing here assumes it does not exist.
+
+**Original escalation follows.**
 
 The brief names `C:\nzc-group-ai` (engine repo plus frontend repo) as the workstream. This session has `jamescutter1980-portal/NZCAI`, which contains documentation and a calculation package and none of the seven things §3.2 says to extend. See `AUDIT.md`.
 
