@@ -1,32 +1,13 @@
-# React + TypeScript + Vite
+# NZC AI · Scope 3 front end
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Vite and React, TypeScript, no router or state library. Views are in
+`src/views/`, the typed API client in `src/api.ts`, house-style CSS in
+`src/index.css`.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev      # proxies /api to the Python adapter on 127.0.0.1:8765
+npm run build    # writes dist/, which `python3 -m api.server --static` serves
+npm run lint
+node smoke.mjs 8790   # Playwright, against a seeded static-serving adapter
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
