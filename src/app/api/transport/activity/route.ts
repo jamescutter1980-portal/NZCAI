@@ -13,7 +13,13 @@ export function GET(req: Request) {
   });
 }
 
-const batchSchema = z.object({ rows: z.array(activityCreateSchema).min(1).max(20_000) });
+/**
+ * An imported row may name a vehicle by registration rather than by id, so the
+ * registration is resolved here and an unknown one is reported instead of
+ * silently dropping the link.
+ */
+const importRowSchema = z.looseObject({ vehicleRegistration: z.string().optional() });
+const batchSchema = z.object({ rows: z.array(z.unknown()).min(1).max(20_000) });
 
 /** Accepts one activity or a batch from a CSV import. */
 export async function POST(req: Request) {
@@ -26,8 +32,30 @@ export async function POST(req: Request) {
   const repo = new TransportRepository(getDb());
   const batch = batchSchema.safeParse(body);
   if (batch.success) {
-    const created = repo.createActivityBatch(batch.data.rows);
-    return NextResponse.json({ created: created.length, activity: created }, { status: 201 });
+    const warnings: string[] = [];
+    const issues: { row: number; message: string }[] = [];
+    const prepared: import("@/lib/transport").ActivityCreate[] = [];
+    batch.data.rows.forEach((raw, i) => {
+      const loose = importRowSchema.safeParse(raw);
+      const { vehicleRegistration, ...rest } = loose.success ? loose.data : (raw as Record<string, unknown>);
+      let vehicleId: string | undefined;
+      if (typeof vehicleRegistration === "string" && vehicleRegistration.trim()) {
+        const vehicle = repo.findVehicleByRegistration(vehicleRegistration);
+        if (vehicle) vehicleId = vehicle.id;
+        else warnings.push(`Row ${i + 1}: ${vehicleRegistration} is not on the fleet register, so the row was imported without a vehicle.`);
+      }
+      const parsed = activityCreateSchema.safeParse({ ...rest, ...(vehicleId ? { vehicleId } : {}) });
+      if (!parsed.success) {
+        issues.push({ row: i + 1, message: parsed.error.issues.map((x) => `${x.path.join(".") || "row"}: ${x.message}`).join("; ") });
+        return;
+      }
+      prepared.push(parsed.data);
+    });
+    if (issues.length > 0) {
+      return NextResponse.json({ error: `${issues.length} of ${batch.data.rows.length} rows are invalid; nothing was imported.`, issues: issues.slice(0, 50) }, { status: 400 });
+    }
+    const created = repo.createActivityBatch(prepared);
+    return NextResponse.json({ created: created.length, warnings, activity: created }, { status: 201 });
   }
   const one = activityCreateSchema.safeParse(body);
   if (!one.success) return NextResponse.json({ error: "Invalid activity", issues: one.error.issues }, { status: 400 });

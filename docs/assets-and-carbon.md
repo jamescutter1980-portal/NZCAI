@@ -102,6 +102,14 @@ The fleet register holds registration, make, model, fuel, engine size and owners
 - MOT odometer distance cannot separate business from private use, so it is an upper bound for grey-fleet business mileage, never the business figure.
 - The DVLA CO2 value is a type-approval laboratory figure. It classifies and compares vehicles; it is not a substitute for a DESNZ factor in a calculation.
 
+### Importing a spreadsheet
+
+Client mileage and travel data arrives as spreadsheets, so `/transport` takes one directly. Paste or choose a file, and the importer detects the delimiter, skips preamble rows, suggests a column for each field, and shows what it made of the first twenty rows before anything is saved.
+
+UK day-first dates, thousands separators, bracketed negatives and Excel serial dates are all understood. A month-first date is refused with a message saying so rather than being read as a different day. Category names are matched loosely, so "Grey fleet", "Flights" and "Hotel" land on the right internal category.
+
+Two rules make an import safe to trust: a blank optional cell leaves the field absent rather than becoming zero, and **a file with any invalid row imports nothing at all**, reporting each bad row by number. A vehicle registration that is not on the fleet register does not block the import; the row loads without a vehicle and the response says which.
+
 ### Effect on SECR
 
 With transport recorded, the SECR summary now includes mobile combustion in Scope 1 and lists business travel and commuting under their GHG Protocol categories. The transport exclusion rows disappear once there is data to replace them.

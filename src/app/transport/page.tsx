@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { PeriodPicker, defaultPeriodSelection, periodQuery, type PeriodSelection } from "@/components/PeriodPicker";
 import { FactorPicker, factorLabel, type FactorRowView } from "@/components/FactorPicker";
+import { CsvImport } from "@/components/CsvImport";
+import { transportActivityImportFields } from "@/lib/transport/import-spec";
 
 interface Vehicle { id: string; registration?: string; make?: string; model?: string; fuelType?: string; engineCapacityCc?: number; co2GPerKm?: number; ownership: string; enrichmentSource?: string; enrichmentDetail?: string; notes?: string }
 interface Line {
@@ -182,6 +184,37 @@ export default function TransportPage() {
           {carbon.warnings.map((w, i) => <p key={i} style={box("#fff3cd", "#ffe69c")}>{w}</p>)}
         </section>
       )}
+
+      <section style={card}>
+        <details>
+          <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 16 }}>Import from a spreadsheet</summary>
+          <div style={{ marginTop: 10 }}>
+            <CsvImport
+              spec={{
+                id: "transport-activity",
+                label: "Transport activity",
+                description:
+                  "Map the columns of a client mileage or travel export. UK day-first dates and thousands separators are understood. A row with no conversion factor is imported and reports as unavailable until you choose one.",
+                fields: transportActivityImportFields,
+              }}
+              onCommit={async (rows) => {
+                const res = await fetch("/api/transport/activity", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ rows }),
+                });
+                const b = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                  const detail = b.issues?.slice(0, 3).map((i: { row: number; message: string }) => `row ${i.row}: ${i.message}`).join("; ");
+                  return { ok: false, message: [b.error, detail].filter(Boolean).join(" ") || `Import failed (${res.status})` };
+                }
+                await load(selection);
+                return { ok: true, message: [`Imported ${b.created} rows.`, ...(b.warnings ?? [])].join(" ") };
+              }}
+            />
+          </div>
+        </details>
+      </section>
 
       <section style={card}>
         <h2 style={h2}>Add activity</h2>
