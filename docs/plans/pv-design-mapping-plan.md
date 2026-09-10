@@ -1,7 +1,13 @@
 # NZC AI — Mapping, Roof Outline & PV Design: audit and plan
 
-**Status:** AUDIT + PLAN ONLY. No code was written or modified. Awaiting James's approval.
-**Date:** 2026-09-09.
+**Status:** APPROVED by James on 2026-09-09 ("Go with all assumptions" — every recommendation
+in section H taken as decided). Engine increments 1–5, 7 and 8 BUILT on 2026-09-09/10 in
+`jamescutter1980-portal/nzc-ai-engine`, branch `claude/nzc-pv-design-audit-plan-eyqdsf`; the
+build record is that repo's `docs/101-pv-design-mapping.md`. Increment 6 (the frontend canvas
+in `NZC-Portal/calm-prompt-ai`) is NOT built — the repo was unreachable from the build session
+(H1). James's own actions remain open: the EA per-tile download URL (H9), three real roofs for
+the LiDAR spike (H9), a Bluesky/Getmapping quote (H7).
+**Date:** 2026-09-09 (audit and plan); 2026-09-10 (build status).
 **Author:** Claude Code session, on branch `claude/nzc-pv-design-audit-plan-eyqdsf` of `jamescutter1980-portal/NZCAI`.
 
 ## 0. What was actually audited, and what could not be
