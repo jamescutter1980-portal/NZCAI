@@ -17,6 +17,8 @@ import {
   linesForAppend,
   linesForEdge,
   linesForVertex,
+  regularise,
+  REGULARISE_DEGREES,
   insertAfter,
   midpoints,
   moveEdge,
@@ -1178,5 +1180,151 @@ describe("which alignments a dragged wall has", () => {
     const hinges = hingesForEdge(ring, 2);
     const first = hinges.find((h) => h.pivot === ring[1]);
     assert.deepEqual(first?.reference, [ring[1], ring[0]]);
+  });
+});
+
+/* ------------------------------------------------------- regularising --- */
+
+describe("squaring a whole shape up", () => {
+  /** Bearing of a->b in the frame regularising works in, in degrees. */
+  const bearing = (a: Vertex, b: Vertex) => {
+    const k = Math.cos((((a[1] + b[1]) / 2) * Math.PI) / 180);
+    return (Math.atan2(b[1] - a[1], (b[0] - a[0]) * k) * 180) / Math.PI;
+  };
+  /*
+   * Square to within a millionth of a degree — 1.7 µm on a 100 m wall. Not
+   * exact zero: the corners are rebuilt by intersecting lines, which divides
+   * by a cross product, and a shape at an arbitrary bearing carries a little
+   * floating-point noise through that. A tighter bound would be testing the
+   * floating-point unit rather than the geometry.
+   */
+  const SQUARE_TO = 1e-6;
+
+  /** How far each wall is from a right angle to the one before it. */
+  const cornerErrors = (ring: Vertex[]) =>
+    ring.map((_, i) => {
+      const prev = ring[(i - 1 + ring.length) % ring.length];
+      const next = ring[(i + 1) % ring.length];
+      const a = bearing(ring[i], prev);
+      const b = bearing(ring[i], next);
+      const d = Math.abs(((a - b) % 360 + 360) % 360 - 90);
+      return Math.min(d, Math.abs(d - 180));
+    });
+
+  test("a ragged rectangle comes back square", () => {
+    // Every corner a degree or two out, as a traced footprint is.
+    const ragged: Vertex[] = [
+      [0, 0], [0.00100, 0.00003], [0.00097, 0.00101], [-0.00002, 0.00098],
+    ];
+    const out = regularise(ragged);
+    assert.ok(out);
+    for (const e of cornerErrors(out.vertices)) {
+      assert.ok(e < SQUARE_TO, `corner still ${e}° off square`);
+    }
+  });
+
+  test("it reports what it did, in metres", () => {
+    const ragged: Vertex[] = [
+      [0, 0], [0.00100, 0.00003], [0.00097, 0.00101], [-0.00002, 0.00098],
+    ];
+    const out = regularise(ragged);
+    assert.ok(out);
+    assert.equal(out.moved, 4, "every corner moved");
+    assert.ok(out.furthestM > 0 && out.furthestM < 10, `furthest ${out.furthestM} m`);
+    assert.equal(out.keptDiagonal, 0);
+  });
+
+  test("a shape already square is left alone", () => {
+    const square: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+    const out = regularise(square);
+    assert.ok(out);
+    assert.equal(out.moved, 0, "nothing to do");
+    for (let i = 0; i < square.length; i += 1) close(out.vertices[i], square[i]);
+  });
+
+  test("the grid comes from the SHAPE, not from north", () => {
+    /*
+     * A building at 30° to north, slightly ragged. Squaring to north would
+     * wreck it; squaring to its own grain keeps it where it stands. Almost no
+     * building in the country is aligned to north.
+     */
+    const turn = (v: Vertex, deg: number): Vertex => {
+      const r = (deg * Math.PI) / 180;
+      return [v[0] * Math.cos(r) - v[1] * Math.sin(r), v[0] * Math.sin(r) + v[1] * Math.cos(r)];
+    };
+    const tilted = [[0, 0], [0.001, 0], [0.001, 0.0006], [0, 0.0006]]
+      .map((v) => turn(v as Vertex, 30));
+    // Knock one corner out by a degree or so.
+    tilted[2] = [tilted[2][0] + 0.00002, tilted[2][1] - 0.00001];
+
+    const out = regularise(tilted);
+    assert.ok(out);
+    for (const e of cornerErrors(out.vertices)) assert.ok(e < SQUARE_TO, `${e}° off`);
+    /*
+     * The grid it found is the building's own, near a quarter turn from 30°.
+     * Not exactly 30: the axis is a length-weighted compromise across all four
+     * walls, so the corner knocked out above pulls it a fraction — which is
+     * the point of averaging rather than trusting one wall. What matters is
+     * that it is the building's grain and not north.
+     */
+    const offBy = (deg: number) => {
+      const d = Math.abs((((out.axisDegrees - deg) % 90) + 90) % 90);
+      return Math.min(d, 90 - d);
+    };
+    assert.ok(offBy(30) < 2, `axis ${out.axisDegrees}°, expected near 30`);
+    assert.ok(offBy(0) > 25, `axis ${out.axisDegrees}° is suspiciously near north`);
+  });
+
+  test("a genuine diagonal is kept", () => {
+    // A rectangle with one corner cut off at 45°: a splayed corner, not an
+    // error. It is further off the grid than the tolerance, so it stays.
+    const splayed: Vertex[] = [
+      [0, 0], [0.001, 0], [0.001, 0.0007], [0.0007, 0.001], [0, 0.001],
+    ];
+    const out = regularise(splayed);
+    assert.ok(out);
+    assert.equal(out.keptDiagonal, 1, "the splay, and only the splay");
+    // The splayed wall still runs at about 45° to the grid.
+    const splay = bearing(out.vertices[2], out.vertices[3]);
+    const off = Math.abs(((splay % 90) + 90) % 90);
+    assert.ok(Math.min(off, 90 - off) > 30, `splay came out ${splay}°`);
+  });
+
+  test("the tolerance is the exported one, and it is an ANGLE", () => {
+    // Every other tolerance here is screen pixels, measuring a pointer against
+    // what the user can see. This one runs on a shape with no pointer in it.
+    assert.equal(REGULARISE_DEGREES, 15);
+  });
+
+  test("a wall just inside the tolerance is squared, just outside is not", () => {
+    const at = (deg: number): Vertex[] => {
+      const r = (deg * Math.PI) / 180;
+      return [[0, 0], [0.001, 0], [0.001 - 0.0006 * Math.sin(r), 0.0006 * Math.cos(r)], [0, 0.0006]];
+    };
+    assert.equal(regularise(at(14))?.keptDiagonal, 0);
+    assert.equal(regularise(at(20))?.keptDiagonal, 1);
+  });
+
+  test("below three corners there is no shape to square", () => {
+    assert.equal(regularise([[0, 0], [0.001, 0]]), null);
+    assert.equal(regularise([]), null);
+  });
+
+  test("a shape of no extent is refused rather than divided by zero", () => {
+    const dot: Vertex[] = [[0, 0], [0, 0], [0, 0]];
+    assert.equal(regularise(dot), null);
+  });
+
+  test("near-collinear walls keep their corner rather than losing it", () => {
+    /*
+     * Their lines are parallel, so there is no intersection to put the corner
+     * at. Dropping it would silently remove a vertex the user placed.
+     */
+    const withJog: Vertex[] = [
+      [0, 0], [0.0005, 0.0000005], [0.001, 0], [0.001, 0.001], [0, 0.001],
+    ];
+    const out = regularise(withJog);
+    assert.ok(out);
+    assert.equal(out.vertices.length, 5, "the corner is still there");
   });
 });

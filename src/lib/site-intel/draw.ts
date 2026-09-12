@@ -987,3 +987,169 @@ export function targetsFrom(
 ): SnapTargets {
   return { vertices: candidatesFrom(neighbours), edges: edgesFrom(neighbours) };
 }
+
+/* ------------------------------------------------------ regularising --- */
+
+/**
+ * How far off the building's own grid a wall may be and still be pulled onto
+ * it, in degrees.
+ *
+ * A judgement, and the reasoning is the separation in practice: a footprint
+ * traced from imagery is usually within about five degrees of square, an OS
+ * polygon within one or two, and a genuinely canted wall — a splayed corner, a
+ * bay, a plot that follows a bend in the road — is thirty degrees off or more.
+ * Fifteen sits in the empty middle, so ragged corners are caught and real
+ * diagonals are left alone.
+ *
+ * NOT a screen threshold, unlike every other tolerance here. Those measure a
+ * pointer against what the user can see; this runs on a whole shape with no
+ * pointer involved, so the question is about the geometry rather than the aim.
+ */
+export const REGULARISE_DEGREES = 15;
+
+export interface Regularised {
+  vertices: Vertex[];
+  /** Corners that actually moved, and how far the furthest went, in metres. */
+  moved: number;
+  furthestM: number;
+  /** Walls left as they were because they are not on the building's grid. */
+  keptDiagonal: number;
+  /** The grid the shape was squared to, as a bearing in degrees. */
+  axisDegrees: number;
+}
+
+/** Corners nearer than this to where they started are treated as unmoved. */
+const MOVED_M = 0.01;
+
+/**
+ * Squares a footprint up against its own dominant grid.
+ *
+ * WHAT IT IS FOR. The assists help while a point is moving. A shape traced
+ * freehand, or one a source published raggedly, has every corner a degree or
+ * two out and nothing fixes them together.
+ *
+ * THE GRID COMES FROM THE SHAPE, not from north and not from the neighbours.
+ * A building sits at whatever bearing its street does, so squaring to north
+ * would wreck almost every footprint in the country. The dominant bearing is
+ * the length-weighted circular mean of the walls' own bearings, taken modulo a
+ * quarter turn — the angles are multiplied by four before averaging and divided
+ * by four after, because a right angle is a symmetry of the thing being
+ * measured and a plain mean would tear at the wrap-around.
+ *
+ * THE CORNERS ARE REBUILT, NOT NUDGED. Each wall becomes a line: its direction
+ * snapped to the grid, its position through its own midpoint, so the wall stays
+ * where it was and only turns. Every corner is then the intersection of the two
+ * lines that meet there. Rotating each wall and then averaging the disagreeing
+ * endpoints would leave the walls not quite meeting, which is the defect this
+ * is meant to remove.
+ *
+ * A wall further off the grid than `toleranceDeg` keeps its own bearing, so an
+ * L-plan with one canted wall comes back with the cant intact.
+ *
+ * Returns null when there is nothing it can work on — fewer than three corners,
+ * or no wall with any length.
+ */
+export function regularise(
+  vertices: Vertex[],
+  toleranceDeg: number = REGULARISE_DEGREES,
+): Regularised | null {
+  const n = vertices.length;
+  if (n < MIN_VERTICES) return null;
+
+  /*
+   * One flat frame for the whole shape, at its mean latitude. As in
+   * `alignPosition`: a right angle in raw degrees is not a right angle on the
+   * ground, and using a different scale per wall would make "square" depend on
+   * which end of the building you measured from.
+   */
+  const lat0 = vertices.reduce((sum, v) => sum + v[1], 0) / n;
+  const k = Math.cos((lat0 * Math.PI) / 180);
+  if (k === 0) return null;
+  const flat = (v: Vertex) => ({ x: (v[0] - vertices[0][0]) * k, y: v[1] - vertices[0][1] });
+  const unflat = (p: { x: number; y: number }): Vertex =>
+    [vertices[0][0] + p.x / k, vertices[0][1] + p.y];
+
+  const points = vertices.map(flat);
+  const walls = points.map((p, i) => {
+    const q = points[(i + 1) % n];
+    return { from: p, to: q, dx: q.x - p.x, dy: q.y - p.y };
+  });
+
+  const QUARTER = Math.PI / 2;
+  let sin4 = 0;
+  let cos4 = 0;
+  for (const w of walls) {
+    const length = Math.hypot(w.dx, w.dy);
+    if (length === 0) continue;
+    const bearing = Math.atan2(w.dy, w.dx);
+    sin4 += length * Math.sin(4 * bearing);
+    cos4 += length * Math.cos(4 * bearing);
+  }
+  if (sin4 === 0 && cos4 === 0) return null;
+  const axis = Math.atan2(sin4, cos4) / 4;
+
+  const tolerance = (toleranceDeg * Math.PI) / 180;
+  let keptDiagonal = 0;
+
+  // Each wall as a line: a point it passes through, and a direction.
+  const lines = walls.map((w) => {
+    const length = Math.hypot(w.dx, w.dy);
+    if (length === 0) return null;
+
+    const bearing = Math.atan2(w.dy, w.dx);
+    const turns = Math.round((bearing - axis) / QUARTER);
+    const target = axis + turns * QUARTER;
+    const off = Math.abs(Math.atan2(Math.sin(bearing - target), Math.cos(bearing - target)));
+
+    // Off the grid by more than the tolerance: a real diagonal, left alone.
+    const direction = off <= tolerance ? target : bearing;
+    if (off > tolerance) keptDiagonal += 1;
+
+    return {
+      // Through the wall's own midpoint, so it turns where it stands rather
+      // than swinging out from one end.
+      at: { x: (w.from.x + w.to.x) / 2, y: (w.from.y + w.to.y) / 2 },
+      dx: Math.cos(direction),
+      dy: Math.sin(direction),
+    };
+  });
+
+  const out: Vertex[] = [];
+  let moved = 0;
+  let furthestM = 0;
+
+  for (let i = 0; i < n; i += 1) {
+    // Corner i is where wall i-1 meets wall i.
+    const a = lines[(i - 1 + n) % n];
+    const b = lines[i];
+    const here = points[i];
+    let placed = here;
+
+    if (a && b) {
+      const cross = a.dx * b.dy - a.dy * b.dx;
+      /*
+       * Near-parallel lines meet a long way off or nowhere, so the corner
+       * stays where it is. That leaves a pair of near-collinear walls with the
+       * jog between them intact rather than merging them, which would drop a
+       * vertex the user placed.
+       */
+      if (Math.abs(cross) > 1e-9) {
+        const t = ((b.at.x - a.at.x) * b.dy - (b.at.y - a.at.y) * b.dx) / cross;
+        placed = { x: a.at.x + t * a.dx, y: a.at.y + t * a.dy };
+      }
+    }
+
+    const shiftM = Math.hypot(placed.x - here.x, placed.y - here.y) * 111_320;
+    if (shiftM > MOVED_M) moved += 1;
+    if (shiftM > furthestM) furthestM = shiftM;
+    out.push(unflat(placed));
+  }
+
+  return {
+    vertices: out,
+    moved,
+    furthestM,
+    keptDiagonal,
+    axisDegrees: (axis * 180) / Math.PI,
+  };
+}

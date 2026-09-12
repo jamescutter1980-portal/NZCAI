@@ -12,6 +12,7 @@ import type { MeesScreening } from "@/lib/site-intel/mees";
 import type { GridProfile } from "@/lib/site-intel/grid";
 import type { CertificateAge, Intensity, RatingReading } from "@/lib/site-intel/performance";
 import { TIER_LABEL, buildingIdFor } from "@/lib/site-intel/types";
+import type { Regularised } from "@/lib/site-intel/draw";
 
 /**
  * S-01 "Is this the building?" step.
@@ -58,6 +59,13 @@ export interface SiteMapApi {
    * aligns the shape to published data, this to an assumption about buildings.
    */
   setSquare(on: boolean): void;
+  /**
+   * Squares the whole shape up against its own grid, all at once. Returns what
+   * it did — the panel has to say, because it moves every corner.
+   */
+  squareUp(): Regularised | null;
+  /** Takes the last squaring back, without losing the rest of the edit. */
+  undoSquareUp(): boolean;
   /** Neighbouring polygons: context to draw against, and snap targets. */
   showNeighbours(buildings: { geometry: GeoJSON.Geometry; label: string }[]): void;
 
@@ -713,6 +721,8 @@ export default function SitePanel({ mapApi }: Props) {
   const [picking, setPicking] = useState(false);
   const [snapOn, setSnapOn] = useState(true);
   const [squareOn, setSquareOn] = useState(true);
+  /** What the last squaring did, so the panel can report it and offer it back. */
+  const [squaredUp, setSquaredUp] = useState<Regularised | null>(null);
   /*
    * Null until asked for. Both halves matter: with nothing to snap to, the
    * reason is either "no buildings near this site" or "no building polygons
@@ -742,6 +752,7 @@ export default function SitePanel({ mapApi }: Props) {
     setGrid(null);
     setDrawPoints(null);
     setEditing(false);
+    setSquaredUp(null);
     setPicking(false);
     setNeighbours(null);
     setConstraintsStale(false);
@@ -1252,6 +1263,18 @@ export default function SitePanel({ mapApi }: Props) {
                 ends up agreeing with the building next door. That does not make the
                 shape source data — it is still your drawing.
               </p>
+              {squaredUp && (
+                <p className="site-squared">
+                  {squaredUp.moved === 0
+                    ? "Already square — nothing moved."
+                    : `Squared to the building's own grid, ${squaredUp.axisDegrees.toFixed(1)}°. `
+                      + `${squaredUp.moved} corner${squaredUp.moved === 1 ? "" : "s"} moved, `
+                      + `the furthest by ${squaredUp.furthestM.toFixed(2)} m.`}
+                  {squaredUp.keptDiagonal > 0 &&
+                    ` ${squaredUp.keptDiagonal} wall${squaredUp.keptDiagonal === 1 ? " was" : "s were"}`
+                      + " left alone as a real diagonal."}
+                </p>
+              )}
               <p className="site-snap-note">
                 An aligned wall is different again: nothing published says it is square
                 to the wall beside it, parallel to the one opposite, or on the line a
@@ -1313,6 +1336,7 @@ export default function SitePanel({ mapApi }: Props) {
                       );
                       if (!ok) setError("That footprint has no editable outline.");
                       setEditing(ok);
+                      setSquaredUp(null);
                     }}
                     disabled={busy || !selected.uprn || picking}
                   >
@@ -1324,6 +1348,7 @@ export default function SitePanel({ mapApi }: Props) {
                   onClick={() => {
                     setPicking(false);
                     setEditing(false);
+                    setSquaredUp(null);
                     mapApi.startDraw(setDrawPoints);
                   }}
                   disabled={busy || !selected.uprn || picking}
@@ -1342,6 +1367,7 @@ export default function SitePanel({ mapApi }: Props) {
                     const polygon = mapApi.finishDraw();
                     setDrawPoints(null);
                     setEditing(false);
+                    setSquaredUp(null);
                     if (polygon) void patchFootprint({ footprint: polygon });
                   }}
                 >
@@ -1363,12 +1389,46 @@ export default function SitePanel({ mapApi }: Props) {
                     Undo point
                   </button>
                 )}
+                {/*
+                  * Squaring the whole shape is one wholesale change to every
+                  * corner, so it gets its own way back rather than leaving
+                  * Cancel — which throws the entire edit away — as the only
+                  * escape.
+                  */}
+                {/*
+                  * Only where something actually moved. A shape already square
+                  * comes back unchanged, and offering to undo that would be a
+                  * button with nothing behind it — the note still says what
+                  * happened.
+                  */}
+                {squaredUp && squaredUp.moved > 0 ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => { if (mapApi.undoSquareUp()) setSquaredUp(null); }}
+                  >
+                    Undo squaring
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy || drawPoints < 3}
+                    onClick={() => {
+                      const done = mapApi.squareUp();
+                      setSquaredUp(done);
+                      if (!done) setError("That shape has no wall with any length to square to.");
+                    }}
+                  >
+                    Square up the shape
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     mapApi.cancelDraw();
                     setDrawPoints(null);
                     setEditing(false);
+                    setSquaredUp(null);
                   }}
                 >
                   Cancel
@@ -1391,6 +1451,7 @@ export default function SitePanel({ mapApi }: Props) {
               mapApi.cancelPick();
               setDrawPoints(null);
               setEditing(false);
+              setSquaredUp(null);
               setPicking(false);
               setSelected(null);
               setProfile(null);

@@ -44,6 +44,7 @@ import {
   linesForAppend,
   linesForEdge,
   linesForVertex,
+  regularise,
   insertAfter,
   midpoints,
   moveEdge,
@@ -56,6 +57,7 @@ import {
   toPolygon,
   vertexAt,
   type Assist,
+  type Regularised,
   type SnapResult,
   type SnapTargets,
   type Vertex,
@@ -1665,6 +1667,7 @@ export default function LandMap({
         drawing.current = [];
         drawActive.current = true;
         appendOnClick.current = true;
+        beforeSquareUp.current = null;
         onDrawChange.current = onChange;
         renderDrawing();
         onChange(0);
@@ -1688,6 +1691,7 @@ export default function LandMap({
         onPick.current = null;
         drawing.current = ring;
         drawActive.current = true;
+        beforeSquareUp.current = null;
         // A click on open map must not append to an existing ring.
         appendOnClick.current = false;
         onDrawChange.current = onChange;
@@ -1706,6 +1710,36 @@ export default function LandMap({
       setSquare(on: boolean) {
         squareOn.current = on;
         if (!on) showSnap(null);
+      },
+
+      /**
+       * Squares the whole shape up against its own grid.
+       *
+       * Keeps ONE snapshot so it can be taken back. Undo point is hidden in
+       * edit mode (§2p) because there is nothing of the user's to undo there -
+       * but this is something of theirs, and a wholesale change to every
+       * corner at that, so it needs its own way back that is not "cancel the
+       * entire edit".
+       */
+      squareUp(): Regularised | null {
+        const done = regularise(drawing.current as Vertex[]);
+        if (!done) return null;
+        beforeSquareUp.current = drawing.current as Vertex[];
+        drawing.current = done.vertices;
+        renderDrawing();
+        showSnap(null);
+        onDrawChange.current?.(drawing.current.length);
+        return done;
+      },
+
+      undoSquareUp(): boolean {
+        const before = beforeSquareUp.current;
+        if (!before) return false;
+        beforeSquareUp.current = null;
+        drawing.current = before;
+        renderDrawing();
+        onDrawChange.current?.(drawing.current.length);
+        return true;
       },
 
       showNeighbours(
@@ -1738,6 +1772,7 @@ export default function LandMap({
         appendOnClick.current = true;
         dragging.current = null;
         pendingEdge.current = null;
+        beforeSquareUp.current = null;
         onDrawChange.current = null;
         renderDrawing();
         showSnap(null);
@@ -1762,6 +1797,7 @@ export default function LandMap({
         appendOnClick.current = true;
         dragging.current = null;
         pendingEdge.current = null;
+        beforeSquareUp.current = null;
         onDrawChange.current = null;
         renderDrawing();
         showSnap(null);
@@ -1830,6 +1866,8 @@ export default function LandMap({
   const snapOn = useRef(true);
   /** Right-angle assist. Separate from snapping: it aligns to an assumption. */
   const squareOn = useRef(true);
+  /** The ring as it was before the last squaring, so that one is undoable. */
+  const beforeSquareUp = useRef<Vertex[] | null>(null);
   /** Index of the vertex being dragged, or null. */
   const dragging = useRef<number | null>(null);
   /**

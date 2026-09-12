@@ -2028,7 +2028,7 @@ squares the hinge, which is the corner the user is not touching.
 - **No parallel alignment.** A wall clicks square to the wall beside it; two
   walls that should be collinear but share no corner are still lined up by eye. *(Done in §2r.)*
 - **Nothing squares a shape after the fact.** There is no "regularise this
-  polygon" action, only help while a point is moving.
+  polygon" action, only help while a point is moving. *(Done in §2u.)*
 - **The assist is on by default**, which means a corner that genuinely is not
   square takes a little care to place. The toggle is right there, and the
   correction never exceeds 8 px, but it is an assumption applied unasked.
@@ -2155,7 +2155,7 @@ first wall:
   expressible. *(Done in §2s.)*
 - **A dragged WALL is still not aligned**, only a dragged or placed vertex. *(Done in §2t.)*
 - **Nothing regularises a shape after the fact**; the assists only help while a
-  point is moving.
+  point is moving. *(Done in §2u.)*
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
   and nothing is touch-tested.
 
@@ -2275,7 +2275,7 @@ the end, so a mid-run death cannot produce a quiet pass.
   surveyor would.
 - **A dragged WALL is still not aligned**, only a dragged or placed vertex. *(Done in §2t.)*
 - **Nothing regularises a shape after the fact**; the assists only help while a
-  point is moving.
+  point is moving. *(Done in §2u.)*
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
   and nothing is touch-tested.
 
@@ -2361,10 +2361,132 @@ not three.
 - **No rotating a wall.** Its bearing is fixed by the gesture; correcting it
   would need a different control.
 - **Nothing regularises a shape after the fact.** The assists only help while
-  something is moving.
+  something is moving. *(Done in §2u.)*
 - **A wall cannot be made collinear as a wall** (§2s), only its ends put on a
   line — though dragging the wall now does both ends at once, so the terrace
   case is one gesture where it was two.
+- **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
+  and nothing is touch-tested.
+
+## 2u. S-01 shape regularisation
+
+Carried since §2q: the assists help while something is moving, and a shape
+traced freehand — or published raggedly — has every corner a degree or two out
+with nothing to fix them together. **Square up the shape** does the lot at once.
+
+### The grid comes from the shape
+
+Squaring to north would wreck almost every footprint in the country: a building
+sits at whatever bearing its street does. The grid is the **length-weighted
+circular mean of the walls' own bearings**, taken modulo a quarter turn.
+
+Modulo a quarter turn is the part worth stating. A right angle is a symmetry of
+what is being measured — a wall at 3° and one at 93° are on the same grid — so
+the bearings are multiplied by four before averaging and divided by four after.
+A plain mean would tear at the wrap-around and put the grid somewhere no wall
+is.
+
+Length-weighting matters too: a 40 m frontage says more about a building's grain
+than a 2 m return.
+
+### The corners are rebuilt, not nudged
+
+Each wall becomes a line — direction snapped to the grid, position through its
+**own midpoint**, so it turns where it stands rather than swinging out from one
+end. Every corner is then the intersection of the two lines meeting there.
+
+The obvious alternative, rotating each wall and averaging the endpoints that
+disagree, leaves the walls not quite meeting — which is the exact defect the
+operation exists to remove.
+
+Two cases decline rather than guess: a wall of no length has no line, and two
+near-parallel lines meet a long way off or nowhere, so that corner stays where
+it is. The second keeps a pair of near-collinear walls with their jog rather
+than merging them, which would silently drop a vertex the user placed.
+
+### A tolerance in degrees, and why this one is not in pixels
+
+Every other threshold here is screen pixels, because it measures a pointer
+against what the user can see. This runs on a whole shape with no pointer in it,
+so the question is about the geometry, not the aim.
+
+**15°**, and the reasoning is the separation in practice: a footprint traced
+from imagery is usually within about 5° of square, an OS polygon within 1 or 2,
+and a genuinely canted wall — a splayed corner, a bay, a plot following a bend —
+is 30° off or more. Fifteen sits in the empty middle. A wall outside it keeps
+its own bearing, so an L-plan with one cut corner comes back with the cant
+intact.
+
+### It says what it did, and it can be taken back
+
+This moves **every corner at once** on an assumption, so the panel reports the
+grid it found, how many corners moved, how far the furthest went in metres, and
+how many walls it left alone as real diagonals:
+
+> Squared to the building's own grid, 3.0°. 4 corners moved, the furthest by
+> 2.93 m.
+
+A metre figure rather than a percentage, because the reader is deciding whether
+the shape still describes the building.
+
+Squaring keeps **one snapshot** so it has its own way back. Undo point is hidden
+in edit mode (§2p) because there is nothing of the user's to undo there — but
+this is something of theirs, and wholesale, so leaving Cancel (which throws away
+the entire edit) as the only escape would be wrong. Undo squaring is offered
+only where something actually moved: on a shape already square the note says so
+and there is no button with nothing behind it.
+
+### A bug the browser found
+
+`squaredUp` was not cleared when an editing session ended, so re-entering edit
+mode showed a stale report and an **Undo squaring button with nothing to undo** —
+the ref behind it had been cleared, so it silently did nothing and the state
+never cleared either. The report belongs to one session; every edit transition
+now clears it. A unit test would not have found this.
+
+### Verified in the browser
+
+A deliberately ragged quadrilateral drawn freehand with both assists off, so
+nothing straightened it on the way in:
+
+| | corner errors |
+|---|---|
+| drawn freehand | 7.82° · 9.46° · 8.06° · 6.42° |
+| after squaring | 1.3e-5° · 1.1e-5° · 1.3e-5° · 1.1e-5° |
+
+The panel reported *"Squared to the building's own grid, 3.0°. 4 corners moved,
+the furthest by 2.93 m"*, and the measured corner movements were 2.64, 2.93,
+2.34 and 1.97 m — so the figure it quotes is the one that happened. Area went
+2,817 m² → 2,829 m², a 0.4% change.
+
+Undo squaring restored the ring **exactly** to the published rectangle and kept
+the point count. On a shape already square: *"Already square — nothing moved"*,
+with no undo button offered.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `regularise`, `REGULARISE_DEGREES`, the `Regularised` report |
+| `LandMap.tsx` | `squareUp` / `undoSquareUp` and the one-snapshot undo |
+| `SitePanel.tsx` | the button, the report, and clearing it on every edit transition |
+| `globals.css` | the report block, amber-bordered like the other inferences |
+
+**10 more tests**, 512 across the suite.
+
+### Not done
+
+- **It squares; it does not simplify.** Near-collinear walls keep their jog and
+  their vertex. A shape traced with forty points comes back with forty.
+- **No rectangle fit.** An almost-rectangular shape is squared, not replaced by
+  its best-fit rectangle — which would be the right tool for a shed and the
+  wrong one for an L-plan, and telling them apart is a judgement this does not
+  make.
+- **One grid per shape.** A building with two wings at different bearings gets
+  the weighted compromise, and the minor wing's walls fall outside the tolerance
+  and are left alone rather than squared to their own grid.
+- **It cannot be previewed.** You apply it and read what it did; there is no
+  before-and-after on the map beyond undoing it.
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
   and nothing is touch-tested.
 

@@ -654,6 +654,42 @@ React and no MapLibre, so rings, midpoints, insertion, removal, wall moves,
 snapping and hit-testing are tested without a browser. The component owns the
 pointer events and supplies the projection.
 
+### Squaring a whole shape up
+
+The assists above help while something is moving. **Square up the shape** does
+the lot at once, for a footprint traced freehand or published raggedly.
+
+The grid comes from the **shape**, not from north — a building sits at whatever
+bearing its street does. It is the length-weighted circular mean of the walls'
+own bearings, taken modulo a quarter turn: a right angle is a symmetry of what
+is being measured, so the bearings are multiplied by four before averaging and
+divided by four after, or the mean would tear at the wrap-around and land
+somewhere no wall is.
+
+The corners are **rebuilt, not nudged**. Each wall becomes a line — direction
+snapped to the grid, position through its own midpoint, so it turns where it
+stands — and every corner is the intersection of the two lines meeting there.
+Rotating each wall and averaging the endpoints that disagree would leave the
+walls not quite meeting, which is the defect this exists to remove.
+
+The tolerance is **15°**, and unlike every other threshold here it is an angle
+rather than screen pixels: this runs on a whole shape with no pointer in it. A
+traced footprint is usually within 5° of square and an OS polygon within 1 or 2,
+while a genuinely canted wall is 30° off or more — so a real diagonal keeps its
+own bearing and an L-plan with a cut corner comes back with the cant intact.
+
+Because it moves **every corner at once on an assumption**, the panel says what
+it did — the grid it found, how many corners moved, how far the furthest went in
+metres, and how many walls it left as diagonals:
+
+> Squared to the building's own grid, 3.0°. 4 corners moved, the furthest by
+> 2.93 m.
+
+Metres rather than a percentage, because you are deciding whether the shape
+still describes the building. **Undo squaring** takes just that back, without
+throwing away the rest of the edit — and is offered only where something
+actually moved.
+
 ### Reproject first — the loader will stop you
 
 OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.
