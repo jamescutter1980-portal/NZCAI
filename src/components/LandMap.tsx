@@ -33,14 +33,18 @@ import {
 } from "@/lib/site-intel/constraint-layers";
 import type { GridProfile } from "@/lib/site-intel/grid";
 import {
+  DRAG_START_PX,
   SNAP_EDGE_PX,
   SNAP_PX,
+  edgeAt,
   insertAfter,
   midpoints,
+  moveEdge,
   moveVertex,
   outerRing,
   removeVertex,
   snap,
+  snapDraggedEdge,
   targetsFrom,
   toPolygon,
   vertexAt,
@@ -829,41 +833,136 @@ export default function LandMap({
      * lands, including off the canvas, so a drag that ends outside the map
      * cannot leave panning disabled.
      */
+    const screen = (v: Vertex) => {
+      const p = instance.project({ lng: v[0], lat: v[1] });
+      return { x: p.x, y: p.y };
+    };
+
+    /*
+     * What a press at this point would grab. One function, used by both the
+     * pointer handlers and the cursor, so the cursor can never promise a
+     * gesture the press then declines - which is the defect the midpoint
+     * cursor had before it was given its own.
+     */
+    const targetAt = (
+      point: { x: number; y: number },
+    ): { kind: "vertex" | "midpoint" | "edge"; index: number } | null => {
+      const ring = drawing.current as Vertex[];
+
+      const vertex = vertexAt(ring, point, screen);
+      if (vertex !== -1) return { kind: "vertex", index: vertex };
+
+      // Walls belong to EDIT mode. In draw mode a click is still placing
+      // corners, and a click that lands on the line already drawn has to stay
+      // a corner - a concave shape needs exactly that.
+      if (appendOnClick.current || ring.length < 3) return null;
+
+      const edge = edgeAt(ring, point, screen);
+      if (edge === -1) return null;
+
+      // A press on the midpoint handle is an insert if it does not travel, and
+      // a drag of its wall if it does. The wall is the same either way, so the
+      // only thing recorded here is which handle was under the pointer.
+      const mid = midpoints(ring).find((m) => m.after === edge);
+      const onMidpoint =
+        mid !== undefined &&
+        Math.hypot(screen(mid.vertex).x - point.x, screen(mid.vertex).y - point.y) <= SNAP_PX;
+
+      return { kind: onMidpoint ? "midpoint" : "edge", index: edge };
+    };
+
     instance.on("mousedown", (e: MapMouseEvent) => {
       if (!drawActive.current) return;
-      const index = vertexAt(
-        drawing.current as Vertex[],
-        { x: e.point.x, y: e.point.y },
-        (v) => {
-          const p = instance.project({ lng: v[0], lat: v[1] });
-          return { x: p.x, y: p.y };
-        },
-      );
-      if (index === -1) return;
+      const point = { x: e.point.x, y: e.point.y };
+      const target = targetAt(point);
+      if (!target) return;
 
       // Alt- or shift-click removes a vertex instead of dragging it.
       const original = e.originalEvent as MouseEvent;
-      if (original?.altKey || original?.shiftKey) {
+      if (target.kind === "vertex" && (original?.altKey || original?.shiftKey)) {
         e.preventDefault();
-        drawing.current = removeVertex(drawing.current as Vertex[], index);
+        drawing.current = removeVertex(drawing.current as Vertex[], target.index);
         renderDrawing();
         onDrawChange.current?.(drawing.current.length);
         return;
       }
 
       e.preventDefault();
-      dragging.current = index;
+      if (target.kind === "vertex") {
+        dragging.current = target.index;
+        instance.dragPan.disable();
+        return;
+      }
+
+      /*
+       * A wall press is PENDING, not yet a drag: whether it turns into one
+       * depends on whether the pointer travels. Panning is disabled now
+       * regardless, because by the time the threshold is crossed the map
+       * would already have moved under the shape.
+       */
+      pendingEdge.current = {
+        index: target.index,
+        onMidpoint: target.kind === "midpoint",
+        from: [e.lngLat.lng, e.lngLat.lat],
+        at: point,
+        travelled: false,
+      };
       instance.dragPan.disable();
     });
 
     instance.on("mousemove", (e: MapMouseEvent) => {
-      if (dragging.current === null) return;
-      const vertex = withSnap([e.lngLat.lng, e.lngLat.lat]);
-      drawing.current = moveVertex(drawing.current as Vertex[], dragging.current, vertex);
-      renderDrawing();
+      const point = { x: e.point.x, y: e.point.y };
+
+      if (dragging.current !== null) {
+        const vertex = withSnap([e.lngLat.lng, e.lngLat.lat]);
+        drawing.current = moveVertex(drawing.current as Vertex[], dragging.current, vertex);
+        renderDrawing();
+        return;
+      }
+
+      const pending = pendingEdge.current;
+      if (pending) {
+        if (
+          !pending.travelled &&
+          Math.hypot(point.x - pending.at.x, point.y - pending.at.y) < DRAG_START_PX
+        ) {
+          return;
+        }
+        pending.travelled = true;
+        moveEdgeTo(pending, [e.lngLat.lng, e.lngLat.lat]);
+        return;
+      }
+
+      // Nothing held: the cursor says what a press here would do.
+      if (drawActive.current) {
+        const target = targetAt(point);
+        instance.getCanvas().style.cursor =
+          target === null ? "crosshair"
+          : target.kind === "midpoint" ? "copy"
+          : "move";
+      }
     });
 
     const endDrag = (): void => {
+      const pending = pendingEdge.current;
+      if (pending) {
+        pendingEdge.current = null;
+        instance.dragPan.enable();
+        showSnap(null);
+        // A press on a midpoint that never travelled is still a click, and a
+        // click on a midpoint inserts a corner there.
+        if (!pending.travelled && pending.onMidpoint) {
+          drawing.current = insertAfter(
+            drawing.current as Vertex[],
+            pending.index,
+            pending.from,
+          );
+          renderDrawing();
+        }
+        onDrawChange.current?.(drawing.current.length);
+        return;
+      }
+
       if (dragging.current === null) return;
       dragging.current = null;
       instance.dragPan.enable();
@@ -873,34 +972,6 @@ export default function LandMap({
     instance.on("mouseup", endDrag);
     // A pointer released off the canvas still has to release the map.
     instance.getCanvas().addEventListener("mouseleave", endDrag);
-
-    /* Clicking a midpoint inserts a vertex there. */
-    instance.on("click", DRAW_MIDS, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
-      if (!drawActive.current) return;
-      const after = e.features?.[0]?.properties?.after as number | undefined;
-      if (after === undefined) return;
-      drawing.current = insertAfter(
-        drawing.current as Vertex[],
-        after,
-        [e.lngLat.lng, e.lngLat.lat],
-      );
-      renderDrawing();
-      onDrawChange.current?.(drawing.current.length);
-    });
-
-    /*
-     * Different cursors, because they are different gestures. A vertex is
-     * dragged; a midpoint is clicked to add one. Showing "move" over both
-     * promises a drag the midpoint does not accept.
-     */
-    for (const [layerId, cursor] of [[DRAW_POINTS, "move"], [DRAW_MIDS, "copy"]] as const) {
-      instance.on("mouseenter", layerId, () => {
-        if (drawActive.current) instance.getCanvas().style.cursor = cursor;
-      });
-      instance.on("mouseleave", layerId, () => {
-        if (drawActive.current) instance.getCanvas().style.cursor = "crosshair";
-      });
-    }
 
     /*
      * Draw-mode clicks add a vertex and nothing else.
@@ -1007,21 +1078,22 @@ export default function LandMap({
         .addTo(instance);
     });
 
-    for (const layerId of [GRID_ECR, GRID_SITE_SUBS]) {
+    /*
+     * Hover affordances for the data layers.
+     *
+     * Silent while drawing or picking, because their clicks are silent then
+     * too - every one of those handlers bails on `drawActive`. A "pointer"
+     * appearing over a constraint polygon mid-drag would promise a popup that
+     * cannot open, and would overwrite the cursor that says what the drag is
+     * about to do.
+     */
+    const hoverable = (): boolean => !drawActive.current && !picking.current;
+    for (const layerId of [GRID_ECR, GRID_SITE_SUBS, ...CONSTRAINT_FILL_LAYERS]) {
       instance.on("mouseenter", layerId, () => {
-        instance.getCanvas().style.cursor = "pointer";
+        if (hoverable()) instance.getCanvas().style.cursor = "pointer";
       });
       instance.on("mouseleave", layerId, () => {
-        instance.getCanvas().style.cursor = "";
-      });
-    }
-
-    for (const layerId of CONSTRAINT_FILL_LAYERS) {
-      instance.on("mouseenter", layerId, () => {
-        instance.getCanvas().style.cursor = "pointer";
-      });
-      instance.on("mouseleave", layerId, () => {
-        instance.getCanvas().style.cursor = "";
+        if (hoverable()) instance.getCanvas().style.cursor = "";
       });
     }
 
@@ -1037,10 +1109,10 @@ export default function LandMap({
       });
 
     instance.on("mouseenter", LAYER_ID, () => {
-      instance.getCanvas().style.cursor = "pointer";
+      if (hoverable()) instance.getCanvas().style.cursor = "pointer";
     });
     instance.on("mouseleave", LAYER_ID, () => {
-      instance.getCanvas().style.cursor = "";
+      if (hoverable()) instance.getCanvas().style.cursor = "";
     });
 
     return () => {
@@ -1197,6 +1269,68 @@ export default function LandMap({
       return result.vertex;
     },
     [showSnap],
+  );
+
+  /**
+   * Moves a whole wall by the pointer's travel since the press.
+   *
+   * The delta is the POINTER's, not the difference between the cursor and the
+   * wall: grabbing a wall near one end and having it jump so its midpoint sits
+   * under the cursor is the classic way to make a drag feel broken.
+   */
+  const moveEdgeTo = useCallback(
+    (
+      pending: { index: number; from: Vertex },
+      to: Vertex,
+    ): void => {
+      const m = map.current;
+      if (!m) return;
+      const ring = drawing.current as Vertex[];
+      const end = (pending.index + 1) % ring.length;
+
+      const delta: Vertex = [to[0] - pending.from[0], to[1] - pending.from[1]];
+      let a: Vertex = [ring[pending.index][0] + delta[0], ring[pending.index][1] + delta[1]];
+      // The far end is offered to the snapper too - a wall clicks into place
+      // from either of its corners - but only `a` is read back, because the
+      // move below is a translation derived from it.
+      const b: Vertex = [ring[end][0] + delta[0], ring[end][1] + delta[1]];
+
+      if (snapOn.current) {
+        const project = (v: Vertex) => {
+          const p = m.project({ lng: v[0], lat: v[1] });
+          return { x: p.x, y: p.y };
+        };
+        const snapped = snapDraggedEdge(
+          a, b, snapTargets.current, project, SNAP_PX, SNAP_EDGE_PX,
+        );
+        a = snapped.a;
+        showSnap(
+          snapped.result.snapped ? snapped.result.vertex : null,
+          snapped.result.edge ? [snapped.result.edge.a, snapped.result.edge.b] : null,
+        );
+      }
+
+      // The pointer's reference moves with the wall, so the next frame's delta
+      // is measured from here. Without it a snap would be re-applied on top of
+      // itself and the wall would creep away from the cursor.
+      pending.from = [
+        pending.from[0] + (a[0] - ring[pending.index][0]),
+        pending.from[1] + (a[1] - ring[pending.index][1]),
+      ];
+
+      /*
+       * Applied through `moveEdge` rather than two `moveVertex` calls: it
+       * translates both ends by one delta, so the wall CANNOT come out sheared
+       * however the snap landed. Two separate moves would only happen to be
+       * rigid, and nothing would catch it if they stopped being.
+       */
+      drawing.current = moveEdge(ring, pending.index, [
+        a[0] - ring[pending.index][0],
+        a[1] - ring[pending.index][1],
+      ]);
+      renderDrawing();
+    },
+    [renderDrawing, showSnap],
   );
 
   const setSiteData = useCallback((id: string, data: GeoJSON.FeatureCollection) => {
@@ -1412,6 +1546,7 @@ export default function LandMap({
         drawActive.current = false;
         appendOnClick.current = true;
         dragging.current = null;
+        pendingEdge.current = null;
         onDrawChange.current = null;
         renderDrawing();
         showSnap(null);
@@ -1435,6 +1570,7 @@ export default function LandMap({
         drawActive.current = false;
         appendOnClick.current = true;
         dragging.current = null;
+        pendingEdge.current = null;
         onDrawChange.current = null;
         renderDrawing();
         showSnap(null);
@@ -1461,6 +1597,7 @@ export default function LandMap({
         neighbours.current = [];
         snapTargets.current = { vertices: [], edges: [] };
         dragging.current = null;
+        pendingEdge.current = null;
         appendOnClick.current = true;
         setCoverage(null);
         setGridCoverage(null);
@@ -1501,6 +1638,18 @@ export default function LandMap({
   const snapOn = useRef(true);
   /** Index of the vertex being dragged, or null. */
   const dragging = useRef<number | null>(null);
+  /**
+   * A press on a wall, before it is known whether it is a drag or a click.
+   * `from` is where the pointer was in lng/lat, so the wall moves by the
+   * pointer's own travel rather than jumping its midpoint to the cursor.
+   */
+  const pendingEdge = useRef<{
+    index: number;
+    onMidpoint: boolean;
+    from: Vertex;
+    at: { x: number; y: number };
+    travelled: boolean;
+  } | null>(null);
   /** True in edit mode, where a click on open map must NOT append a vertex. */
   const appendOnClick = useRef(true);
 

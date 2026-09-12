@@ -35,6 +35,25 @@ export type Project = (vertex: Vertex) => ScreenPoint;
 export const SNAP_PX = 12;
 
 /**
+ * Screen distance at which the shape's OWN wall can be grabbed and dragged.
+ *
+ * Wider than the drawn line, like the vertex threshold: a wall you can see but
+ * cannot reliably grab is worse than one that grabs slightly early.
+ */
+export const GRAB_EDGE_PX = 8;
+
+/**
+ * How far the pointer must travel before a press on a wall becomes a drag.
+ *
+ * Below it the press is still a click — which is what inserts a vertex at a
+ * midpoint. Without the distinction the midpoint would have to choose between
+ * being clickable and being draggable, and on a short wall its grab radius
+ * covers most of the wall, so choosing "clickable" would make short walls
+ * undraggable.
+ */
+export const DRAG_START_PX = 3;
+
+/**
  * Snap radius for walls, in screen pixels. Tighter than SNAP_PX on purpose
  * (see the header). Keeping it BELOW SNAP_PX also means a wall snap can never
  * land on a corner: at the ends of a segment the closest point is the corner
@@ -280,6 +299,56 @@ export function snap(
 }
 
 /**
+ * Index of the wall under a screen point, or -1. Wall `i` runs from vertex `i`
+ * to vertex `i + 1`, wrapping, so it is indexed like `midpoints`.
+ *
+ * Vertices are NOT excluded here. The caller hit-tests vertices first and only
+ * asks about walls when none was grabbed, which keeps the precedence in one
+ * place instead of splitting it across two functions.
+ */
+export function edgeAt(
+  vertices: Vertex[],
+  point: ScreenPoint,
+  project: Project,
+  thresholdPx = GRAB_EDGE_PX,
+): number {
+  if (vertices.length < 2) return -1;
+
+  let found = -1;
+  let bestDist = Infinity;
+  const sides = vertices.length === 2 ? 1 : vertices.length;
+  for (let i = 0; i < sides; i += 1) {
+    const { distance } = footOnSegment(
+      point,
+      project(vertices[i]),
+      project(vertices[(i + 1) % vertices.length]),
+    );
+    if (distance <= thresholdPx && distance < bestDist) {
+      bestDist = distance;
+      found = i;
+    }
+  }
+  return found;
+}
+
+/**
+ * Translates both ends of one wall, leaving every other vertex where it is.
+ *
+ * A RIGID move: the wall keeps its length and its angle. That is the whole
+ * reason to drag a wall rather than its two corners in turn — moving them
+ * separately is already possible and cannot help but change the wall.
+ */
+export function moveEdge(vertices: Vertex[], index: number, delta: Vertex): Vertex[] {
+  if (index < 0 || index >= vertices.length) return vertices;
+  const next = [...vertices];
+  const end = (index + 1) % vertices.length;
+  for (const i of index === end ? [index] : [index, end]) {
+    next[i] = [next[i][0] + delta[0], next[i][1] + delta[1]];
+  }
+  return next;
+}
+
+/**
  * Index of the vertex under a screen point, or -1.
  *
  * Used to decide what a pointer-down grabbed. The threshold is deliberately
@@ -303,6 +372,52 @@ export function vertexAt(
     }
   });
   return found;
+}
+
+/**
+ * Snapping for a wall being dragged.
+ *
+ * The wall must stay RIGID — that is the entire point of dragging it rather
+ * than its two corners — so a snap here can only be a TRANSLATION. Snapping
+ * the two ends independently would pull them to different targets and shear
+ * the wall into a different wall, which is precisely what dragging the corners
+ * already does.
+ *
+ * So both ends are offered, and whichever lands closest to a target wins: the
+ * whole wall then moves by the delta that puts THAT end exactly on it. The
+ * effect is that a wall clicks into place as either of its corners meets a
+ * neighbour's, which is the terrace gesture — line my wall up with theirs.
+ */
+export function snapDraggedEdge(
+  a: Vertex,
+  b: Vertex,
+  targets: SnapTargets,
+  project: Project,
+  thresholdPx: number = SNAP_PX,
+  edgeThresholdPx: number = SNAP_EDGE_PX,
+): { a: Vertex; b: Vertex; result: SnapResult } {
+  let best: { end: Vertex; result: SnapResult; moved: number } | null = null;
+
+  for (const end of [a, b]) {
+    const result = snap(end, targets, project, thresholdPx, edgeThresholdPx);
+    if (!result.snapped) continue;
+    const from = project(end);
+    const to = project(result.vertex);
+    const moved = Math.hypot(to.x - from.x, to.y - from.y);
+    if (!best || moved < best.moved) best = { end, result, moved };
+  }
+
+  if (!best) return { a, b, result: NO_SNAP(a) };
+
+  const delta: Vertex = [
+    best.result.vertex[0] - best.end[0],
+    best.result.vertex[1] - best.end[1],
+  ];
+  return {
+    a: [a[0] + delta[0], a[1] + delta[1]],
+    b: [b[0] + delta[0], b[1] + delta[1]],
+    result: best.result,
+  };
 }
 
 /**

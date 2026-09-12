@@ -1213,7 +1213,8 @@ export default function SitePanel({ mapApi }: Props) {
               <p>
                 {drawPoints} point{drawPoints === 1 ? "" : "s"}.{" "}
                 {editing
-                  ? "Drag a solid handle to move it, click a hollow one to add a corner"
+                  ? "Drag a solid handle to move that corner, or a wall to move the whole "
+                    + "side; click a hollow handle to add a corner"
                   : "Click the map to place a corner, or drag a solid handle to move one"}
                 , alt- or shift-click a solid one to remove it
                 {drawPoints < 3 ? " — three is the minimum for an area." : "."}

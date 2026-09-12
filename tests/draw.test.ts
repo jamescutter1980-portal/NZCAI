@@ -2,17 +2,22 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  DRAG_START_PX,
+  GRAB_EDGE_PX,
   MIN_VERTICES,
   SNAP_EDGE_PX,
   SNAP_PX,
   candidatesFrom,
+  edgeAt,
   edgesFrom,
   insertAfter,
   midpoints,
+  moveEdge,
   moveVertex,
   outerRing,
   removeVertex,
   snap,
+  snapDraggedEdge,
   targetsFrom,
   toPolygon,
   vertexAt,
@@ -30,6 +35,14 @@ const SQUARE: GeoJSON.Polygon = {
 
 /** A crude equirectangular projection: enough to measure screen distance. */
 const project: Project = ([lng, lat]) => ({ x: lng * 100_000, y: lat * 100_000 });
+
+/** Degrees are small and sums of them are not exact; compare to a micron. */
+const close = (got: Vertex, want: Vertex, why = "") => {
+  assert.ok(
+    Math.abs(got[0] - want[0]) < 1e-12 && Math.abs(got[1] - want[1]) < 1e-12,
+    `${why} expected [${want}], got [${got}]`,
+  );
+};
 
 /** Corners only, for the cases that are not about walls. */
 const corners = (...vertices: SnapCandidate[]): SnapTargets => ({ vertices, edges: [] });
@@ -377,5 +390,158 @@ describe("grabbing a vertex", () => {
   test("the nearest vertex wins when two are close", () => {
     const close: Vertex[] = [[0, 0], [0.00005, 0]];
     assert.equal(vertexAt(close, project([0.00004, 0]), project), 1);
+  });
+});
+
+/* --------------------------------------------------------- dragging a wall --- */
+
+describe("grabbing a wall", () => {
+  // A unit square, 100,000 px to the degree under `project`.
+  const ring: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+
+  test("a pointer on a wall grabs it, indexed from its first corner", () => {
+    // Halfway along the south wall, which runs from vertex 0 to vertex 1.
+    assert.equal(edgeAt(ring, project([0.0005, 0]), project), 0);
+    // The east wall, from vertex 1 to vertex 2.
+    assert.equal(edgeAt(ring, project([0.001, 0.0005]), project), 1);
+  });
+
+  test("the closing wall is grabbable like any other", () => {
+    // From the last corner back to the first: a side, not a seam.
+    assert.equal(edgeAt(ring, project([0, 0.0005]), project), 3);
+  });
+
+  test("a pointer in open space grabs nothing", () => {
+    assert.equal(edgeAt(ring, project([0.0005, 0.0005]), project), -1);
+  });
+
+  test("the nearest wall wins where two are close", () => {
+    // Near the south-east corner, both walls are within the threshold; the
+    // one actually under the pointer is the one that gets grabbed.
+    assert.equal(edgeAt(ring, { x: 99.97, y: 10 }, project), 1, "hard against the east wall");
+    assert.equal(edgeAt(ring, { x: 90, y: 0.03 }, project), 0, "hard against the south wall");
+  });
+
+  test("the grab threshold is the exported one", () => {
+    assert.equal(GRAB_EDGE_PX, 8);
+    // Below it a press is still a click, which is what inserts a vertex.
+    assert.equal(DRAG_START_PX, 3);
+  });
+
+  test("two corners make one grabbable wall, not two", () => {
+    const line: Vertex[] = [[0, 0], [0.001, 0]];
+    assert.equal(edgeAt(line, project([0.0005, 0]), project), 0);
+  });
+
+  test("a single corner has no wall to grab", () => {
+    assert.equal(edgeAt([[0, 0]], project([0, 0]), project), -1);
+  });
+});
+
+describe("moving a wall", () => {
+  const ring: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+
+  test("both ends move, and nothing else does", () => {
+    const next = moveEdge(ring, 0, [0.0002, 0.0003]);
+    close(next[0], [0.0002, 0.0003]);
+    close(next[1], [0.0012, 0.0003]);
+    assert.deepEqual(next[2], ring[2], "untouched");
+    assert.deepEqual(next[3], ring[3], "untouched");
+  });
+
+  test("the wall keeps its length and its angle", () => {
+    // The whole reason to drag a wall rather than its two corners: moving them
+    // separately cannot help but change the wall.
+    const before = [ring[1][0] - ring[0][0], ring[1][1] - ring[0][1]];
+    const next = moveEdge(ring, 0, [0.0002, -0.0009]);
+    const after = [next[1][0] - next[0][0], next[1][1] - next[0][1]];
+    assert.deepEqual(after, before);
+  });
+
+  test("the closing wall carries the last corner and the first", () => {
+    const next = moveEdge(ring, 3, [0.0005, 0]);
+    close(next[3], [0.0005, 0.001]);
+    close(next[0], [0.0005, 0]);
+    assert.deepEqual(next[1], ring[1]);
+  });
+
+  test("an index off the end changes nothing", () => {
+    assert.equal(moveEdge(ring, 9, [1, 1]), ring);
+    assert.equal(moveEdge(ring, -1, [1, 1]), ring);
+  });
+});
+
+describe("snapping a wall that is being dragged", () => {
+  // The wall being dragged: 100 px long, running east.
+  const A: Vertex = [0, 0];
+  const B: Vertex = [0.001, 0];
+
+  test("a snap moves the WHOLE wall, keeping it rigid", () => {
+    // A target 5 px north of the wall's west end.
+    const corner: Vertex = [0, 0.00005];
+    const out = snapDraggedEdge(A, B, corners({ vertex: corner, source: "n" }), project);
+
+    assert.equal(out.result.snapped, true);
+    assert.deepEqual(out.a, corner);
+    // The far end moved by the same delta — same length, same angle.
+    close(out.b, [0.001, 0.00005]);
+  });
+
+  test("the far end can be the one that snaps", () => {
+    const corner: Vertex = [0.001, 0.00005];
+    const out = snapDraggedEdge(A, B, corners({ vertex: corner, source: "n" }), project);
+    assert.deepEqual(out.b, corner);
+    close(out.a, [0, 0.00005]);
+  });
+
+  test("the nearer end wins when both are in range", () => {
+    // West end 6 px from its target, east end 2 px from its own.
+    const out = snapDraggedEdge(
+      A, B,
+      corners(
+        { vertex: [0, 0.00006], source: "west" },
+        { vertex: [0.001, 0.00002], source: "east" },
+      ),
+      project,
+    );
+    assert.equal(out.result.source, "east");
+    assert.deepEqual(out.b, [0.001, 0.00002]);
+    close(out.a, [0, 0.00002], "the west end came along, it did not stay put");
+  });
+
+  test("the ends are never pulled to different targets", () => {
+    /*
+     * Two targets, one at each end, both in range. Snapping the ends
+     * independently would put each on its own and SHEAR the wall — which is
+     * exactly what dragging the two corners already does, and the reason to
+     * have a separate gesture at all.
+     */
+    const out = snapDraggedEdge(
+      A, B,
+      corners(
+        { vertex: [0, 0.00004], source: "west" },
+        { vertex: [0.001, -0.00005], source: "east" },
+      ),
+      project,
+    );
+    const length = Math.hypot(out.b[0] - out.a[0], out.b[1] - out.a[1]);
+    assert.ok(Math.abs(length - 0.001) < 1e-15, "same length");
+    assert.ok(Math.abs(out.b[1] - out.a[1]) < 1e-15, "still horizontal");
+  });
+
+  test("nothing in range leaves the wall exactly where it was", () => {
+    const out = snapDraggedEdge(A, B, corners({ vertex: [0, 0.001], source: "far" }), project);
+    assert.equal(out.result.snapped, false);
+    assert.deepEqual(out.a, A);
+    assert.deepEqual(out.b, B);
+  });
+
+  test("a wall snaps onto a neighbour's wall too", () => {
+    const target = { a: [-0.001, 0.00005] as Vertex, b: [0.002, 0.00005] as Vertex, source: "terrace" };
+    const out = snapDraggedEdge(A, B, walls(target), project);
+    assert.equal(out.result.kind, "edge");
+    assert.deepEqual(out.result.edge, target);
+    assert.equal(out.a[1], 0.00005, "flush against it");
+    assert.equal(out.b[1], 0.00005);
   });
 });

@@ -1786,7 +1786,7 @@ present.
 ### Not done
 
 - **No edge dragging.** A whole wall still cannot be moved; both its corners
-  have to be dragged in turn.
+  have to be dragged in turn. *(Done in §2p.)*
 - **No rectangle or right-angle assist.** Buildings are mostly orthogonal and
   nothing helps the user keep them so.
 - **Neighbours are the 120 largest in the bbox**, not the 120 nearest.
@@ -1796,6 +1796,125 @@ present.
 - **The carry-forward is not covered by an end-to-end test**, only by unit
   tests and a browser run. It depends on the client and server agreeing on a
   building id, which is now one function but still an agreement.
+
+## 2p. S-01 edge dragging
+
+§2o's remaining gap: a wall could be snapped to but not moved. Squaring a
+building off meant dragging two corners in turn and hoping they ended up
+parallel to where they started.
+
+### The move is rigid, and that is enforced rather than intended
+
+`moveEdge` translates both ends of a wall by one delta. The component applies
+the move through it rather than making two `moveVertex` calls, which would only
+*happen* to be rigid — nothing would catch it if they stopped being. Keeping
+length and angle is the entire reason to have this gesture: moving the two
+corners separately is already possible and cannot help but change the wall.
+
+### The wall follows the pointer, not the other way round
+
+The delta is the **pointer's travel since the press**, not the gap between the
+cursor and the wall. Grabbing a wall near one end and having it jump so its
+midpoint lands under the cursor is the classic way to make a drag feel broken.
+
+There is one piece of bookkeeping behind that. When a snap fires, the wall
+lands somewhere the pointer is not, so the pointer's reference is moved by the
+same amount the wall was. Without it the next frame would re-apply the snap on
+top of itself and the wall would creep away from the cursor. With it, the raw
+position is always *the original corner plus total pointer travel*, so a snap
+holds while the pointer stays near the target and releases cleanly when it does
+not — verified in the browser as a 45 px drag producing exactly 45 px of
+movement.
+
+### A press on a wall is not yet a drag
+
+The midpoint handle sits on its wall, so a press there is ambiguous: insert a
+corner, or move the wall? Resolving it by position — "the midpoint inserts, the
+rest of the wall drags" — fails on short walls, where the midpoint's 12 px grab
+radius covers most of the wall and there is nowhere left to drag from.
+
+So the press is **pending** until the pointer travels `DRAG_START_PX`. Below
+that it is still a click, and a click on a midpoint inserts, exactly as before.
+Above it, it is a wall drag. Panning is disabled at press time regardless,
+because by the time the threshold is crossed the map would already have moved
+under the shape.
+
+This replaced the separate `click` handler on the midpoint layer, so insert and
+drag now come out of one decision instead of two that could both fire.
+
+### Snapping a wall can only be a translation
+
+`snapDraggedEdge` offers **both** ends to the snapper and takes whichever lands
+closest to a target; the whole wall then moves by the delta that puts that end
+exactly on it. Snapping the two ends independently would pull them to different
+targets and **shear** the wall — which is precisely what dragging the two
+corners already does, and so would leave this gesture with no reason to exist.
+
+The effect is the terrace gesture: a wall clicks into place as either of its
+corners meets a neighbour's.
+
+### Walls belong to edit mode
+
+In draw mode a click is still placing corners, and a click that lands on the
+line already drawn has to stay a corner — a concave shape needs exactly that.
+So `edgeAt` is consulted only when `appendOnClick` is false. The cursor says so:
+over a wall it is `move` in edit mode and `crosshair` in draw mode.
+
+### One hit-test, so the cursor cannot lie
+
+The cursor used to come from MapLibre's per-layer `mouseenter`, while the press
+used `vertexAt`. Two mechanisms for one question, free to disagree. They are now
+a single `targetAt`, used by both, so what the cursor promises is by
+construction what the press does: `move` over a corner or a wall, `copy` over a
+midpoint, `crosshair` over open map.
+
+Fixing that exposed a smaller one that had been there since S-02. The
+constraint, ECR and substation layers set a `pointer` cursor on hover with no
+regard for draw mode, and they are registered after the draw handlers, so they
+won: mid-drag over a green belt the cursor promised a popup that `drawActive`
+then refused to open. Those handlers are now silent while drawing or picking,
+like every other handler in that position.
+
+### Verified in the browser
+
+Pixels per degree calibrated from the scale control, then the north wall
+grabbed 30 px west of its midpoint — on the wall, clear of every handle:
+
+- **snapping off, dragged 45 px north:** exactly **2 of 4 corners moved**, and
+  they were adjacent; the delta was **identical** on both; the wall's length
+  came back `1.100000e-3` against `1.100000e-3` before; and the movement was
+  **45.0 px**, the drag exactly.
+- **snapping on, dragged 89 px north** — the gap to `SAMPLE-BLD-0002`'s
+  top-left corner: the east end landed **exactly** on `[-1.12045, 53.50815]`,
+  the move stayed rigid, and the west end came along to `[-1.12155, 53.50815]`.
+- **a midpoint click still inserts**: 4 points to 5.
+- **draw mode**: the cursor over a wall is `crosshair`, not `move`.
+- cursors: `copy` over the midpoint, `move` over the wall, `crosshair` over
+  open map. No page errors.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `GRAB_EDGE_PX`, `DRAG_START_PX`, `edgeAt`, `moveEdge`, `snapDraggedEdge` |
+| `LandMap.tsx` | `targetAt` as the one hit-test, the pending-press state machine, `moveEdgeTo`, hover cursors silenced while drawing |
+| `SitePanel.tsx` | the edit hint names the wall gesture |
+
+**17 more tests**, 446 across the suite.
+
+### Not done
+
+- **No rectangle or right-angle assist.** Buildings are mostly orthogonal and
+  nothing helps the user keep them so. Dragging a wall preserves an angle; it
+  cannot correct one.
+- **No wall snapping to parallel alignment.** A wall clicks into place when a
+  *corner* meets a target. Two walls that should be collinear but share no
+  corner still have to be lined up by eye.
+- **No removing a wall** (merging its two corners). Only vertices are removable.
+- **Walls cannot be dragged in draw mode**, by design above, but that is a
+  split a user has to learn rather than see.
+- **Neighbours are still the 120 largest in the bbox**, holes are still
+  dropped, and nothing is touch-tested.
 
 ## 3. Blockers and conflicts — need James's decision
 

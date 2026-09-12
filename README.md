@@ -461,14 +461,34 @@ because a footprint with a moved corner is no longer what OS published.
 
 Handles say what they accept. A **solid** handle is a real vertex: drag it to
 move it, alt- or shift-click it to remove it. A **hollow** one is a midpoint —
-a place a vertex could go — and clicking it puts one there. They carry
-different cursors (`move` and `copy`) for the same reason: showing `move` over
-both would promise a drag the midpoint does not accept.
+a place a vertex could go — and clicking it puts one there. Dragging a **wall**
+moves the whole side, carrying both its corners.
+
+The cursor comes from the same hit-test the press uses, so what it promises is
+what you get: `move` over a corner or a wall, `copy` over a midpoint,
+`crosshair` over open map.
+
+**A wall move is rigid**: both corners travel by the same delta, so the wall
+keeps its length and its angle. That is the whole reason to have the gesture —
+dragging the two corners in turn is already possible and cannot help but change
+the wall. The wall follows the pointer's own travel rather than jumping its
+midpoint under the cursor, and snapping a dragged wall can only ever be a
+translation: both ends are offered, whichever lands closest to a target wins,
+and the whole wall moves to put that end on it. A wall clicks into place as
+either of its corners meets a neighbour's.
+
+A press on a wall is not immediately a drag. The midpoint sits on its wall, so
+the press is held until the pointer travels a few pixels: below that it is
+still a click, and a click on a midpoint inserts. Resolving it by position
+instead — midpoint inserts, rest of the wall drags — breaks on short walls,
+where the midpoint's grab radius covers most of the wall.
 
 The two modes accept different gestures, so the hint names the one you are in.
 A click on open map places a corner in a fresh drawing, and does **nothing** to
 an existing ring — tacking a corner onto the end of a closed shape is never
-what a click in the middle of the map meant. Undo point is offered only while
+what a click in the middle of the map meant. **Walls drag in edit mode only**:
+while drawing, a click that lands on the line already placed has to stay a
+corner, because a concave shape needs exactly that. Undo point is offered only while
 drawing: in edit mode there is nothing of yours to undo, and the button would
 chop a corner off the published ring under a label that says otherwise. A
 corner cannot be removed at three points, and at three points the panel says so
@@ -526,9 +546,9 @@ site" and "no building polygons loaded at all" call for different things: the
 route reports both the nearby count and the loaded total.
 
 The geometry lives in `src/lib/site-intel/draw.ts` — a leaf module with no
-React and no MapLibre, so rings, midpoints, insertion, removal, snapping and
-hit-testing are tested without a browser. The component owns the pointer
-events and supplies the projection.
+React and no MapLibre, so rings, midpoints, insertion, removal, wall moves,
+snapping and hit-testing are tested without a browser. The component owns the
+pointer events and supplies the projection.
 
 ### Reproject first — the loader will stop you
 
