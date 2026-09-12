@@ -12,6 +12,7 @@
     "test": "vitest run",
     "n3rgy:pull": "tsx scripts/n3rgy-pull.ts",
     "n3rgy:sync": "tsx scripts/n3rgy-sync.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "sources:check": "tsx scripts/sources-check.ts",
     "carbon:intensity": "tsx scripts/grid-intensity-sync.ts"
   },
