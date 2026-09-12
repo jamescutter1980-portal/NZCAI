@@ -6,7 +6,8 @@ The **Land** module resolves a building from an address (S-01), screens it for
 planning and environmental constraints (S-02), checks nearby DNO grid capacity
 for solar PV (S-03), screens its EPC and MEES position (S-05), identifies likely
 corporate owners (S-04), pulls floor area and use from the VOA rating list
-(S-06), and finds candidate sites from a plain-English question (S-07). See
+(S-06), finds candidate sites from a plain-English question (S-07), and lists
+MEES prospects across the loaded stock (S-08). See
 [`docs/site-intel/BRIEF.md`](docs/site-intel/BRIEF.md) for the full spec and
 [`docs/site-intel/PLAN.md`](docs/site-intel/PLAN.md) for current status, open
 decisions and what is not yet verified.
@@ -242,7 +243,7 @@ non-domestic MEES standards, and the site panel shows it.
 
 **Every threshold and every sentence lives in
 `src/lib/site-intel/mees_rules.yaml`, not in code**, sourced to SI 2015/962 and
-the DESNZ interim response of 18 June 2026. All 16 entries are `approved: false`
+the DESNZ interim response of 18 June 2026. All 17 entries are `approved: false`
 until James signs them off — `npm run site:verify` prints the count outstanding
 and the policy position the file currently encodes.
 
@@ -292,6 +293,75 @@ electricity — does not move the band on a gas-heated building. That flag says
 exactly that and no more: it is **not** a view on whether the roof is a good PV
 site for bill savings or Scope 2 reduction. Two questions, two answers.
 `pvCanMoveBand` exposes the narrow claim on its own.
+
+## MEES prospects (S-08)
+
+`/land/mees` screens the loaded non-domestic certificates and groups them into
+cohorts. `/api/site-intel/prospects` serves the same thing as JSON, or as CSV
+with `&format=csv`.
+
+```bash
+npm run epc:load -- certificates.csv     # bulk load, from the register's download
+```
+
+Filters: `?cohort=`, `?district=`, `?postcode=`, `?band=`, `?min_area=`,
+`?max_area=`, `?gas=1`, `?limit=`.
+
+### The corpus is the register, not the VOA list
+
+S-07 searches VOA and attaches an EPC band by postcode — fine for a search
+result, where the band is a lead. Not fine here: a prospect list **names a
+building and states its band**, so a postcode-matched band would put a specific
+address on a list of poorly-rated stock because its neighbour is. A certificate
+carries the address, floor area, fuel and band in one record, so the claim comes
+from a single row.
+
+### One row per building
+
+The register holds every certificate ever lodged. A building re-assessed from F
+in 2015 to B in 2024 has two, and listing both would put it in two cohorts at
+once. Only the most recent per building is screened — identity is UPRN, then the
+register's building reference, then address and postcode — and the ones set
+aside are **counted and reported**, not dropped.
+
+### Coverage is what is loaded
+
+`epc_certificate` is a cache filled by lookups and bulk loads, so a count here is
+a count of what is held, never a count of what exists. That statement sits above
+the results and in the first rows of every export.
+
+### Cohorts, not a score
+
+| cohort | criteria |
+|---|---|
+| Below the minimum band | F or G on the most recent valid certificate |
+| Certificate expired | more than ten years since lodgement |
+| Inside the proposed 2031 horizon | C/D/E, clearly above 1,000 m² |
+| Regime cannot be determined | C/D/E, area unknown or within 10% of 1,000 m² |
+| Meets the minimum, no further target | C/D/E, clearly at or below 1,000 m² |
+| Meets the proposed 2031 target | A+, A or B |
+| Could not be screened | no readable band |
+
+There is deliberately **no prospect score**: a number blending band, area, fuel
+and expiry would rank by a weighting nobody chose and be read as a measurement.
+Membership is decided by S-05's screening, not by SQL, so the policy stays in one
+file.
+
+### What travels with a row
+
+- **Exemption status unknown**, on every below-minimum row — not just the page.
+  A building below EPC E with a registered exemption is lawfully let.
+- **"Last known"** on an expired certificate's band. A 2015 G rating says what
+  the building was eleven years ago.
+- **The caveats go into the CSV** as visible rows, because a spreadsheet travels
+  without the page around it. Each row also carries its own finding sentence and
+  an explicit `exemption_status_unknown` column.
+
+### Not a portfolio tracker
+
+No lease data, so no trigger-year segmentation — EPC expiry is a third of that
+calculation and a lease event usually comes first. This finds prospects; it does
+not track a client's portfolio. See PRELAUNCH TICKET-12.
 
 ## Loading real grid data
 
@@ -371,14 +441,16 @@ src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      S-05: performance (bands, validity, fuel),
                      mees_rules.yaml + MEES screening
                      S-07: query parser, SQL executor, run description
+                     S-08: prospect cohorts, dedupe, coverage
                      Task 0: EPC register client and cache
 PRELAUNCH.md         tickets that block a client release
 tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health,
                      /api/site-intel/* including /search
-src/components/      LandMap, SitePanel, SiteSearch
-fixtures/            sample substations — invented, not DNO data
+src/components/      LandMap, SitePanel, SiteSearch, MeesProspects
+fixtures/            sample substations and EPC certificates — invented,
+                     not DNO or register data; every EPC row is SAMPLE-*
 docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 ```
 
@@ -401,6 +473,7 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run site:postcodes` | Derive postcode centroids from loaded UPRNs |
 | `npm run site:load-ccod -- <csv>` | Load HMLR CCOD or OCOD ownership data |
 | `npm run site:load-voa -- list\|smv <csv>` | Load VOA rating list or summary valuations |
+| `npm run epc:load -- <csv>` | Bulk-load EPC certificates from the register's download |
 
 ## Caveat
 

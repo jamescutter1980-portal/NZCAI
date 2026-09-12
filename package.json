@@ -20,7 +20,8 @@
     "site:postcodes": "tsx src/ingest/site.ts postcodes",
     "site:load-ccod": "tsx src/ingest/site.ts load-ccod",
     "site:load-voa": "tsx src/ingest/voa-load.ts",
-    "epc:verify": "tsx src/ingest/epc-verify.ts"
+    "epc:verify": "tsx src/ingest/epc-verify.ts",
+    "epc:load": "tsx src/ingest/epc-load.ts"
   },
   "dependencies": {
     "maplibre-gl": "^6.9.0",

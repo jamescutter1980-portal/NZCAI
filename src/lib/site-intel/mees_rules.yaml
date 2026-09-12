@@ -243,3 +243,27 @@ flags:
       Included because portfolio plans and third-party advice written before
       that date may still assume a 2027 EPC C duty.
     approved: false
+
+# Market-leader benchmark, for context only. NOT a regulatory figure.
+#
+# Source: KFIM, ESG Strategy for AUM: Progress Report 2025 (Knight Frank
+# Investment Management LLP). Their EPC targets are VOLUNTARY and were set
+# before the 18 June 2026 interim response, so the thresholds above always
+# prevail for anything compliance-related.
+#
+# The caution matters for a prospect list in particular: KFIM's figures
+# describe an actively managed institutional portfolio, not the general stock
+# of an area. Comparing a postcode's certificates to them says something about
+# ambition, not about like-for-like performance.
+benchmark:
+  name: KFIM managed portfolio, 2025
+  citation: "KFIM, ESG Strategy for AUM: Progress Report 2025"
+  at_or_above_e_pct: 99.97
+  at_or_above_c_pct: 93.06
+  at_or_above_b_pct: 73.38
+  voluntary_target_b_by: 2029
+  caution: >
+    An actively managed institutional portfolio, and voluntary targets set
+    ahead of regulation. Not a like-for-like comparison with the general stock
+    of an area, and not a compliance threshold.
+  approved: false

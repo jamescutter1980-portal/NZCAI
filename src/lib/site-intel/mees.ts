@@ -62,11 +62,24 @@ export interface MeesThresholds {
   expiring_soon_days: number;
 }
 
+/** Context only. Never a compliance threshold - see the YAML's caution. */
+export interface MeesBenchmark {
+  name: string;
+  citation: string;
+  at_or_above_e_pct: number;
+  at_or_above_c_pct: number;
+  at_or_above_b_pct: number;
+  voluntary_target_b_by: number;
+  caution: string;
+  approved: boolean;
+}
+
 export interface MeesRules {
   meta: { jurisdiction: string; scope: string; policy_as_at: string; source: string; approved: boolean };
   thresholds: MeesThresholds;
   states: Record<string, MeesWording>;
   flags: Record<string, MeesWording>;
+  benchmark: MeesBenchmark;
 }
 
 let cache: MeesRules | null = null;
@@ -90,6 +103,7 @@ export function unapprovedMeesRules(): string[] {
   for (const [key, wording] of Object.entries({ ...rules.states, ...rules.flags })) {
     if (!wording.approved) keys.push(key);
   }
+  if (!rules.benchmark.approved) keys.push("benchmark");
   return keys;
 }
 

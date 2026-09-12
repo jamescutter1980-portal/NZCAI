@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-05 · S-06 · S-07.** Updated 12 September 2026.
+Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-05 · S-06 · S-07 · S-08.** Updated 12 September 2026.
 
 ---
 
@@ -535,7 +535,7 @@ decide a legal answer must come from a file, not from a model's recall.
 ### Everything is data, and none of it is approved
 
 `mees_rules.yaml` holds the thresholds, the states and every sentence, sourced to
-SI 2015/962 and the DESNZ interim response of 18 June 2026. All 16 entries are
+SI 2015/962 and the DESNZ interim response of 18 June 2026. All entries are
 `approved: false`; `npm run site:verify` prints the count and the policy position
 the file currently encodes, so a drift between the file and the law is visible
 without reading the YAML. PRELAUNCH TICKET-09 carries the sign-off.
@@ -652,6 +652,152 @@ search — a finding about a legal duty attached to the wrong building.
 - Welsh divergence not considered. The rules file is marked England and Wales
   after the source, but nothing verifies the Welsh position separately.
 
+## 2h. S-08 — the MEES prospect list
+
+S-08 is one line in the brief's out-of-scope list (§10, "MEES prospect list").
+It is also the thing I warned about in PRELAUNCH TICKET-10 when building S-05:
+
+> "If a MEES prospect list (S-08) is ever built on top of this, the distinction
+> stops being cosmetic: a list of 'non-compliant buildings' that is really a
+> list of 'buildings whose exemption status is unknown' would be wrong in a way
+> clients act on."
+
+So the design starts from that, not from the feature.
+
+### The corpus is the EPC register, not the VOA list
+
+S-07 searches the VOA rating list and attaches an EPC band by postcode. That is
+honest there — the band is a lead hanging off a search result. It is **not**
+honest here. A prospect list names a building and states its band, so a
+postcode-matched band would put a specific address on a list of poorly-rated
+stock because its neighbour is poorly rated.
+
+The register does not need the join. A certificate carries the address, the
+floor area, the fuel and the band **in one record**, so the claim the list makes
+is sourced from a single row. VOA use class and rateable value stay available as
+enrichment at address-match quality (S-06's T3), and are not part of the
+screening.
+
+This is the first section where the awkward source turned out to be the right
+one: everything since S-04 has been working around a paywalled identifier, and
+here the free source is the authoritative one.
+
+### One row per building, not per certificate
+
+The register holds **every certificate ever lodged**. A building re-assessed
+from F in 2015 to B in 2024 has two. Listing both would put it in the
+below-minimum cohort *and* the meets-target cohort, inflate every count, and
+send someone to an owner about a band superseded years ago.
+
+The first live run surfaced exactly this: 11 certificates, 10 buildings. Only
+the most recent certificate per building is screened, and the rest are **counted
+and reported**, not quietly dropped — the coverage statement says how many were
+set aside.
+
+Identity is `COALESCE(uprn, building_reference, lower(address) || '|' ||
+postcode)`. The fallback is the weakest link: two spellings of one address still
+produce two rows. That is the safe direction to fail — a visible duplicate beats
+an invisible wrong merge.
+
+### Coverage is the loaded cache, not the country
+
+`epc_certificate` is filled per postcode by lookups. Until now that made a
+prospect list impossible in principle: it could only cover postcodes somebody
+had already searched. So `npm run epc:load` was added for the register's bulk
+downloads, and the coverage statement sits **above** the results on the page and
+in the first rows of any export:
+
+> "This list covers the 11 non-domestic certificates currently loaded, across 5
+> postcode districts. That is what has been fetched or bulk-loaded, not the
+> national register: a count here is a count of what is held, never a count of
+> what exists."
+
+"Four F-rated buildings in DN4" and "there are four F-rated buildings in DN4"
+are different claims. Only the first is ever true here.
+
+### Cohorts, and why there is no score
+
+A single prospect score blending band, area, fuel and expiry would rank
+buildings by a weighting nobody chose and no source supports — and it would be
+read as a measurement. Instead there are seven named cohorts, each carrying its
+own criteria and its own reason, and ordering is by explicit columns.
+
+| cohort | criteria |
+|---|---|
+| Below the minimum band | F or G on the most recent valid certificate |
+| Certificate expired | more than ten years since lodgement |
+| Inside the proposed 2031 horizon | C/D/E, clearly above 1,000 m² |
+| Regime cannot be determined | C/D/E, area unknown or within 10% of the threshold |
+| Meets the minimum, no further target | C/D/E, clearly at or below 1,000 m² |
+| Meets the proposed 2031 target | A+, A or B |
+| Could not be screened | no readable band |
+
+Cohort membership is decided by S-05's `screenMees`, **not by SQL**, so the
+policy lives in exactly one file and a legislative change lands in one place.
+A test asserts every screening state maps to a cohort, so a new state in S-05
+cannot make buildings silently vanish from the list.
+
+### Three things put where they cannot be trimmed
+
+1. **The exemption caveat is on the row**, not only in the cohort note and not
+   only on the page. The below-minimum row is the one a reader treats as an
+   enforcement list and the one most likely to be screenshotted on its own.
+2. **An expired certificate's band is labelled "last known".** The badge alone
+   reads as current, and a 2015 G rating says what the building was eleven
+   years ago. Caught in the browser, not in a test.
+3. **The export carries its caveats as visible rows.** A spreadsheet is the
+   dangerous artefact — once the list is in Excel it travels without the page
+   around it. Every row also carries its own status sentence and an explicit
+   `exemption_status_unknown` column, so a row read alone still says what it is.
+
+### Two smaller things worth recording
+
+**CSV formula injection.** A cell beginning `=`, `+`, `-` or `@` is executed as
+a formula by Excel and Sheets. These cells carry addresses and free text from an
+external register, so they are prefixed with an apostrophe.
+
+**The benchmark is context, not a threshold.** KFIM's 2025 figures (73.38% at B
+or above) are in the rules file with their citation and the skill's own caution:
+an actively managed institutional portfolio is not a like-for-like comparison
+with the general stock of an area. It answers "is this area unusual?", which is
+a prospecting question, and nothing else.
+
+### One design flaw found and fixed
+
+`epc-load.ts` calls `main()` at the top level, so importing its CSV parser for a
+test started a bulk load and exited the process. The parser moved to
+`src/ingest/csv.ts`, a leaf module — the third time this pattern has been needed
+(`area-basis.ts`, `search-describe.ts`), and worth treating as the default for
+anything a test or a client component might want.
+
+### What was built
+
+| file | role |
+|---|---|
+| `db/migrations/009_mees_prospects.sql` | partial indexes on the non-domestic corpus, `epc_bulk_load` |
+| `prospects.ts` | cohorts, dedupe, coverage, summary; re-uses `screenMees` |
+| `src/ingest/epc-load.ts` | bulk loader, columns read by name |
+| `src/ingest/csv.ts` | RFC 4180 line parsing, leaf module |
+| `/api/site-intel/prospects` | filters, JSON and CSV |
+| `/land/mees` + `MeesProspects.tsx` | coverage first, then cohorts, then rows |
+
+**15 tests**, 276 across the suite.
+
+### Not done
+
+- **No lease data**, so no trigger-year segmentation and no earliest-termination
+  column. That is the spine of the Focus Green MEES tracker workflow and it
+  needs tenure this system does not hold. The list is a prospecting tool, not a
+  portfolio tracker, and should not be presented as one.
+- **No .xlsx tracker export.** CSV only. The Patrizia V8 workbook has summary,
+  per-year and 2031 tabs; producing it is a separate piece of work.
+- **No EPC recommendations**, so no measure list and no 7-year payback test.
+- **The bulk loader has never seen a real file.** Egress is blocked. Columns are
+  read by name against the published schema, missing ones are reported, and the
+  first parsed record is printed for checking.
+- **`fixtures/epc-certificates.sample.csv` is invented**, like the substations
+  sample. Every row is prefixed `SAMPLE-`. It is not register data.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -741,12 +887,17 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   targets `get-energy-performance-data.communities.gov.uk` by default, the
   legacy host is reachable via `EPC_API_BASE`, and the host that answered is
   reported on every lookup. No retirement date is published.
-- **TICKET-09 MEES wording and thresholds** — *blocking for client use.* All 16
+- **TICKET-09 MEES wording and thresholds** — *blocking for client use.* All 17
   entries in `mees_rules.yaml` unapproved. This describes a legal duty and part
   of it is not yet law; the band boundaries are transcribed, not derived.
 - **TICKET-10 PRS Exemptions Register not held** — a building below EPC E with a
-  registered exemption is lawfully let, and we cannot see the register. Decide
-  before S-08 whether to ingest it or keep the caveat as the answer.
+  registered exemption is lawfully let, and we cannot see the register. S-08 is
+  now built, so this is live: the caveat is on every below-minimum row, in the
+  cohort's own reason and in the export. Decide whether to ingest the register
+  or keep the caveat as the answer.
+- **TICKET-11 bulk EPC loader unverified** — `npm run epc:load` has never seen a
+  real file. Columns are read by name, absent ones are reported and the first
+  parsed record is printed, but the schema is from the published spec.
 - **TICKET-02** UPRN provenance · **TICKET-03** attributions unverified ·
   **TICKET-04** constraint wording unapproved · **TICKET-05** CCOD/OCOD licence
   unread · **TICKET-06** VOA slugs and column positions unverified ·
@@ -776,7 +927,7 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   "industrial" onto regular expressions over the VOA primary description. That
   is an interpretation of VOA's vocabulary, not a published mapping, and it
   decides what a search returns. Needs a read-through.
-- **S-05 MEES wording and thresholds.** `mees_rules.yaml`, all 16 entries. The
+- **S-05 MEES wording and thresholds.** `mees_rules.yaml`, all 17 entries. The
   most consequential sign-off in the repo: it states a legal duty, and the 2031
   EPC B target it encodes is proposed rather than enacted. Read it against
   SI 2015/962 and the DESNZ interim response of 18 June 2026 before approving.
@@ -785,6 +936,13 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   margin is my judgement, not a published tolerance — confirm it is the right
   width, or replace it with a rule about which area sources may be trusted for
   the threshold at all.
+- **S-08 cohort names and reasons.** Seven cohorts in `prospects.ts`, each with
+  a label, criteria and a reason. They are the words a client will read on a
+  prospect list; none of them says compliant or non-compliant, and a test keeps
+  it that way, but the framing is mine.
+- **S-08 the KFIM benchmark.** 73.38% at B or above, 2025. In the rules file with
+  its citation and caution. Confirm you want a managed institutional portfolio
+  used as the comparator for the general stock of an area at all.
 - **S-05 the 250 kWh/m²/yr primary-energy flag.** A screening level from the
   Focus Green policy reference, applied to gas and oil buildings only. Confirm
   it is the level you want and that the fuels it applies to are the right set.

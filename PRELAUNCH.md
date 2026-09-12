@@ -128,7 +128,8 @@ screening logic port cheaply; the API routes and UI do not. See PLAN.md §3.1.
 
 **Raised by:** S-05 · **Status:** blocking for client use · **Owner:** James
 
-All 16 entries in `src/lib/site-intel/mees_rules.yaml` are `approved: false`.
+All 17 entries in `src/lib/site-intel/mees_rules.yaml` are `approved: false`
+(16 from S-05, plus the S-08 benchmark block).
 This is the same rule as TICKET-04 with more at stake: constraint wording
 describes a planning position, MEES wording describes a **legal duty**, and part
 of what it describes is not yet law.
@@ -171,3 +172,44 @@ bulk) or to keep the caveat as the answer. If a MEES prospect list (S-08) is
 ever built on top of this, the distinction stops being cosmetic: a list of
 "non-compliant buildings" that is really a list of "buildings whose exemption
 status is unknown" would be wrong in a way clients act on.
+
+---
+
+## TICKET-11 — Bulk EPC loader has never seen a real file
+
+**Raised by:** S-08 · **Status:** verify on first real run · **Owner:** unassigned
+
+`npm run epc:load` reads the register's bulk `certificates.csv`. Outbound access
+to the download was blocked throughout this build, so the column names come from
+the published schema and have not been confirmed against a file.
+
+Mitigations already in the loader, which make a mismatch loud rather than
+silent:
+
+- columns are read **by name**, not by position, so a reordered file is harmless
+- a missing required column stops the load and prints the header it found
+- absent optional columns are listed, with the values that will therefore be null
+- the first parsed record is printed, with an instruction to check it
+
+Run it once against a real local-authority download and confirm the printed
+record matches the file before loading at scale.
+
+---
+
+## TICKET-12 — The prospect list is not a portfolio tracker
+
+**Raised by:** S-08 · **Status:** scope boundary, state it to clients
+
+S-08 finds prospects from open data. The Focus Green MEES workflow produces a
+**tracker** for a known client portfolio, and its spine is the lease event
+calendar — earliest of lease expiry, break date and EPC expiry, segmented into
+year tabs.
+
+This system holds no lease data, so it can only use EPC expiry. That is a third
+of the trigger calculation. The list must not be presented as, or evolve into, a
+tracker without tenure data, because a trigger year derived from EPC expiry
+alone would be wrong most of the time and wrong in the direction of complacency
+— a lease event usually arrives first.
+
+Also outstanding for the tracker workflow: no .xlsx output (CSV only), and no
+EPC recommendations, so no measure list and no 7-year payback test.

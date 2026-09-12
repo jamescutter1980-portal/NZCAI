@@ -669,3 +669,111 @@ body {
 
 /* A+ was missing from the general scale. */
 .epc-band.band-aplus { background: var(--good); }
+
+/* ------------------------------------------------- S-08 MEES prospects --- */
+
+.mees-page { max-width: 980px; margin: 0 auto; padding: 28px 20px 64px; display: flex; flex-direction: column; gap: 16px; }
+.mees-top h1 { margin: 0; font-family: var(--f-display); font-size: 26px; font-weight: 600; }
+.mees-sub { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); max-width: 62ch; }
+
+/*
+ * Above the results on purpose. The corpus is a loaded cache, so a count here
+ * is a count of what is held and never a count of what exists.
+ */
+.mees-coverage {
+  margin: 0; padding: 9px 12px; border-radius: 3px;
+  background: var(--surface-2); color: var(--ink-2);
+  font-size: 12.5px; line-height: 1.5;
+}
+.mees-unapproved {
+  margin: 0; padding: 8px 12px; border-radius: 3px;
+  background: var(--warn-soft); color: var(--warn);
+  font-size: 12.5px; line-height: 1.45;
+}
+
+.mees-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.mees-filters label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--ink-3); }
+.mees-filters select, .mees-filters input[type="text"], .mees-filters input[type="number"] {
+  padding: 6px 8px; border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 13px;
+}
+.mees-filters .mees-check { flex-direction: row; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink-2); }
+.mees-filters button {
+  padding: 7px 14px; border: 1px solid var(--accent); border-radius: 3px;
+  background: var(--accent); color: #fff; font: inherit; font-size: 13px; cursor: pointer;
+}
+.mees-filters button:disabled { opacity: 0.5; cursor: default; }
+.mees-export {
+  padding: 7px 14px; border: 1px solid var(--rule); border-radius: 3px;
+  font-size: 13px; text-decoration: none; color: var(--ink-2); background: var(--surface);
+}
+
+.mees-summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.mees-tile {
+  flex: 1 1 150px; min-width: 150px; text-align: left; cursor: pointer;
+  padding: 10px 12px; border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface); font: inherit;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.mees-tile.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.mees-tile.alert { border-left: 3px solid var(--risk); }
+.mees-tile.watch { border-left: 3px solid var(--warn); }
+.mees-tile-n { font-family: var(--f-mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mees-tile-l { font-size: 11.5px; line-height: 1.35; color: var(--ink-2); }
+
+.mees-bands ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.mees-bands li { display: flex; align-items: center; gap: 5px; }
+.mees-band-n { font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.mees-bench { margin: 8px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+.mees-bench em { font-style: normal; }
+.mees-cite { font-style: italic; }
+
+.mees-cohort-note {
+  padding: 9px 12px; border-radius: 3px;
+  background: var(--surface-2); border-left: 2px solid var(--ink-3);
+}
+.mees-cohort-crit, .mees-cohort-why { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.mees-cohort-why { margin-top: 4px; }
+
+.mees-rows { display: flex; flex-direction: column; gap: 9px; }
+.mees-row {
+  padding: 10px 12px; border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface);
+}
+.mees-row.alert { border-left: 3px solid var(--risk); }
+.mees-row.watch { border-left: 3px solid var(--warn); }
+.mees-row-head { margin: 0; display: flex; gap: 9px; align-items: baseline; flex-wrap: wrap; }
+.mees-addr { font-size: 13.5px; font-weight: 500; flex: 1 1 auto; }
+.mees-pc { font-family: var(--f-mono); font-size: 12px; color: var(--ink-3); }
+.mees-meta { margin: 5px 0 0; font-size: 11.5px; color: var(--ink-3); }
+.mees-finding { margin: 5px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.mees-pv { margin: 5px 0 0; font-size: 11.5px; line-height: 1.4; color: var(--warn); }
+
+/* Band colour here means MEES status, as in the S-05 panel. */
+.mees-page .epc-band.band-aplus,
+.mees-page .epc-band.band-a,
+.mees-page .epc-band.band-b { background: var(--good); }
+.mees-page .epc-band.band-c,
+.mees-page .epc-band.band-d,
+.mees-page .epc-band.band-e { background: var(--warn); }
+.mees-page .epc-band.band-f,
+.mees-page .epc-band.band-g { background: var(--risk); }
+
+.mees-caveats { margin-top: 4px; }
+
+@media (max-width: 560px) {
+  .mees-filters { flex-direction: column; align-items: stretch; }
+  .mees-tile { flex-basis: 100%; }
+}
+
+/* An expired certificate's band is historic, and the badge must not imply otherwise. */
+.mees-lastknown {
+  font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--warn); background: var(--warn-soft);
+  padding: 2px 5px; border-radius: 2px; white-space: nowrap;
+}
+.mees-exempt {
+  margin: 5px 0 0; padding: 5px 8px; border-radius: 3px;
+  background: var(--risk-soft); color: var(--risk);
+  font-size: 11.5px; line-height: 1.4;
+}

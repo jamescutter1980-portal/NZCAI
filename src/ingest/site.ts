@@ -317,7 +317,8 @@ async function verify(): Promise<void> {
   try {
     const mees = loadMeesRules();
     const unapprovedMees = unapprovedMeesRules();
-    const meesTotal = Object.keys({ ...mees.states, ...mees.flags }).length + 1; // +1 for meta
+    // +2 for the `meta` block and the `benchmark` block, which also need sign-off.
+    const meesTotal = Object.keys({ ...mees.states, ...mees.flags }).length + 2;
     if (unapprovedMees.length === 0) {
       console.log(`  ${GREEN}all ${meesTotal} approved${OFF}`);
     } else {
