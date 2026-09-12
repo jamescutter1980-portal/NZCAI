@@ -12,8 +12,10 @@ import {
   edgeAt,
   edgesFrom,
   hingesForAppend,
+  hingesForEdge,
   hingesForVertex,
   linesForAppend,
+  linesForEdge,
   linesForVertex,
   insertAfter,
   midpoints,
@@ -1079,5 +1081,102 @@ describe("which lines a moving vertex can sit on", () => {
       { a: placed[1], b: placed[2], source: "this shape" },
     ]);
     assert.deepEqual(linesForAppend([[0, 0]]), []);
+  });
+});
+
+/* ------------------------------------------------- aligning a dragged wall --- */
+
+describe("aligning a wall that is being dragged", () => {
+  // A rectangle, 100 px to the side under `project`, at the equator so the
+  // longitude scale is 1 and screen distance is real distance.
+  const ring: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+  // Wall 2 runs from v2 to v3: the "north" wall, running west.
+  const WALL = 2;
+
+  const drag = (delta: Vertex, on = true) => {
+    const a: Vertex = [ring[2][0] + delta[0], ring[2][1] + delta[1]];
+    const b: Vertex = [ring[3][0] + delta[0], ring[3][1] + delta[1]];
+    return snapDraggedEdge(
+      a, b, corners(), project, SNAP_PX, SNAP_EDGE_PX,
+      on
+        ? { hinges: hingesForEdge(ring, WALL), lines: [], by: "projection" }
+        : { hinges: [], lines: [] },
+    );
+  };
+
+  test("a sideways nudge is taken out, so the wall slides square", () => {
+    // 40 px north and 5 px east. The east component would tilt both the walls
+    // either side; the assist strips it and keeps the northward part.
+    const out = drag([0.00005, 0.0004]);
+    assert.equal(out.result.snapped, true);
+    assert.equal(out.result.kind, "align");
+    close(out.a, [0.001, 0.0014], "the east component is gone");
+    close(out.b, [0, 0.0014]);
+  });
+
+  test("the wall stays rigid through the correction", () => {
+    const out = drag([0.00005, 0.0004]);
+    const before = [ring[3][0] - ring[2][0], ring[3][1] - ring[2][1]];
+    const after = [out.b[0] - out.a[0], out.b[1] - out.a[1]];
+    close(after as Vertex, before as Vertex, "same length and bearing");
+  });
+
+  test("a deliberate sideways drag is left alone", () => {
+    // 20 px east: plainly meant, and past the 8 px the assist will absorb.
+    const out = drag([0.0002, 0.0004]);
+    assert.equal(out.result.snapped, false);
+    close(out.a, [0.0012, 0.0014]);
+  });
+
+  test("moving square-on is not blocked, which the arc form would have done", () => {
+    /*
+     * The trap this design exists to avoid. Keeping each corner's distance
+     * from its pivot would hold it almost exactly where it began, and a
+     * rectangle's wall would refuse to move at all. Projecting leaves the
+     * perpendicular part of the drag untouched.
+     */
+    const out = drag([0, 0.0004]);
+    close(out.a, [0.001, 0.0014], "the full 40 px, not held back");
+  });
+
+  test("with the assist off the drag lands exactly where it was put", () => {
+    const out = drag([0.00005, 0.0004], false);
+    assert.equal(out.result.snapped, false);
+    close(out.a, [0.00105, 0.0014]);
+  });
+});
+
+describe("which alignments a dragged wall has", () => {
+  const ring: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+
+  test("a pivot beyond each end of the wall", () => {
+    // Wall 2 runs v2 -> v3, so the pivots are v1 and v0.
+    const hinges = hingesForEdge(ring, 2);
+    assert.deepEqual(new Set(hinges.map((h) => h.pivot)), new Set([ring[1], ring[0]]));
+  });
+
+  test("THREE walls change, and none of them is a reference", () => {
+    // The wall itself and the one at each end. Only wall 0 stands still.
+    for (const h of hingesForEdge(ring, 2)) {
+      const pair = [h.reference[0], h.reference[1]];
+      assert.ok(!pair.includes(ring[2]) && !pair.includes(ring[3]),
+        "a reference touches a moving corner");
+    }
+    assert.deepEqual(linesForEdge(ring, 2), [
+      { a: ring[0], b: ring[1], source: "this shape" },
+    ]);
+  });
+
+  test("below four corners a wall drag has nothing standing still", () => {
+    // A triangle: dragging any wall moves every vertex of it.
+    assert.deepEqual(hingesForEdge([[0, 0], [1, 0], [0, 1]], 0), []);
+    assert.deepEqual(linesForEdge([[0, 0], [1, 0], [0, 1]], 0), []);
+    assert.deepEqual(hingesForEdge(ring, 9), []);
+  });
+
+  test("the wall beside each pivot is offered first, so ties report it", () => {
+    const hinges = hingesForEdge(ring, 2);
+    const first = hinges.find((h) => h.pivot === ring[1]);
+    assert.deepEqual(first?.reference, [ring[1], ring[0]]);
   });
 });

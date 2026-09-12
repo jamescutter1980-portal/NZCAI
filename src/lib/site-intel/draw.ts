@@ -217,6 +217,20 @@ export interface Assist {
   hinges: AlignHinge[];
   /** Walls whose LINE, extended past its ends, a moving vertex may sit on. */
   lines: SnapEdge[];
+  /**
+   * How a hinge corrects a point, which depends on what the user chose.
+   *
+   * "arc" turns the point about the pivot and KEEPS its distance, because when
+   * a vertex is dragged the user picked that wall's length and only its bearing
+   * is wrong.
+   *
+   * "projection" drops the point onto the aligned line by the shortest route,
+   * because when a WALL is dragged the adjacent walls' lengths are a
+   * consequence of the drag rather than a choice. Keeping their length there
+   * would swing the corner round an arc and, for a rectangle dragged square-on,
+   * hold it exactly where it started — the wall would simply refuse to move.
+   */
+  by?: "arc" | "projection";
 }
 
 export const NO_ASSIST: Assist = { hinges: [], lines: [] };
@@ -314,6 +328,51 @@ function alignPosition(moving: Vertex, hinge: AlignHinge): Vertex | null {
 
   void adjoining;   // the fold-back check is global; see `foldsBack`
   return [pivot[0] + (radius * Math.cos(angle)) / k, pivot[1] + radius * Math.sin(angle)];
+}
+
+/**
+ * The nearest point to `moving` on the aligned line through the pivot.
+ *
+ * Same family as `alignPosition` and the same set of bearings; what differs is
+ * what is preserved. `alignPosition` keeps the point's DISTANCE from the pivot
+ * and turns it — right for a dragged vertex, where the user chose that wall's
+ * length. This keeps nothing and takes the shortest route onto the line —
+ * right for a dragged WALL, where the adjacent wall's length is a consequence
+ * of the drag rather than a choice.
+ *
+ * The difference is not cosmetic. Drag the north wall of a rectangle east: the
+ * north-west corner's distance from the south-west corner is nearly unchanged,
+ * so keeping it would hold that corner almost exactly where it began and the
+ * wall would refuse to move at all. Projecting instead strips the eastward part
+ * of the drag and leaves the northward part, which is the wall sliding square —
+ * the behaviour the assist exists to give.
+ */
+function alignProjection(moving: Vertex, hinge: AlignHinge): Vertex | null {
+  const { pivot, reference } = hinge;
+
+  const k = Math.cos((pivot[1] * Math.PI) / 180);
+  if (k === 0) return null;
+
+  const rx = (reference[1][0] - reference[0][0]) * k;
+  const ry = reference[1][1] - reference[0][1];
+  if (Math.hypot(rx, ry) === 0) return null;
+
+  const mx = (moving[0] - pivot[0]) * k;
+  const my = moving[1] - pivot[1];
+  if (Math.hypot(mx, my) === 0) return null;
+
+  const QUARTER = Math.PI / 2;
+  const referenceAngle = Math.atan2(ry, rx);
+  const turns = Math.round((Math.atan2(my, mx) - referenceAngle) / QUARTER);
+  const angle = referenceAngle + turns * QUARTER;
+
+  // The foot of the perpendicular from `moving` onto the line through the
+  // pivot at that bearing.
+  const along = mx * Math.cos(angle) + my * Math.sin(angle);
+  return [
+    pivot[0] + (along * Math.cos(angle)) / k,
+    pivot[1] + along * Math.sin(angle),
+  ];
 }
 
 /**
@@ -547,8 +606,9 @@ export function snap(
     best = { vertex: onLine, line: edge };
   }
 
+  const correct = assist.by === "projection" ? alignProjection : alignPosition;
   for (const hinge of assist.hinges) {
-    const aligned = alignPosition(vertex, hinge);
+    const aligned = correct(vertex, hinge);
     if (!aligned || foldsBack(aligned, assist.hinges)) continue;
     const p = project(aligned);
     const d = Math.hypot(p.x - at.x, p.y - at.y);
@@ -642,6 +702,64 @@ export function linesForVertex(vertices: Vertex[], index: number): SnapEdge[] {
   const out: SnapEdge[] = [];
   for (let w = 0; w < n; w += 1) {
     if (w === index || w === ((index - 1) % n + n) % n) continue;
+    out.push({ a: at(w), b: at(w + 1), source: "this shape" });
+  }
+  return out;
+}
+
+/**
+ * The alignments available while a whole WALL is being dragged.
+ *
+ * The dragged wall's own bearing cannot be corrected — a translation preserves
+ * it, and that is the point of the gesture. What a translation does change is
+ * the two walls either side, so those are what the assist works on: each hinges
+ * on the vertex beyond the end it touches, and can be brought square or
+ * parallel to any wall standing still.
+ *
+ * THREE walls move when one is dragged, not two: the wall itself and the one at
+ * each end. All three are excluded as references.
+ */
+export function hingesForEdge(vertices: Vertex[], index: number): AlignHinge[] {
+  const n = vertices.length;
+  if (n < 4 || index < 0 || index >= n) return [];
+  const at = (i: number) => vertices[((i % n) + n) % n];
+  const changing = new Set([
+    ((index - 1) % n + n) % n,
+    index,
+    (index + 1) % n,
+  ]);
+
+  const hinges: AlignHinge[] = [];
+  for (const [pivotAt, adjoiningAt] of [
+    [index - 1, index - 2],
+    [index + 2, index + 3],
+  ] as const) {
+    const pivot = at(pivotAt);
+    const adjoining = at(adjoiningAt);
+
+    const references: [Vertex, Vertex][] = [[pivot, adjoining]];
+    for (let w = 0; w < n; w += 1) {
+      if (changing.has(w)) continue;
+      const a = at(w);
+      const b = at(w + 1);
+      if ((a === pivot && b === adjoining) || (a === adjoining && b === pivot)) continue;
+      references.push([a, b]);
+    }
+    for (const reference of references) hinges.push({ pivot, reference, adjoining });
+  }
+  return hinges;
+}
+
+/** The shape's own walls a dragged WALL's ends may come to rest on the line of. */
+export function linesForEdge(vertices: Vertex[], index: number): SnapEdge[] {
+  const n = vertices.length;
+  if (n < 4 || index < 0 || index >= n) return [];
+  const at = (i: number) => vertices[((i % n) + n) % n];
+  const changing = new Set([((index - 1) % n + n) % n, index, (index + 1) % n]);
+
+  const out: SnapEdge[] = [];
+  for (let w = 0; w < n; w += 1) {
+    if (changing.has(w)) continue;
     out.push({ a: at(w), b: at(w + 1), source: "this shape" });
   }
   return out;
@@ -772,11 +890,15 @@ export function snapDraggedEdge(
   project: Project,
   thresholdPx: number = SNAP_PX,
   edgeThresholdPx: number = SNAP_EDGE_PX,
+  assist: Assist = NO_ASSIST,
+  alignThresholdPx: number = ALIGN_PX,
 ): { a: Vertex; b: Vertex; result: SnapResult } {
   let best: { end: Vertex; result: SnapResult; moved: number } | null = null;
 
   for (const end of [a, b]) {
-    const result = snap(end, targets, project, thresholdPx, edgeThresholdPx);
+    const result = snap(
+      end, targets, project, thresholdPx, edgeThresholdPx, assist, alignThresholdPx,
+    );
     if (!result.snapped) continue;
     const from = project(end);
     const to = project(result.vertex);
@@ -790,11 +912,22 @@ export function snapDraggedEdge(
     best.result.vertex[0] - best.end[0],
     best.result.vertex[1] - best.end[1],
   ];
-  return {
+  const moved: { a: Vertex; b: Vertex } = {
     a: [a[0] + delta[0], a[1] + delta[1]],
     b: [b[0] + delta[0], b[1] + delta[1]],
-    result: best.result,
   };
+
+  /*
+   * `snap` checked the end it was given. A wall moves BOTH ends, and a
+   * correction that suits one can fold the other back onto the wall standing
+   * at its pivot. Refusing outright rather than half-applying: a translation
+   * that cannot be made without a spike is not one the user wanted.
+   */
+  if (foldsBack(moved.a, assist.hinges) || foldsBack(moved.b, assist.hinges)) {
+    return { a, b, result: NO_SNAP(a) };
+  }
+
+  return { ...moved, result: best.result };
 }
 
 /**

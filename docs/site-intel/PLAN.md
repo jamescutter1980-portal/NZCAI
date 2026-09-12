@@ -2024,7 +2024,7 @@ squares the hinge, which is the corner the user is not touching.
 
 - **A dragged WALL is not squared.** Translating a wall preserves its own
   bearing but changes its two neighbours', and correcting those would constrain
-  the translation — a different problem, not attempted.
+  the translation — a different problem, not attempted. *(Done in §2t.)*
 - **No parallel alignment.** A wall clicks square to the wall beside it; two
   walls that should be collinear but share no corner are still lined up by eye. *(Done in §2r.)*
 - **Nothing squares a shape after the fact.** There is no "regularise this
@@ -2153,7 +2153,7 @@ first wall:
 - **No collinear alignment.** A wall can be made parallel to a distant one but
   not put on the same line as it — "line up with the building line" is not
   expressible. *(Done in §2s.)*
-- **A dragged WALL is still not aligned**, only a dragged or placed vertex.
+- **A dragged WALL is still not aligned**, only a dragged or placed vertex. *(Done in §2t.)*
 - **Nothing regularises a shape after the fact**; the assists only help while a
   point is moving.
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
@@ -2273,9 +2273,98 @@ the end, so a mid-run death cannot produce a quiet pass.
 - **The reach is one wall-length**, which is a defensible rule rather than a
   measured one. A short wall on a long frontage speaks for less of it than a
   surveyor would.
-- **A dragged WALL is still not aligned**, only a dragged or placed vertex.
+- **A dragged WALL is still not aligned**, only a dragged or placed vertex. *(Done in §2t.)*
 - **Nothing regularises a shape after the fact**; the assists only help while a
   point is moving.
+- **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
+  and nothing is touch-tested.
+
+## 2t. S-01 wall alignment
+
+Named as undone in §2p, §2q, §2r and §2s: the assists helped a vertex being
+dragged or placed, and did nothing for a whole wall being dragged.
+
+### A translated wall's own bearing cannot be corrected
+
+That is what a translation means, and it is the point of the gesture (§2p). So
+"wall alignment" cannot mean aligning the wall being dragged. What a translation
+*does* change is the two walls either side — they stretch and tilt — so those are
+what the assist works on. Each hinges on the vertex beyond the end it touches,
+and can be brought square or parallel to any wall standing still.
+
+**Three** walls change when one is dragged, not two: the wall itself and the one
+at each end. All three are excluded as references and as lines.
+
+### The correction had to be a projection, not an arc
+
+This is the decision the slice turns on, and getting it wrong would have made
+the feature worse than nothing.
+
+`alignPosition` (§2q) keeps the moving point's **distance** from the pivot and
+turns it. That is right for a dragged vertex, where the user chose that wall's
+length and only its bearing is wrong.
+
+Apply the same thing to a dragged wall and it jams. Drag the north wall of a
+rectangle square-on: the north-west corner's distance from the south-west corner
+is exactly what the drag is changing, so preserving it holds that corner where
+it began — and since the move is rigid, the whole wall refuses to budge.
+
+So a second form, `alignProjection`, takes the **shortest route onto the aligned
+line** and keeps nothing. Drag north-and-a-bit-east and it strips the eastward
+part, leaving the northward part untouched: the wall slides square. Which form
+to use is a property of the gesture, so it rides on the `Assist` object as
+`by: "arc" | "projection"` rather than being a parameter the caller might get
+wrong.
+
+### The fold-back guard now runs on both ends
+
+`snap` checks the end it was given. A wall moves both, and a correction that
+suits one can fold the other back onto the wall standing at its pivot. The
+translation is therefore checked at both ends after the fact and **refused
+outright** if either folds — a translation that cannot be made without a spike is
+not one the user asked for.
+
+### One indicator builder
+
+The vertex path and the wall path each turned a `SnapResult` into ring, wall,
+amber and dashed geometry. Two copies of the same mapping, free to disagree about
+what a given result looks like. Now one function, `indicatorFor`, used by both.
+
+### Verified in the browser
+
+The north wall of the published rectangle, grabbed 30 px west of its midpoint,
+with snapping off so nothing but the assist could act:
+
+| drag | corner angles | wall moved | rigid |
+|---|---|---|---|
+| 40 px N + 5 px E, assist **on** | **90.000000° / 90.000000°** | 40 px N, **0 px E** | yes |
+| the same drag, assist **off** | 88.905202° / 91.094798° | 40 px N, 5 px E | yes |
+| 40 px square-on, assist **on** | 90.000000° / 90.000000° | **40 px N**, 0 px E | yes |
+| 40 px N + 20 px E, assist **on** | 85.628776° / 94.371224° | 40 px N, **20 px E** | yes |
+
+Row three is the one that matters most: the full 40 px went through. That is the
+case the arc form would have jammed. Row four is the release — a deliberate
+sideways drag, past the 8 px the assist absorbs, goes through untouched.
+
+The amber indicator rose from a 563 px page baseline to 1,041 px during the
+aligned drag and fell back to 565 px on cancel. Sampling the individual edges
+found the moved-wall stroke (412 px down the right edge), the reference wall
+(106 px along the bottom), and **1 px** down the left — two strokes, as designed,
+not three.
+
+### Not done
+
+- **The reference stroke is hard to see.** For a wall drag the reference is
+  always an edge of the shape being drawn, so the amber competes with the red
+  dashed outline on top of it; it took a loose colour test to find at all. The
+  geometry is right and the stroke is there — it just does not read.
+- **No rotating a wall.** Its bearing is fixed by the gesture; correcting it
+  would need a different control.
+- **Nothing regularises a shape after the fact.** The assists only help while
+  something is moving.
+- **A wall cannot be made collinear as a wall** (§2s), only its ends put on a
+  line — though dragging the wall now does both ends at once, so the terrace
+  case is one gesture where it was two.
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
   and nothing is touch-tested.
 

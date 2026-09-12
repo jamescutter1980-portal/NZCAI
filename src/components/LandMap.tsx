@@ -39,8 +39,10 @@ import {
   ALIGN_PX,
   edgeAt,
   hingesForAppend,
+  hingesForEdge,
   hingesForVertex,
   linesForAppend,
+  linesForEdge,
   linesForVertex,
   insertAfter,
   midpoints,
@@ -54,6 +56,7 @@ import {
   toPolygon,
   vertexAt,
   type Assist,
+  type SnapResult,
   type SnapTargets,
   type Vertex,
 } from "@/lib/site-intel/draw";
@@ -167,6 +170,39 @@ function toGeoJson(rows: Substation[]): GeoJSON.FeatureCollection<GeoJSON.Point>
         geometry: { type: "Point", coordinates: [s.lng as number, s.lat as number] },
         properties: { id: s.id, rag: ragClass(s.generationRag) },
       })),
+  };
+}
+
+/**
+ * What the indicator should draw for a snap result: the blue ring, the blue
+ * wall, the amber pair, the dashed amber extension.
+ *
+ * One function because there are two callers — a vertex being moved and a wall
+ * being moved — and when each built this itself they were free to disagree
+ * about what a given result looks like.
+ */
+function indicatorFor(result: SnapResult): {
+  ring: Vertex | null;
+  wall: [Vertex, Vertex] | null;
+  amber: [Vertex, Vertex][] | null;
+  dashed: [Vertex, Vertex] | null;
+} {
+  /*
+   * The blue ring means "this point is on published data". Neither assist puts
+   * it there, so both get amber and no ring — and in each case an amber stroke
+   * reaches the moved point, so the jump is still explained.
+   */
+  const onData = result.snapped && result.kind !== "align" && result.kind !== "inline";
+  return {
+    ring: onData ? result.vertex : null,
+    wall: result.edge ? [result.edge.a, result.edge.b] : null,
+    amber: result.align
+      ? [result.align.reference, [result.align.pivot, result.vertex]]
+      : result.line
+        ? [[result.line.a, result.line.b]]
+        : null,
+    // From whichever end of the wall the point went past, out to the point.
+    dashed: result.line ? [nearerEnd(result.line, result.vertex), result.vertex] : null,
   };
 }
 
@@ -1398,23 +1434,8 @@ export default function LandMap({
         wantSquare ? assist : { hinges: [], lines: [] },
         ALIGN_PX,
       );
-      /*
-       * The blue ring means "this point is on published data". Neither assist
-       * puts it there, so both get amber and no ring - and in each case one of
-       * the amber strokes reaches the moved vertex, so the jump is explained.
-       */
-      const onData = result.snapped && result.kind !== "align" && result.kind !== "inline";
-      showSnap(
-        onData ? result.vertex : null,
-        result.edge ? [result.edge.a, result.edge.b] : null,
-        result.align
-          ? [result.align.reference, [result.align.pivot, result.vertex]]
-          : result.line
-            ? [[result.line.a, result.line.b]]
-            : null,
-        // From whichever end of the wall the point went past, out to the point.
-        result.line ? [nearerEnd(result.line, result.vertex), result.vertex] : null,
-      );
+      const shown = indicatorFor(result);
+      showSnap(shown.ring, shown.wall, shown.amber, shown.dashed);
       return result.vertex;
     },
     [showSnap],
@@ -1444,19 +1465,35 @@ export default function LandMap({
       // move below is a translation derived from it.
       const b: Vertex = [ring[end][0] + delta[0], ring[end][1] + delta[1]];
 
-      if (snapOn.current) {
+      /*
+       * A translated wall keeps its own bearing - that is the gesture - so the
+       * assist works on the walls either side, which the drag does change. The
+       * hinges use `projection` rather than the vertex form: their length is a
+       * consequence of the drag, not a choice, and keeping it would hold a
+       * rectangle's corner exactly where it started and jam the wall.
+       */
+      const wantAssist = squareOn.current;
+      if (snapOn.current || wantAssist) {
         const project = (v: Vertex) => {
           const p = m.project({ lng: v[0], lat: v[1] });
           return { x: p.x, y: p.y };
         };
         const snapped = snapDraggedEdge(
-          a, b, snapTargets.current, project, SNAP_PX, SNAP_EDGE_PX,
+          a, b,
+          snapOn.current ? snapTargets.current : { vertices: [], edges: [] },
+          project, SNAP_PX, SNAP_EDGE_PX,
+          wantAssist
+            ? {
+                hinges: hingesForEdge(ring, pending.index),
+                lines: [...linesForEdge(ring, pending.index), ...snapTargets.current.edges],
+                by: "projection",
+              }
+            : { hinges: [], lines: [] },
+          ALIGN_PX,
         );
         a = snapped.a;
-        showSnap(
-          snapped.result.snapped ? snapped.result.vertex : null,
-          snapped.result.edge ? [snapped.result.edge.a, snapped.result.edge.b] : null,
-        );
+        const shown = indicatorFor(snapped.result);
+        showSnap(shown.ring, shown.wall, shown.amber, shown.dashed);
       }
 
       // The pointer's reference moves with the wall, so the next frame's delta

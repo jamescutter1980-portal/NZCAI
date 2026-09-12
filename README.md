@@ -625,6 +625,19 @@ measured from. In one frame two aligned walls come out parallel to ~1e-12
 degrees; in two, to ~1e-4 — under a fifth of a millimetre on a 100 m wall, and
 the wrong question besides.
 
+**Dragging a wall is aligned too**, but not the wall itself: a translation
+preserves its bearing, which is the point of the gesture. What changes are the
+two walls either side, so those are what the assist works on — drag a wall of a
+rectangle slightly off square and the sideways part of the drag is taken out,
+leaving it sliding square. Past 8 px of sideways travel it releases, so a
+deliberate skew goes through.
+
+The correction there is a **projection onto the aligned line**, not the arc used
+for a dragged vertex. A vertex keeps its distance from the pivot because you
+chose that wall's length; a wall's neighbours have their length changed *by* the
+drag, and preserving it would hold a rectangle's corner exactly where it started
+and stop the wall moving at all.
+
 Within the amber tier the **nearer correction wins** — square, parallel and in
 line are the same kind of guess, so none outranks another; only the boundary
 with published data is categorical.
