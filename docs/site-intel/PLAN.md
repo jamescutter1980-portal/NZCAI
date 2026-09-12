@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-06.** Updated 12 September 2026.
+Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-06 · S-07.** Updated 12 September 2026.
 
 ---
 
@@ -383,6 +383,127 @@ client is `import type`, which erases; this was the first value import.
 
 **30 further tests**, 145 across the suite.
 
+## 2f. S-07 — natural language site search
+
+S-07 is **out of scope in the brief** (§10 lists it in one line, with no
+specification). It was built on instruction, so the design decisions below are
+mine and need review rather than assumed-correct.
+
+### The architecture is not a choice — §0 rule 2 decides it
+
+> "Deterministic Python for every derived value. The local Ollama model may only
+> write narrative from flags that already exist. **No site or client data goes
+> to DeepSeek or the Anthropic API.**"
+
+That rules out the obvious implementation, in which the question and the
+candidate rows are handed to a model that picks the matches. It does not rule
+out natural-language *input*: the query string is the user's own words, not site
+or client data, and it never leaves the process either way. So:
+
+```
+query string  ->  deterministic parser  ->  structured filter  ->  SQL  ->  rows
+```
+
+No model is involved at any point. `parseQuery` is a pure function with no
+network and no I/O; the whole parser is unit-testable, which is the second
+reason to prefer it — a model-based matcher cannot be tested for the property
+that actually matters here.
+
+### The property that actually matters: what the search did NOT do
+
+A search that silently drops a clause returns **more** rows than the question
+asked for, and every extra row reads as an answer. This is the same failure mode
+as "no constraints found" in S-02, one layer up, and it is handled in the same
+way: never a bare result, always a statement of coverage.
+
+There are two distinct ways a clause can fail to narrow the list, and they are
+reported separately because the fix for each is different:
+
+| channel | layer | meaning | example |
+|---|---|---|---|
+| `unparsed` | parser | the words were not recognised at all | "warehouses **near a motorway**" |
+| `notApplied` | executor | recognised, but cannot be run over a corpus | "**not in a conservation area**" |
+
+`unparsed` is produced by a `Consumed` span tracker: every matcher records the
+character range it claimed, and whatever is left after filler words are removed
+is reported verbatim. The parser cannot quietly ignore a phrase, because
+ignoring it *is* the reporting mechanism — there is no path where a term is
+neither consumed nor listed.
+
+`notApplied` exists because constraints are screened per site against
+planning.data at request time and are not stored for a whole corpus, so a
+conservation-area filter genuinely cannot narrow a list of thousands. Running
+the search without it and saying nothing would imply a filter that never ran.
+Local authority is in the same category: the VOA list carries a district name,
+but it is not reconciled to a planning authority, so filtering on it would be
+unreliable — better to say so than to return a plausible wrong list.
+
+Both are surfaced in three places: the API response fields, the `description`
+string, and the UI, which prints them **above** the results rather than below.
+A reader who has already scanned the list will not go looking for a caveat.
+
+### The `description` string carries both layers
+
+`describeQuery` describes the parse; `describeRun` folds in the execution
+omissions. They are separate functions because they belong to separate layers,
+but the API never emits the first without the second:
+
+> "Searching for: Postcode district DN4; Not in a conservation area; Use:
+> warehouse. These parts were understood but could NOT be applied: Not in
+> conservation area. Results are therefore wider than the question asked."
+
+`describeRun` and the `NotApplied` type live in `search-describe.ts`, a leaf
+module, so that anything needing only to describe a run — the UI, a future
+narrative writer under §0 rule 2 — can import it without pulling the connection
+pool in behind it. Same reason `area-basis.ts` exists (see 2e).
+
+### Corpus choice
+
+The VOA rating list is the corpus, because it is the only loaded dataset that
+gives a universe of buildings with a description, a postcode, a floor area and a
+rateable value together. Everything else joins onto it:
+
+| attribute | source | join precision |
+|---|---|---|
+| floor area, basis | `voa_survey_line` | exact (UARN) |
+| use | `voa_assessment.primary_description` | exact (UARN) |
+| EPC band | `epc_certificate` | **postcode** |
+| overseas ownership | `corporate_title` where `dataset = 'ocod'` | **postcode** |
+| grid headroom | `postcode_centroid` → `substation` | **postcode centroid, 5 km box** |
+
+The last three are postcode-precision, which means "somewhere in this postcode",
+not a fact about the building — exactly the T3 linkage problem recorded in 2d
+and 2e, because it has the same cause: the authoritative identifier is behind a
+paywall. Every affected row carries a caveat saying so. These are leads to
+verify, not findings.
+
+Floor area is summed **per basis** and the largest stated-basis total taken,
+mirroring `headlineArea()` in `voa.ts`. Bases are never added together (see 2e).
+
+### Small guards worth recording
+
+- **Unbounded queries are refused.** A query that parses to no filter at all
+  would return the entire rating list; it returns an error asking for a
+  location, use or size instead.
+- **An empty query is empty, not match-everything.** `parseQuery("   ")` sets
+  `empty`, and nothing runs.
+- **A full postcode is not also counted as a district.** "DN4 8DE" yields one
+  postcode, not a postcode plus the district DN4, which would widen the search.
+- **EPC comparators parse in one regex.** `epc E or worse` originally matched a
+  bare-band branch first and never reached the trailing qualifier, silently
+  filtering to band E alone. Leading and trailing qualifiers are now optional
+  parts of a single pattern.
+
+### What it cannot do, plainly
+
+It searches the **loaded** data, which is two VOA assessments and one EPC
+certificate. A zero result means nothing matched what is loaded; it says so in
+those words rather than "no sites found". It cannot filter on constraints or
+local authority (above), it cannot rank, and it does not resolve a building —
+`/land/search` finds candidates, S-01 profiles one.
+
+**34 parser tests plus 3 for `describeRun`**, 214 across the suite.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -466,18 +587,27 @@ needs its own adapter. Highest-value next piece of S-03.
 
 ## 5. Carried to PRELAUNCH
 
-- **EPC register endpoint migration (Task 0).** EPC open data has moved to
-  `get-energy-performance-data.communities.gov.uk`; the legacy
-  `epc.opendatacommunities.org` API has no published retirement date. Cannot be
-  checked until a register retrieval module exists. S-01 depends on it for UPRN
-  matching.
+See `PRELAUNCH.md` for the full tickets; this is the index.
+
+- **TICKET-01 EPC register endpoint migration** — *mitigated, watch.* The client
+  targets `get-energy-performance-data.communities.gov.uk` by default, the
+  legacy host is reachable via `EPC_API_BASE`, and the host that answered is
+  reported on every lookup. No retirement date is published.
+- **TICKET-02** UPRN provenance · **TICKET-03** attributions unverified ·
+  **TICKET-04** constraint wording unapproved · **TICKET-05** CCOD/OCOD licence
+  unread · **TICKET-06** VOA slugs and column positions unverified ·
+  **TICKET-07** fixture sites not chosen · **TICKET-08** stack decision.
 - NESO "GIS Boundaries for GB DNO Licence Areas" not yet loaded — needed for
   point-in-polygon DNO lookup (brief §5.1).
-- No `sources.yaml` yet; licence and attribution currently live in
-  `registry.ts`. Move to YAML when S-01 and S-02 sources join.
+- NGED publishes via CKAN, not Opendatasoft; no adapter written.
 - No recorded fixtures / contract tests yet (brief §9). Sample rows in
   `fixtures/substations.sample.json` are invented and tagged `fixture:sample`,
-  with a UI banner — they are not recorded API responses.
+  with a UI banner — they are not recorded API responses. Local stub servers
+  (ports 3900 planning.data, 3910 EPC) stand in for blocked egress in
+  development; they are not recordings either.
+- **No live call has been made to any external source.** Outbound HTTPS to every
+  data host is refused by the environment's proxy, so every integration in this
+  repo is verified against fixtures only.
 
 ## 6. Needs sign-off
 
@@ -488,6 +618,14 @@ needs its own adapter. Highest-value next piece of S-03.
   `src/lib/grid.ts`. Confirm it reads correctly.
 - **Fixture sites.** The brief asks for 8 confirmed sites; none chosen yet.
 - Stack and phase order — §3 above. Map library resolved (MapLibre).
+- **S-07 use-keyword mapping.** `search-use.ts` maps words like "warehouse" and
+  "industrial" onto regular expressions over the VOA primary description. That
+  is an interpretation of VOA's vocabulary, not a published mapping, and it
+  decides what a search returns. Needs a read-through.
+- **S-07 postcode-precision joins.** EPC band, overseas ownership and grid
+  headroom are matched by postcode, not to the building. Every row says so and
+  §2f records why, but confirm the wording is strong enough — these are leads,
+  and a reader must not take them as findings about a specific property.
 - **All seven attribution strings in `sources.yaml`** — transcribed from memory,
   none verified against a licence page.
 - **Fixture sites.** The brief asks for 8 confirmed sites (§9). None chosen.

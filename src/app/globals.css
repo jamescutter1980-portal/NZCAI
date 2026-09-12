@@ -530,3 +530,74 @@ body {
 
 .epc-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
 .epc-warn { margin: 0; font-size: 12px; line-height: 1.45; color: var(--warn); }
+
+/* ---- S-07 search ---------------------------------------------------------- */
+
+.search-page {
+  max-width: 780px; margin: 0 auto;
+  padding-inline: clamp(16px, 5vw, 32px); padding-block: clamp(24px, 5vw, 48px);
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+.search-top h1 { font-family: var(--f-display); font-size: 26px; font-weight: 600; margin: 0 0 6px; }
+.search-sub { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); max-width: 60ch; }
+
+.search-form { display: flex; gap: 8px; }
+.search-form input {
+  flex: 1; min-width: 0; font-family: var(--f-body); font-size: 15px; padding: 10px 12px;
+  border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); color: var(--ink);
+}
+.search-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-form button {
+  flex: none; padding: 10px 18px; border: 1px solid var(--accent); border-radius: 3px;
+  background: var(--accent); color: #fff; font-family: var(--f-body); font-size: 14px;
+  font-weight: 500; cursor: pointer;
+}
+.search-form button:disabled { opacity: 0.5; cursor: default; }
+
+.search-examples { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.search-examples button {
+  padding: 5px 10px; border: 1px solid var(--rule); border-radius: 99px;
+  background: var(--surface); color: var(--ink-2);
+  font-family: var(--f-mono); font-size: 11.5px; cursor: pointer;
+}
+.search-examples button:hover { border-color: var(--accent); color: var(--accent); }
+
+.search-error {
+  margin: 0; padding: 10px 12px; border-radius: 3px;
+  background: var(--risk-soft); color: var(--risk); font-size: 13.5px; line-height: 1.5;
+}
+
+.search-understood { padding: 11px 13px; background: var(--surface-2); border-radius: 3px; }
+.search-understood ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.search-understood li {
+  padding: 3px 9px; background: var(--accent-soft); color: var(--accent);
+  border-radius: 99px; font-family: var(--f-mono); font-size: 11.5px;
+}
+
+/* Deliberately prominent: an ignored clause makes the results wider than asked. */
+.search-ignored {
+  padding: 12px 14px; border-radius: 3px;
+  background: var(--warn-soft); color: var(--warn);
+  border-left: 3px solid var(--warn);
+}
+.search-ignored-head {
+  margin: 0 0 6px; font-family: var(--f-mono); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.search-ignored ul { margin: 0 0 7px; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px; }
+.search-ignored li, .search-ignored p { font-size: 13px; line-height: 1.5; margin: 0; }
+
+.search-count { margin: 0; font-family: var(--f-mono); font-size: 12.5px; color: var(--ink-3); }
+
+.search-results { display: flex; flex-direction: column; gap: 8px; }
+.search-result { padding: 11px 13px; border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); }
+.sr-head { margin: 0; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.sr-desc { font-size: 14px; font-weight: 600; }
+.sr-uarn { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.sr-addr { margin: 3px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+.sr-meta { margin: 4px 0 0; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-3); }
+
+.search-caveats { padding-top: 12px; border-top: 1px solid var(--rule); }
+.search-caveats ul { margin: 6px 0 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 5px; }
+.search-caveats li { font-size: 12px; line-height: 1.5; color: var(--ink-3); }

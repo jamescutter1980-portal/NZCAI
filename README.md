@@ -4,8 +4,9 @@ NZC and ESG AI App.
 
 The **Land** module resolves a building from an address (S-01), screens it for
 planning and environmental constraints (S-02), checks nearby DNO grid capacity
-for solar PV (S-03), identifies likely corporate owners (S-04), and pulls floor
-area and use from the VOA rating list (S-06). See
+for solar PV (S-03), identifies likely corporate owners (S-04), pulls floor area
+and use from the VOA rating list (S-06), and finds candidate sites from a
+plain-English question (S-07). See
 [`docs/site-intel/BRIEF.md`](docs/site-intel/BRIEF.md) for the full spec and
 [`docs/site-intel/PLAN.md`](docs/site-intel/PLAN.md) for current status, open
 decisions and what is not yet verified.
@@ -196,6 +197,44 @@ that's the assessor's call.
 Matching is by address, so every result is tier T3. The list carries VOA's UARN,
 not a UPRN; the cross reference is in OS AddressBase Premium, a paid product.
 
+## Site search (S-07)
+
+`/land/search` takes a question in plain words:
+
+```
+warehouses in DN4 over 1000 sqm with epc below C
+offices in DN4 under 500 sqm
+overseas owned industrial in DN4 8DE
+warehouses in DN4 with substation headroom over 5 MVA
+```
+
+**No model is involved.** The query string is parsed by a pure function into a
+structured filter and executed as SQL. Nothing about a site or a client is sent
+anywhere — brief §0 rule 2.
+
+The interesting part is what the search reports it *didn't* do, because a
+dropped clause returns more rows than you asked for and every extra row reads
+like an answer. Two channels, shown above the results, not below:
+
+- **Not understood** — words the parser did not recognise. Ask for "warehouses
+  near a motorway" and you get warehouses, plus `"near motorway"` listed as
+  ignored and a line saying the results are wider than the question asked. The
+  parser tracks which characters each matcher claimed, so a phrase cannot be
+  quietly dropped: leftovers *are* the report.
+- **Understood, but not applied** — clauses that parse and cannot be run over a
+  corpus. "Not in a conservation area" is the clear case: constraints are
+  screened per site against planning.data at request time, not stored for
+  thousands of buildings. Open a site to screen it.
+
+The corpus is the VOA rating list. Use and floor area join on UARN; **EPC band,
+overseas ownership and grid headroom join by postcode**, which means "somewhere
+in this postcode", not a fact about the building. Every affected result says so.
+Treat them as leads to verify — the same T3 linkage limit as S-04 and S-06, for
+the same reason: the authoritative cross-reference is a paid product.
+
+A query with no filter in it is refused rather than returning every building in
+the list, and a zero result says it reflects the loaded data, not the country.
+
 ## Loading real grid data
 
 `npm run db:seed` loads **invented sample rows**, tagged `fixture:sample`, so
@@ -271,12 +310,14 @@ src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      S-02: constraint_rules.yaml, constraints, flood
                      S-04: ownership matching, Companies House
                      S-06: VOA assessments, floor area, use class
+                     S-07: query parser, SQL executor, run description
                      Task 0: EPC register client and cache
 PRELAUNCH.md         tickets that block a client release
 tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
-src/app/api/         /api/substations (bbox + filters), /api/health
-src/components/      LandMap
+src/app/api/         /api/substations (bbox + filters), /api/health,
+                     /api/site-intel/* including /search
+src/components/      LandMap, SiteSearch
 fixtures/            sample substations — invented, not DNO data
 docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 ```
