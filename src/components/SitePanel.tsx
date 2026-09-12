@@ -53,9 +53,9 @@ export interface SiteMapApi {
   /** Snap new and dragged vertices to nearby corners and walls. */
   setSnap(on: boolean): void;
   /**
-   * Pull walls square or parallel to the shape's other walls. SEPARATE from
-   * snapping: that aligns the shape to published data, this to an assumption
-   * about buildings.
+   * Pull walls square or parallel to the shape's other walls, and corners onto
+   * the line a wall establishes past its end. SEPARATE from snapping: that
+   * aligns the shape to published data, this to an assumption about buildings.
    */
   setSquare(on: boolean): void;
   /** Neighbouring polygons: context to draw against, and snap targets. */
@@ -1244,7 +1244,7 @@ export default function SitePanel({ mapApi }: Props) {
                   checked={squareOn}
                   onChange={(e) => { setSquareOn(e.target.checked); mapApi.setSquare(e.target.checked); }}
                 />
-                Keep walls square and parallel
+                Keep walls square, parallel and in line
               </label>
               <p className="site-snap-note">
                 A snapped corner takes the neighbour&rsquo;s exact coordinate, and a
@@ -1254,10 +1254,13 @@ export default function SitePanel({ mapApi }: Props) {
               </p>
               <p className="site-snap-note">
                 An aligned wall is different again: nothing published says it is square
-                to the wall beside it or parallel to the one opposite, only that
+                to the wall beside it, parallel to the one opposite, or on the line a
+                neighbour&rsquo;s frontage would take if it carried on — only that
                 buildings usually are. Amber marks it for that reason — blue is data,
-                amber is our assumption — and the wall it was lined up with is lit
-                too, so you can see what to.
+                amber is our assumption — and the wall it was lined up with is lit too,
+                so you can see what to. Where a wall&rsquo;s line has been carried past
+                its end, that part is dashed: the solid half is published, the dashed
+                half is ours.
                 {drawPoints === 3 &&
                   " At three points a corner cannot be removed: it would leave no area."}
               </p>

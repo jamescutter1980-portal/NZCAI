@@ -13,6 +13,8 @@ import {
   edgesFrom,
   hingesForAppend,
   hingesForVertex,
+  linesForAppend,
+  linesForVertex,
   insertAfter,
   midpoints,
   moveEdge,
@@ -52,6 +54,10 @@ const close = (got: Vertex, want: Vertex, why = "") => {
 const corners = (...vertices: SnapCandidate[]): SnapTargets => ({ vertices, edges: [] });
 /** Walls only, for the cases that are not about corners. */
 const walls = (...edges: SnapEdge[]): SnapTargets => ({ vertices: [], edges });
+/** Bearings to align to, with no lines offered. */
+const bearings = (...hinges: AlignHinge[]) => ({ hinges, lines: [] });
+/** Lines to sit on, with no bearings offered. */
+const onLines = (...lines: SnapEdge[]) => ({ hinges: [], lines });
 
 /* -------------------------------------------------------------- rings --- */
 
@@ -204,6 +210,7 @@ describe("snapping", () => {
       target: null,
       edge: null,
       align: null,
+      line: null,
       source: null,
     });
   });
@@ -566,7 +573,7 @@ describe("squaring a corner", () => {
   const pivot: Vertex = [0.001, 0];
   const origin: Vertex = [0, 0];
   const hinge: AlignHinge = { pivot, reference: [pivot, origin], adjoining: origin };
-  const square = (v: Vertex) => snap(v, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+  const square = (v: Vertex) => snap(v, corners(), project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge));
 
   test("a corner a little off square is pulled square", () => {
     // Almost due north of the pivot, leaning 4 px east.
@@ -641,7 +648,7 @@ describe("squaring a corner", () => {
     const degenerate: AlignHinge = { pivot, reference: [pivot, pivot], adjoining: origin };
     const raw: Vertex = [0.001004, 0.0001];
     assert.equal(
-      snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [degenerate]).snapped,
+      snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, bearings(degenerate)).snapped,
       false,
     );
   });
@@ -656,7 +663,7 @@ describe("squaring a corner", () => {
     const west: Vertex = [0, 53.5];
     const result = snap(
       [0.001004, 53.50006], corners(), project, SNAP_PX, SNAP_EDGE_PX,
-      [{ pivot: north, reference: [north, west], adjoining: west }],
+      bearings({ pivot: north, reference: [north, west], adjoining: west }),
     );
     assert.equal(result.kind, "align");
     assert.ok(
@@ -678,7 +685,7 @@ describe("alignment never outranks published data", () => {
     const result = snap(
       raw,
       corners({ vertex: [0.001013, 0.0001], source: "neighbour" }),
-      project, SNAP_PX, SNAP_EDGE_PX, [hinge],
+      project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge),
     );
     assert.equal(result.kind, "vertex");
     assert.equal(result.source, "neighbour");
@@ -688,7 +695,7 @@ describe("alignment never outranks published data", () => {
     const result = snap(
       raw,
       walls({ a: [0.00102, -0.001] as Vertex, b: [0.00102, 0.001] as Vertex, source: "terrace" }),
-      project, SNAP_PX, SNAP_EDGE_PX, [hinge],
+      project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge),
     );
     assert.equal(result.kind, "edge");
   });
@@ -815,7 +822,7 @@ describe("aligning a wall parallel to a distant one", () => {
   test("the moved wall comes out exactly parallel to the reference", () => {
     // Aimed roughly along the far wall's bearing, a few pixels off.
     const raw: Vertex = [0.00011, 0.001];
-    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge));
 
     assert.equal(result.snapped, true);
     assert.equal(result.kind, "align");
@@ -826,17 +833,17 @@ describe("aligning a wall parallel to a distant one", () => {
   });
 
   test("the reference wall comes back, so the indicator can show what to", () => {
-    const result = snap([0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    const result = snap([0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge));
     assert.deepEqual(result.align?.reference, far);
   });
 
   test("the reference's position is irrelevant, only its bearing", () => {
     // The same wall translated far away gives the same answer.
     const moved: [Vertex, Vertex] = [[9, 9], [9.0001, 9.001]];
-    const a = snap([0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    const a = snap([0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge));
     const b = snap(
       [0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX,
-      [{ pivot, reference: moved, adjoining }],
+      bearings({ pivot, reference: moved, adjoining }),
     );
     close(a.vertex, b.vertex);
   });
@@ -844,7 +851,7 @@ describe("aligning a wall parallel to a distant one", () => {
   test("perpendicular to a distant wall works the same way", () => {
     // A quarter turn from the far wall rather than none.
     const raw: Vertex = [0.001, -0.00009];
-    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge));
     assert.equal(result.kind, "align");
     const between = Math.abs(bearing(pivot, result.vertex) - bearing(far[0], far[1]));
     assert.ok(
@@ -856,7 +863,7 @@ describe("aligning a wall parallel to a distant one", () => {
   test("the wall keeps its length here too", () => {
     const raw: Vertex = [0.00011, 0.001];
     const before = Math.hypot(raw[0] - pivot[0], raw[1] - pivot[1]);
-    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, bearings(hinge));
     const after = Math.hypot(result.vertex[0] - pivot[0], result.vertex[1] - pivot[1]);
     assert.ok(Math.abs(after - before) < 1e-15);
   });
@@ -874,7 +881,7 @@ describe("aligning a wall parallel to a distant one", () => {
     const foldedBack: Vertex = [0.0005, 0.000002];   // straight along pivot -> adjoining
     const result = snap(
       foldedBack, corners(), project, SNAP_PX, SNAP_EDGE_PX,
-      [{ pivot, reference: opposite, adjoining }],
+      bearings({ pivot, reference: opposite, adjoining }),
     );
     assert.equal(result.snapped, false, "refused, whichever wall offered the bearing");
   });
@@ -895,7 +902,7 @@ describe("aligning a wall parallel to a distant one", () => {
     const ref: [Vertex, Vertex] = [[0.005, atLat + 0.002], [0.0051, atLat + 0.003]];
     const result = snap(
       [0.00011, atLat + 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX,
-      [{ pivot: pv, reference: ref, adjoining: adj }],
+      bearings({ pivot: pv, reference: ref, adjoining: adj }),
     );
     assert.equal(result.kind, "align");
 
@@ -913,8 +920,164 @@ describe("aligning a wall parallel to a distant one", () => {
     const ring: Vertex[] = [[0, 0], [0.001, 0], [0.0011, 0.001], [0.0001, 0.001]];
     const hinges = hingesForVertex(ring, 0);
     const raw: Vertex = [0.00006, -0.0004];
-    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, hinges);
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, { hinges, lines: [] });
     assert.equal(result.snapped, true);
     assert.equal(result.kind, "align");
+  });
+});
+
+/* ---------------------------------------------------- in line with a wall --- */
+
+describe("sitting on a wall's line past its end", () => {
+  /*
+   * The building line: a frontage that carries on past the wall establishing
+   * it. Parallel gets the bearing right and leaves the position to the user;
+   * this puts the point on the line itself.
+   */
+  const wall: SnapEdge = { a: [0, 0], b: [0.001, 0], source: "terrace" };
+
+  test("a point past the end lands exactly on the line", () => {
+    // 50 px beyond the east end, 4 px north of the line.
+    const raw: Vertex = [0.0015, 0.00004];
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(wall));
+
+    assert.equal(result.snapped, true);
+    assert.equal(result.kind, "inline");
+    assert.equal(result.source, "terrace");
+    assert.equal(result.vertex[1], 0, "on the line");
+    assert.equal(result.vertex[0], 0.0015, "and straight onto it, not along it");
+  });
+
+  test("it works off the other end too", () => {
+    const result = snap([-0.0005, 0.00004], corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(wall));
+    assert.equal(result.kind, "inline");
+    assert.equal(result.vertex[1], 0);
+  });
+
+  test("the wall that was extended comes back, for the indicator", () => {
+    const result = snap([0.0015, 0.00004], corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(wall));
+    assert.deepEqual(result.line, wall);
+  });
+
+  test("BETWEEN the ends is snapping's job, not the assist's", () => {
+    /*
+     * There the point would be on the wall itself, which is published data and
+     * belongs to the blue tier. Offering it here would put a blue claim behind
+     * an amber indicator.
+     */
+    const middle: Vertex = [0.0005, 0.00004];
+    assert.equal(snap(middle, corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(wall)).snapped, false);
+    // The same point, with the wall offered as published data: taken, in blue.
+    assert.equal(snap(middle, walls(wall), project).kind, "edge");
+  });
+
+  test("a wall only vouches for its line about as far as it is long", () => {
+    // The wall is 100 px. Just inside one length past the end: taken.
+    assert.equal(
+      snap([0.00199, 0.00002], corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(wall)).kind,
+      "inline",
+    );
+    // Beyond that it is a line across the map and means nothing.
+    assert.equal(
+      snap([0.00201, 0.00002], corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(wall)).snapped,
+      false,
+    );
+  });
+
+  test("too far off the line is left alone", () => {
+    const raw: Vertex = [0.0015, 0.0002];
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(wall));
+    assert.equal(result.snapped, false);
+    assert.deepEqual(result.vertex, raw);
+  });
+
+  test("a wall of no length has no line", () => {
+    const dot: SnapEdge = { a: [0, 0], b: [0, 0], source: "dup" };
+    assert.equal(snap([0.00001, 0], corners(), project, SNAP_PX, SNAP_EDGE_PX, onLines(dot)).snapped, false);
+  });
+
+  test("published data still outranks it", () => {
+    // A corner 9 px away beats a line 4 px away, because the corner is real.
+    const raw: Vertex = [0.0015, 0.00004];
+    const result = snap(
+      raw,
+      corners({ vertex: [0.001509, 0.00004], source: "neighbour" }),
+      project, SNAP_PX, SNAP_EDGE_PX, onLines(wall),
+    );
+    assert.equal(result.kind, "vertex");
+  });
+
+  test("nearest wins between the two assists, whichever that is", () => {
+    /*
+     * Both are guesses of the same kind, unlike the boundary with real data,
+     * so neither outranks the other — the nearer correction is taken.
+     *
+     * The raw point sits 4 px off the wall's line. The pivot is 100 px due
+     * west of it, so the bearing correction is whatever the reference wall's
+     * tilt asks for at that radius: about 7 px at 4°, about 2 px at 1.15°.
+     */
+    const raw: Vertex = [0.0015, 0.00004];
+    const pivot: Vertex = [0.0005, 0.00004];
+    const tilted = (deg: number): AlignHinge => ({
+      pivot,
+      reference: [[0, 0], [0.001, 0.001 * Math.tan((deg * Math.PI) / 180)]],
+      adjoining: [0.0005, 0.001],           // due north, so nothing folds back
+    });
+    const pick = (deg: number) =>
+      snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX,
+        { hinges: [tilted(deg)], lines: [wall] }).kind;
+
+    assert.equal(pick(4), "inline", "bearing ~7 px out, line 4 px: the line");
+    assert.equal(pick(1.15), "align", "bearing ~2 px out, line 4 px: the bearing");
+  });
+
+  test("a line that would fold a wall back on itself is refused", () => {
+    /*
+     * The line runs straight out of the pivot along the wall already standing
+     * there, so sitting on it would lay one wall on the other. The bearing
+     * assist refuses that; so must this one, or the same spike arrives by a
+     * different route.
+     */
+    const pivot: Vertex = [0, 0];
+    const adjoining: Vertex = [0.001, 0];
+    const hinge: AlignHinge = { pivot, reference: [pivot, adjoining], adjoining };
+    const result = snap(
+      [0.0015, 0.00004], corners(), project, SNAP_PX, SNAP_EDGE_PX,
+      { hinges: [hinge], lines: [wall] },
+    );
+    assert.equal(result.snapped, false, "the line lies along the wall already there");
+  });
+});
+
+describe("which lines a moving vertex can sit on", () => {
+  const ring: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+
+  test("every wall of the shape that is standing still", () => {
+    const lines = linesForVertex(ring, 0);
+    assert.equal(lines.length, 2, "four walls, less the two the vertex moves");
+    assert.deepEqual(lines[0], { a: ring[1], b: ring[2], source: "this shape" });
+    assert.deepEqual(lines[1], { a: ring[2], b: ring[3], source: "this shape" });
+  });
+
+  test("the two walls the vertex moves are never offered", () => {
+    for (const index of [0, 1, 2, 3]) {
+      for (const line of linesForVertex(ring, index)) {
+        assert.ok(![line.a, line.b].includes(ring[index]), `wall touches the dragged vertex`);
+      }
+    }
+  });
+
+  test("below three vertices there is no line", () => {
+    assert.deepEqual(linesForVertex([[0, 0], [1, 1]], 0), []);
+    assert.deepEqual(linesForVertex(ring, 9), []);
+  });
+
+  test("placing a corner can sit on any wall already drawn", () => {
+    const placed: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001]];
+    assert.deepEqual(linesForAppend(placed), [
+      { a: placed[0], b: placed[1], source: "this shape" },
+      { a: placed[1], b: placed[2], source: "this shape" },
+    ]);
+    assert.deepEqual(linesForAppend([[0, 0]]), []);
   });
 });

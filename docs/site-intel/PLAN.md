@@ -2152,7 +2152,127 @@ first wall:
   alone, and that case is still eye-work.
 - **No collinear alignment.** A wall can be made parallel to a distant one but
   not put on the same line as it — "line up with the building line" is not
-  expressible.
+  expressible. *(Done in §2s.)*
+- **A dragged WALL is still not aligned**, only a dragged or placed vertex.
+- **Nothing regularises a shape after the fact**; the assists only help while a
+  point is moving.
+- **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
+  and nothing is touch-tested.
+
+## 2s. S-01 collinear alignment
+
+§2r made a wall parallel to a distant one. Parallel gets the bearing right and
+leaves the position to the user, so "line up with the building line" — my
+frontage on the same line as the terrace's, even where the two do not touch —
+was still eye-work.
+
+### A different mechanism, and a different claim
+
+Square and parallel fix a **bearing**. In-line fixes a **position**: the vertex
+sits on the line a wall establishes. So this is not another reference direction;
+it is a constraint of its own, and it is implemented as one.
+
+### The boundary with snapping is exactly where the wall stops
+
+This is the decision the whole slice turns on. §2o already snaps a vertex onto a
+neighbour's wall, clamped to the segment, and draws it blue — the point is on
+something a source published. Past the end of the wall, the same line is no
+longer published: it is our extrapolation that the frontage carries on.
+
+So **in-line offers only the extension**. Between the wall's own ends it
+declines, because that is the snap tier's territory and offering it here would
+put a blue claim behind an amber indicator. The tiers meet exactly at the ends
+of the wall, which is also exactly where the evidence stops.
+
+The indicator says the same thing in one picture: the wall is drawn **solid**
+and the part we carried on **dashed**.
+
+### How far a line reaches
+
+A line extended without limit would tile the map — with a street's worth of
+neighbours, every drag would click to some distant wall's continuation. The
+reach is **one wall-length past each end**, so it scales with the thing making
+the claim: a 10 m wall speaks for the next 10 m either side, a 60 m one for 60.
+No fixed constant to defend.
+
+Note that a line is a far less sticky target than a bearing, which is why
+neighbours' walls ARE offered here when §2r deliberately refused their bearings:
+a bearing matches anywhere in the plane, a line only along a one-dimensional
+locus. The terrace case §2r left open is answered here.
+
+### The fold-back check had to become global
+
+§2r made it geometric. It now also has to run over **every** hinge rather than
+the one that produced the candidate, because a vertex has two moving walls and a
+correction computed for one can perfectly well fold the other. In-line needs the
+same guard for a new reason: a wall's line extended backwards passes straight
+through the pivot and out along the wall already standing there, so sitting on
+it would lay one wall on the other.
+
+One function, `foldsBack`, now guards both assists.
+
+### Nearest wins between the two assists
+
+Square, parallel and in-line are one tier and one toggle: they are the same kind
+of guess, unlike the boundary with published data, which is categorical. Within
+the tier the **nearer correction is taken**, with in-line gathered first so it
+holds a tie.
+
+### The indicator was missing from draw mode entirely
+
+Verifying this found a gap that had been there since §2n. `showSnap` was only
+ever called from `withSnap`, which ran on a **click** when placing corners and
+on **mousemove** only during a drag. So while drawing, the indicator appeared
+for the instant of the click and was cleared on the next line — in practice,
+never.
+
+Which means a click that placed a corner somewhere other than where the user
+clicked went **unexplained**, which is the exact thing the indicator exists to
+prevent. It now previews on hover while placing corners: the returned vertex is
+discarded, only the drawing is kept.
+
+That is also why the first browser run reported **0 px of amber** while the
+geometry was already correct. The number was right and the feature was invisible.
+
+### Verified in the browser
+
+`SAMPLE-BLD-0002`'s west wall runs along lng `-1.12045` from lat 53.50745 to
+53.50815. A corner was placed **67 px past its north end**, 4 px east of the
+line — out of reach of edge snapping, which clamps to the segment:
+
+- **with the assist on**, the saved corner came back at lng **exactly
+  -1.12045**, at lat 53.5083 — past the wall, on its line;
+- **with the assist off**, the identical click gave `-1.124348…`, **4 px off**;
+- the indicator drew **238 px of solid amber along the wall and 48 px of dashed
+  amber past its end** (48 of 67 px, which is a 2-2 dash);
+- snapping was off throughout, so nothing but the line assist could have done it.
+
+The sample database was killed twice during this slice — not shut down, killed,
+with no clean-shutdown record and `dmesg` unavailable, so the cause is
+unconfirmed; memory pressure with Chromium, `next dev` and Postgres together is
+the likely one. The verification script now checks the database is still up at
+the end, so a mid-run death cannot produce a quiet pass.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `Assist`, `footOnLine`, `LINE_REACH`, `linesForVertex`, `linesForAppend`, the `"inline"` result kind, `foldsBack` extracted and made global |
+| `LandMap.tsx` | the dashed-extension layer, lines supplied at both call sites, the hover preview while placing corners |
+| `SitePanel.tsx` | "Keep walls square, parallel and in line", and the note on what dashed means |
+
+**14 more tests**, 493 across the suite.
+
+### Not done
+
+- **A wall cannot be made collinear as a wall**, only a vertex put on a line.
+  Getting a whole wall onto a neighbour's line still means placing both its ends
+  there.
+- **No snapping to the line of a wall of a building that is not loaded.** This
+  rides on the same `os_building` coverage as everything else (TICKET-15).
+- **The reach is one wall-length**, which is a defensible rule rather than a
+  measured one. A short wall on a long frontage speaks for less of it than a
+  surveyor would.
 - **A dragged WALL is still not aligned**, only a dragged or placed vertex.
 - **Nothing regularises a shape after the fact**; the assists only help while a
   point is moving.

@@ -31,6 +31,13 @@
  * is which wall the reference is. Square-to-the-wall-beside-it is the case
  * where the reference happens to adjoin the pivot.
  *
+ * IN LINE is a different mechanism and a different claim. It fixes the vertex's
+ * POSITION onto a wall's line rather than its bearing — the building line
+ * continuing past the end of the wall that establishes it. The boundary with
+ * snapping is exactly where the wall stops: a point ON the wall is published
+ * data and belongs to the blue tier, so alignment offers only the EXTENSION,
+ * and draws it dashed to say which half is which.
+ *
  * CORNERS AND WALLS ARE DIFFERENT TARGETS. A corner is a point you aim at; a
  * wall is a line you cross. Walls are continuous and cover far more of the map
  * than corners do, so a vertex dragged across a street would stick to every
@@ -201,17 +208,36 @@ export interface AlignHinge {
   adjoining: Vertex;
 }
 
+/**
+ * Everything the alignment assist may use. Kept apart from `SnapTargets`
+ * because that is the published tier and this is the inferred one.
+ */
+export interface Assist {
+  /** Walls whose BEARING a moving wall may be brought to a quarter turn of. */
+  hinges: AlignHinge[];
+  /** Walls whose LINE, extended past its ends, a moving vertex may sit on. */
+  lines: SnapEdge[];
+}
+
+export const NO_ASSIST: Assist = { hinges: [], lines: [] };
+
 export interface SnapResult {
   vertex: Vertex;
   snapped: boolean;
   /** What was taken. The indicator draws each of these differently. */
-  kind: "none" | "vertex" | "edge" | "align";
+  kind: "none" | "vertex" | "edge" | "align" | "inline";
   /** The corner taken, when `kind` is "vertex". */
   target: SnapCandidate | null;
   /** The wall taken, when `kind` is "edge". Drawn, so the jump is explained. */
   edge: SnapEdge | null;
-  /** The alignment taken, when `kind` is "align". Drawn, in its own colour. */
+  /** The bearing taken, when `kind` is "align". Drawn, in its own colour. */
   align: AlignHinge | null;
+  /**
+   * The wall whose line was taken, when `kind` is "inline". Drawn solid as far
+   * as the wall goes and dashed beyond it, because only the solid part is
+   * something a source published.
+   */
+  line: SnapEdge | null;
   /** Whatever was taken belongs to this, for a label. */
   source: string | null;
 }
@@ -223,6 +249,7 @@ const NO_SNAP = (vertex: Vertex): SnapResult => ({
   target: null,
   edge: null,
   align: null,
+  line: null,
   source: null,
 });
 
@@ -285,17 +312,73 @@ function alignPosition(moving: Vertex, hinge: AlignHinge): Vertex | null {
   const turns = Math.round((Math.atan2(m.y, m.x) - referenceAngle) / QUARTER);
   const angle = referenceAngle + turns * QUARTER;
 
-  const back = flat(adjoining);
-  if (Math.hypot(back.x, back.y) > 0) {
-    const backAngle = Math.atan2(back.y, back.x);
-    // Within a thousandth of a radian of the wall already there: the two would
-    // be one line, and the shape would gain a spike of no area.
-    const apart = Math.abs(Math.atan2(Math.sin(angle - backAngle), Math.cos(angle - backAngle)));
-    if (apart < 1e-3) return null;
-  }
-
+  void adjoining;   // the fold-back check is global; see `foldsBack`
   return [pivot[0] + (radius * Math.cos(angle)) / k, pivot[1] + radius * Math.sin(angle)];
 }
+
+/**
+ * Would putting the vertex here lay a moving wall back along the wall already
+ * standing at its pivot, giving the shape a spike of no area?
+ *
+ * CHECKED AGAINST EVERY HINGE, not just the one that produced the candidate.
+ * A vertex has two moving walls, and a correction computed for one of them can
+ * perfectly well fold the other. It is also why the check asks where the point
+ * ENDED UP rather than which reference produced it: in a rectilinear building
+ * the wall opposite is parallel to the wall beside, so it offers the very same
+ * bearings — the folded-back one included — and a rule about references would
+ * let a different one quietly re-admit the spike.
+ */
+function foldsBack(vertex: Vertex, hinges: AlignHinge[]): boolean {
+  for (const { pivot, adjoining } of hinges) {
+    const k = Math.cos((pivot[1] * Math.PI) / 180);
+    if (k === 0) continue;
+
+    const vx = (vertex[0] - pivot[0]) * k;
+    const vy = vertex[1] - pivot[1];
+    const bx = (adjoining[0] - pivot[0]) * k;
+    const by = adjoining[1] - pivot[1];
+    if (Math.hypot(vx, vy) === 0 || Math.hypot(bx, by) === 0) continue;
+
+    const apart = Math.atan2(vy, vx) - Math.atan2(by, bx);
+    // Within a thousandth of a radian: the two walls would be one line.
+    if (Math.abs(Math.atan2(Math.sin(apart), Math.cos(apart))) < 1e-3) return true;
+  }
+  return false;
+}
+
+/**
+ * How far along the infinite line through a-b the closest point to `point`
+ * lies, and how far off that line the point is. Measured in SCREEN space, for
+ * the reasons in `footOnSegment` below; `t` is NOT clamped, so 0 and 1 are the
+ * segment's own ends and anything outside is its extension.
+ */
+function footOnLine(
+  point: ScreenPoint,
+  a: ScreenPoint,
+  b: ScreenPoint,
+): { t: number; distance: number } | null {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq === 0) return null;   // a point has no line
+
+  const t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq;
+  return {
+    t,
+    distance: Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy)),
+  };
+}
+
+/**
+ * How far past its own ends a wall vouches for its line.
+ *
+ * Expressed as a multiple of the wall's own length, so it scales with the
+ * thing making the claim: a 10 m wall speaks for the next 10 m either side, a
+ * 60 m one for 60. A line extended without limit would tile the map — with a
+ * street's worth of neighbours every drag would click to some distant wall's
+ * continuation, which is meaningless and unusable.
+ */
+const LINE_REACH = 1;
 
 /**
  * The closest point on segment a-b to `point`, measured in SCREEN space.
@@ -363,7 +446,7 @@ export function snap(
   project: Project,
   thresholdPx: number = SNAP_PX,
   edgeThresholdPx: number = SNAP_EDGE_PX,
-  hinges: AlignHinge[] = [],
+  assist: Assist = NO_ASSIST,
   alignThresholdPx: number = ALIGN_PX,
 ): SnapResult {
   const at = project(vertex);
@@ -387,6 +470,7 @@ export function snap(
       target: bestCorner,
       edge: null,
       align: null,
+      line: null,
       source: bestCorner.source,
     };
   }
@@ -417,6 +501,7 @@ export function snap(
       target: null,
       edge: bestEdge,
       align: null,
+      line: null,
       source: bestEdge.source,
     };
   }
@@ -428,28 +513,61 @@ export function snap(
    * builders below put the wall adjoining the pivot first for that reason: it
    * is the one the user can see the relationship to.
    */
-  let bestAlign: { vertex: Vertex; hinge: AlignHinge } | null = null;
-  let bestAlignDist = Infinity;
-  for (const hinge of hinges) {
+  /*
+   * The two assists are one tier and NEAREST WINS between them. They are the
+   * same kind of guess, unlike the boundary with published data above, which
+   * is categorical. In-line is gathered first so that it takes a tie: it puts
+   * the point on a real wall's line, where a bearing takes only a direction
+   * and leaves the position to the user.
+   */
+  let best: { vertex: Vertex; hinge?: AlignHinge; line?: SnapEdge } | null = null;
+  let bestDist = Infinity;
+
+  for (const edge of assist.lines) {
+    const foot = footOnLine(at, project(edge.a), project(edge.b));
+    if (!foot) continue;
+    /*
+     * Only the EXTENSION. Between the wall's own ends the point would be on
+     * the wall itself, which is published data and belongs to the edge-snap
+     * tier above - offering it here would put a blue claim behind an amber
+     * indicator. Past LINE_REACH the wall no longer vouches for its line.
+     */
+    if (foot.t >= 0 && foot.t <= 1) continue;
+    if (foot.t < -LINE_REACH || foot.t > 1 + LINE_REACH) continue;
+    if (foot.distance >= bestDist) continue;
+
+    // The fraction is taken on screen; the point is placed on the wall's own
+    // coordinates, so it lands exactly on the line the wall establishes.
+    const onLine: Vertex = [
+      edge.a[0] + foot.t * (edge.b[0] - edge.a[0]),
+      edge.a[1] + foot.t * (edge.b[1] - edge.a[1]),
+    ];
+    if (foldsBack(onLine, assist.hinges)) continue;
+    bestDist = foot.distance;
+    best = { vertex: onLine, line: edge };
+  }
+
+  for (const hinge of assist.hinges) {
     const aligned = alignPosition(vertex, hinge);
-    if (!aligned) continue;
+    if (!aligned || foldsBack(aligned, assist.hinges)) continue;
     const p = project(aligned);
     const d = Math.hypot(p.x - at.x, p.y - at.y);
-    if (d < bestAlignDist) {
-      bestAlignDist = d;
-      bestAlign = { vertex: aligned, hinge };
+    if (d < bestDist) {
+      bestDist = d;
+      best = { vertex: aligned, hinge };
     }
   }
 
-  if (bestAlign && bestAlignDist <= alignThresholdPx) {
+  if (best && bestDist <= alignThresholdPx) {
     return {
-      vertex: bestAlign.vertex,
+      vertex: best.vertex,
       snapped: true,
-      kind: "align",
+      kind: best.line ? "inline" : "align",
       target: null,
       edge: null,
-      align: bestAlign.hinge,
-      source: null,
+      align: best.hinge ?? null,
+      line: best.line ?? null,
+      source: best.line?.source ?? null,
     };
   }
 
@@ -505,6 +623,37 @@ export function hingesForVertex(vertices: Vertex[], index: number): AlignHinge[]
     for (const reference of references) hinges.push({ pivot, reference, adjoining });
   }
   return hinges;
+}
+
+/**
+ * The shape's own walls whose LINE a dragged vertex may sit on: every wall
+ * standing still, which is every wall but the two the vertex is moving.
+ *
+ * Used for a building with a step in it — a recessed entrance, an L with a
+ * notch — where two faces should read as one line even though a jog separates
+ * them. The two moving walls are excluded for the same reason as in the
+ * bearing case: their position is the answer, not the question.
+ */
+export function linesForVertex(vertices: Vertex[], index: number): SnapEdge[] {
+  const n = vertices.length;
+  if (n < 3 || index < 0 || index >= n) return [];
+  const at = (i: number) => vertices[((i % n) + n) % n];
+
+  const out: SnapEdge[] = [];
+  for (let w = 0; w < n; w += 1) {
+    if (w === index || w === ((index - 1) % n + n) % n) continue;
+    out.push({ a: at(w), b: at(w + 1), source: "this shape" });
+  }
+  return out;
+}
+
+/** The same for a vertex being placed: every wall already drawn. */
+export function linesForAppend(vertices: Vertex[]): SnapEdge[] {
+  const out: SnapEdge[] = [];
+  for (let w = 0; w < vertices.length - 1; w += 1) {
+    out.push({ a: vertices[w], b: vertices[w + 1], source: "this shape" });
+  }
+  return out;
 }
 
 /**

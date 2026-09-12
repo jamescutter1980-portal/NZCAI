@@ -541,7 +541,7 @@ Snapping does **not** change provenance. A shape built entirely from OS
 vertices and walls is still a user drawing at T4, because you chose which ones
 and in what order. The panel says so under the checkbox.
 
-### Keeping walls square and parallel
+### Keeping walls square, parallel and in line
 
 A separate toggle, because it aligns the shape to a different thing. Snapping
 puts a point on something a source published; **alignment puts it where no
@@ -553,6 +553,11 @@ the wall being moved to a quarter turn from some reference wall; all that
 differs is which wall the reference is. Square-to-the-wall-beside-it is the case
 where the reference happens to adjoin the pivot; parallel-to-the-wall-opposite
 is the case where it does not.
+
+**In line** is a third thing, and a different claim: it fixes the vertex's
+*position* onto the line a wall establishes, carried on past the end of that
+wall — the building line. All three share one toggle, because all three are the
+same kind of guess.
 
 Square can only mean square **to the wall beside it**. Constraining to
 horizontal and vertical would help with nothing: a building sits at whatever
@@ -568,12 +573,27 @@ east one, which no angle between *adjoining* walls can express. The walls
 touching the vertex you are dragging are excluded, because they are the ones
 moving: their bearing is the answer, not the question.
 
-Neighbours' bearings are deliberately **not** offered. The terrace case — my
-wall parallel to theirs — is already reachable by a better route: snap a vertex
-onto their wall, and putting both ends of a wall there makes the two collinear
-from published data rather than from a guess. Offering every bearing in a mixed
-street would also make the tool sticky for nothing. As built, the assist can
-only ever align the shape to **its own grain**.
+Neighbours' **bearings** are deliberately not offered: in a mixed street that
+would make the tool sticky for nothing, clicking to bearings that mean nothing
+to this building. For bearings the assist can only ever align the shape to *its
+own grain*.
+
+Neighbours' **lines** are offered, and the asymmetry is the point: a bearing
+matches anywhere in the plane, a line only along a one-dimensional locus, so it
+is a far less sticky target. That is what makes "line up with the terrace's
+frontage" workable.
+
+**The boundary with snapping is exactly where the wall stops.** A point *on* a
+neighbour's wall is snapping's job and is drawn blue — it is on something a
+source published. Past the end, the same line is our extrapolation that the
+frontage carries on, so in-line offers **only the extension** and the indicator
+draws the wall **solid** and the part we carried on **dashed**. Offering the
+middle here would put a blue claim behind an amber indicator.
+
+A line reaches **one wall-length past each end**, so it scales with the thing
+making the claim: a 10 m wall speaks for the next 10 m either side, a 60 m one
+for 60. Extended without limit, a street's worth of lines would tile the map and
+every drag would click to some distant wall's continuation.
 
 Because it is a guess rather than data, three things follow. It is **last in
 precedence and never on distance** — where a published corner or wall is also
@@ -604,6 +624,10 @@ reading each in its own frame would make parallel depend on which end you
 measured from. In one frame two aligned walls come out parallel to ~1e-12
 degrees; in two, to ~1e-4 — under a fifth of a millimetre on a 100 m wall, and
 the wrong question besides.
+
+Within the amber tier the **nearer correction wins** — square, parallel and in
+line are the same kind of guess, so none outranks another; only the boundary
+with published data is categorical.
 
 Note that one corner of a rectangle cannot be moved with every angle preserved.
 The assist squares the **hinge**, the corner you are not touching.

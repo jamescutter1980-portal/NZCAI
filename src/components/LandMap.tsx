@@ -40,6 +40,8 @@ import {
   edgeAt,
   hingesForAppend,
   hingesForVertex,
+  linesForAppend,
+  linesForVertex,
   insertAfter,
   midpoints,
   moveEdge,
@@ -51,7 +53,7 @@ import {
   targetsFrom,
   toPolygon,
   vertexAt,
-  type AlignHinge,
+  type Assist,
   type SnapTargets,
   type Vertex,
 } from "@/lib/site-intel/draw";
@@ -122,6 +124,12 @@ const DRAW_SNAP_EDGE = "site-draw-snap-edge";
  * where we guessed a building would put it.
  */
 const DRAW_SQUARE = "site-draw-square";
+/**
+ * The part of a wall's line that is NOT the wall: where we have carried it on
+ * past its end. Dashed, because the solid half is something a source published
+ * and this half is our extrapolation of it.
+ */
+const DRAW_SQUARE_EXT = "site-draw-square-extension";
 /** Neighbouring OS polygons: context to draw against, and snap targets. */
 const NEIGHBOURS = "site-neighbours";
 
@@ -160,6 +168,16 @@ function toGeoJson(rows: Substation[]): GeoJSON.FeatureCollection<GeoJSON.Point>
         properties: { id: s.id, rag: ragClass(s.generationRag) },
       })),
   };
+}
+
+/** Which end of a wall a point lies past, so the dashed part starts there. */
+function nearerEnd(
+  wall: { a: [number, number]; b: [number, number] },
+  point: [number, number],
+): [number, number] {
+  const da = Math.hypot(point[0] - wall.a[0], point[1] - wall.a[1]);
+  const db = Math.hypot(point[0] - wall.b[0], point[1] - wall.b[1]);
+  return da <= db ? wall.a : wall.b;
 }
 
 function emptyCollection(): GeoJSON.FeatureCollection {
@@ -720,6 +738,19 @@ export default function LandMap({
         paint: { "line-color": "#1B4DD1", "line-width": 3, "line-opacity": 0.8 },
       });
 
+      m.addSource(DRAW_SQUARE_EXT, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: DRAW_SQUARE_EXT,
+        type: "line",
+        source: DRAW_SQUARE_EXT,
+        paint: {
+          "line-color": "#B26B00",
+          "line-width": 2,
+          "line-opacity": 0.75,
+          "line-dasharray": [2, 2],
+        },
+      });
+
       m.addSource(DRAW_SQUARE, { type: "geojson", data: emptyCollection() });
       m.addLayer({
         id: DRAW_SQUARE,
@@ -932,10 +963,18 @@ export default function LandMap({
       const point = { x: e.point.x, y: e.point.y };
 
       if (dragging.current !== null) {
-        const vertex = withSnap(
-          [e.lngLat.lng, e.lngLat.lat],
-          hingesForVertex(drawing.current as Vertex[], dragging.current),
-        );
+        const vertex = withSnap([e.lngLat.lng, e.lngLat.lat], {
+          hinges: hingesForVertex(drawing.current as Vertex[], dragging.current),
+          /*
+           * The shape's own walls first - a step in this building is a more
+           * specific intent than a neighbour's frontage - then the
+           * neighbours', which is the building-line case.
+           */
+          lines: [
+            ...linesForVertex(drawing.current as Vertex[], dragging.current),
+            ...snapTargets.current.edges,
+          ],
+        });
         drawing.current = moveVertex(drawing.current as Vertex[], dragging.current, vertex);
         renderDrawing();
         return;
@@ -961,6 +1000,26 @@ export default function LandMap({
           target === null ? "crosshair"
           : target.kind === "midpoint" ? "copy"
           : "move";
+
+        /*
+         * And while placing corners, the indicator previews where the next one
+         * would actually land.
+         *
+         * Without this it only ever appeared for the instant of the click, so
+         * a corner that went somewhere other than where the user clicked was
+         * never explained - which is the very thing the indicator exists to
+         * prevent, and it had been missing from draw mode since snapping was
+         * built. The returned vertex is discarded; this is drawn, not applied.
+         */
+        if (appendOnClick.current) {
+          withSnap([e.lngLat.lng, e.lngLat.lat], {
+            hinges: hingesForAppend(drawing.current as Vertex[]),
+            lines: [
+              ...linesForAppend(drawing.current as Vertex[]),
+              ...snapTargets.current.edges,
+            ],
+          });
+        }
       }
     });
 
@@ -1026,10 +1085,13 @@ export default function LandMap({
         ) {
           return;
         }
-        const vertex = withSnap(
-          [e.lngLat.lng, e.lngLat.lat],
-          hingesForAppend(drawing.current as Vertex[]),
-        );
+        const vertex = withSnap([e.lngLat.lng, e.lngLat.lat], {
+          hinges: hingesForAppend(drawing.current as Vertex[]),
+          lines: [
+            ...linesForAppend(drawing.current as Vertex[]),
+            ...snapTargets.current.edges,
+          ],
+        });
         drawing.current = [...drawing.current, vertex];
         renderDrawing();
         showSnap(null);
@@ -1236,7 +1298,8 @@ export default function LandMap({
   const showSnap = useCallback((
     vertex: Vertex | null,
     wall: [Vertex, Vertex] | null = null,
-    aligned: [[Vertex, Vertex], [Vertex, Vertex]] | null = null,
+    aligned: [Vertex, Vertex][] | null = null,
+    extension: [Vertex, Vertex] | null = null,
   ) => {
     const point = map.current?.getSource(DRAW_SNAP) as GeoJSONSource | undefined;
     point?.setData(
@@ -1287,6 +1350,20 @@ export default function LandMap({
           }
         : emptyCollection(),
     );
+
+    const ext = map.current?.getSource(DRAW_SQUARE_EXT) as GeoJSONSource | undefined;
+    ext?.setData(
+      extension
+        ? {
+            type: "FeatureCollection",
+            features: [{
+              type: "Feature",
+              geometry: { type: "LineString", coordinates: extension },
+              properties: {},
+            }],
+          }
+        : emptyCollection(),
+    );
   }, []);
 
   /**
@@ -1299,9 +1376,10 @@ export default function LandMap({
    * thresholds are screen pixels at whatever zoom is in force.
    */
   const withSnap = useCallback(
-    (lngLat: Vertex, hinges: AlignHinge[] = []): Vertex => {
+    (lngLat: Vertex, assist: Assist = { hinges: [], lines: [] }): Vertex => {
       const m = map.current;
-      const wantSquare = squareOn.current && hinges.length > 0;
+      const wantSquare =
+        squareOn.current && (assist.hinges.length > 0 || assist.lines.length > 0);
       if (!m || (!snapOn.current && !wantSquare)) {
         showSnap(null);
         return lngLat;
@@ -1317,16 +1395,25 @@ export default function LandMap({
         },
         SNAP_PX,
         SNAP_EDGE_PX,
-        wantSquare ? hinges : [],
+        wantSquare ? assist : { hinges: [], lines: [] },
         ALIGN_PX,
       );
+      /*
+       * The blue ring means "this point is on published data". Neither assist
+       * puts it there, so both get amber and no ring - and in each case one of
+       * the amber strokes reaches the moved vertex, so the jump is explained.
+       */
+      const onData = result.snapped && result.kind !== "align" && result.kind !== "inline";
       showSnap(
-        // The blue ring means "this point is on published data". An aligned
-        // wall is not, so it gets the amber pair and no ring — and one of
-        // those two walls IS the moved wall, so the jump is still explained.
-        result.snapped && result.kind !== "align" ? result.vertex : null,
+        onData ? result.vertex : null,
         result.edge ? [result.edge.a, result.edge.b] : null,
-        result.align ? [result.align.reference, [result.align.pivot, result.vertex]] : null,
+        result.align
+          ? [result.align.reference, [result.align.pivot, result.vertex]]
+          : result.line
+            ? [[result.line.a, result.line.b]]
+            : null,
+        // From whichever end of the wall the point went past, out to the point.
+        result.line ? [nearerEnd(result.line, result.vertex), result.vertex] : null,
       );
       return result.vertex;
     },
@@ -1653,7 +1740,7 @@ export default function LandMap({
           CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
           GRID_SUPPLY_AREA, GRID_SITE_SUBS, GRID_ECR,
           DRAW_LINE, DRAW_POINTS, DRAW_MIDS, DRAW_SNAP, DRAW_SNAP_EDGE,
-          DRAW_SQUARE, NEIGHBOURS,
+          DRAW_SQUARE, DRAW_SQUARE_EXT, NEIGHBOURS,
         ]) {
           setSiteData(id, emptyCollection());
         }
