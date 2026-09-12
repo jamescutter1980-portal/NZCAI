@@ -958,6 +958,125 @@ it. Helpers stay importable and the class of bug is closed.
   Yorkshire. Every feature is prefixed `SAMPLE-`. It exercises the containment,
   the unmatched-area path and the overlap path; it is not NESO data.
 
+## 2j. S-02 map layers
+
+S-02's screening and panel were built earlier (§2c). The constraints were never
+drawn. This puts them on the map.
+
+### A map is the worst surface for a bare absence
+
+Brief §0 rule 4 says the system must never report "no constraints", and a result
+where nothing was found must say whether coverage was complete. The panel
+already does that — an empty list prompts "did it look?".
+
+**A map that draws nothing just looks like open country.** There is no empty
+list to interrogate; the absence of polygons reads as an all-clear. So the
+layers are inseparable from a coverage strip that states, above the toggles:
+
+> "2 drawn on the site, 3 nearby · 1 flagged but published no extent to draw —
+> 15 COULD NOT BE CHECKED, so an empty map is not an all-clear."
+
+It takes the risk treatment whenever anything was not established, and the
+datasets behind that number are named underneath. On the sample site that is 15
+of 21, because nothing sets `not_found_coverage_complete`: planning.data's
+per-LPA provision endpoints are not consulted (§2c), so every dataset that
+returns nothing stays `coverage_unknown`. The map now makes that visible rather
+than leaving it to the bottom of a list.
+
+### Present and proximity are separate layers, not one styled by a property
+
+A proximity polygon drawn like a present one says the site is *inside* a
+conservation area when it is merely near one. That is the single most misleading
+thing this map could do, so:
+
+| | fill | outline |
+|---|---|---|
+| on the site | 0.3 | solid, 2px |
+| nearby | 0.1 | **dashed**, 1.5px |
+
+Separate sources also make the toggles independent, and the popup says it in
+words — "Near this site — the site is NOT inside it" — because a dash pattern is
+not enough to carry that to someone who has just clicked a shape.
+
+### Three things the map now admits
+
+1. **The search envelope is drawn.** It is a *bounding box* around the site
+   geometry, not a true buffer, so its corners reach further than the stated 50 m.
+   Showing it beats letting the reader picture a neat circle, and the legend says
+   so in as many words.
+2. **A flag whose source published no extent is counted separately.** The
+   constraint is real and in the panel; there is simply nothing to draw. Silently
+   omitting it would understate the site, so the strip says "1 flagged but
+   published no extent to draw".
+3. **Hiding a layer does not change the coverage line.** The toggles filter the
+   layers; the counts describe what was screened. Turning off Heritage must not
+   make the map claim heritage was not checked.
+
+### Two bugs the browser found that tests would not have
+
+**Constraint fills drew over the building.** The layers were added after the S-01
+site layers, so a green belt fill — which covers the whole viewport at building
+zoom — sat on top of the footprint and the title extent. Moved before them.
+
+**Popups opened underneath the legend.** A constraint in the right-hand half of
+the map produced a popup the legend covered, swallowing both its text and its
+close button. `.maplibregl-popup` now has a z-index above both legends.
+
+Neither is reachable from a unit test. Both were obvious within seconds of
+looking at the rendered page.
+
+### One design decision reversed mid-build
+
+The first version registered a click handler per layer. It looked simpler and
+was wrong: a green belt covers the viewport, so its fill wins the hit test and a
+click aimed at the flood zone underneath returned the green belt. **The smaller,
+more specific constraint — the one a reader clicked to find out about — became
+unreachable.**
+
+Replaced with a single handler using `queryRenderedFeatures` across both layers,
+listing every constraint at the point, `present` first. The sample site returns
+three in one popup.
+
+### Framing
+
+`showSite()` flies to zoom 18, which is right for "is this the building?" and
+wrong the moment constraints are drawn — a designation becomes a colour wash
+rather than a boundary. When constraints load the map fits the **search
+envelope**: the area actually screened, already drawn, with anything beyond it
+genuinely off-screen rather than omitted.
+
+### What was built
+
+| file | role |
+|---|---|
+| `site-intel/constraint-layers.ts` | categories, colours, coverage summary. Leaf module, no I/O |
+| `constraints.ts` | entities now carry their geometry; the screening reports its search area |
+| `LandMap.tsx` | three layers, category toggles, coverage strip, multi-constraint popup |
+| `SitePanel.tsx` | `showConstraints` on the map API |
+| `fixtures/planning-data-stub.mjs` | invented stub, so this is reproducible without egress |
+
+The category map is **presentational and lives in TypeScript, not the YAML**.
+`constraint_rules.yaml` holds the wording James signs off; padding it with colour
+choices would blur what the sign-off covers. A test asserts every dataset with a
+rule has an explicit category, so a new constraint cannot fall silently into
+"other" and be drawn in a colour that means nothing.
+
+**12 tests**, 334 across the suite.
+
+### Not done
+
+- **No live planning.data call.** Still 403 from the egress proxy. Verified
+  against `npm run planning:stub`, which is invented data.
+- **The UPRN search path cannot produce a screenable geometry here.**
+  `queryGeometry` needs a footprint or exactly one title extent; the footprint
+  store needs PostGIS and OS OpenMap Local, neither loaded. The browser check
+  redirected the profile request to the stored profile, which has a footprint.
+  This is a real gap in the demo path, not in the layer code.
+- **No clustering or paging.** A portfolio run drawing thousands of polygons is
+  not this; §2c already routes over 50 buildings to bulk downloads.
+- **S-03's map layers are still not drawn** (supply-area polygon, ECR by
+  technology). The pattern here ports directly to them.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -1110,6 +1229,11 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   margin is my judgement, not a published tolerance — confirm it is the right
   width, or replace it with a rule about which area sources may be trusted for
   the threshold at all.
+- **S-02 map colours and grouping.** Five categories in
+  `constraint-layers.ts` (heritage, designated land, ecology, flood, other),
+  with a colour each. Presentational, deliberately not in the YAML so the
+  sign-off stays about wording — but the grouping is editorial and a client
+  will read it, so it wants a glance.
 - **S-08 cohort names and reasons.** Seven cohorts in `prospects.ts`, each with
   a label, criteria and a reason. They are the words a client will read on a
   prospect list; none of them says compliant or non-compliant, and a test keeps

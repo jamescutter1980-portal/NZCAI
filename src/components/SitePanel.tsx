@@ -25,6 +25,12 @@ import { TIER_LABEL } from "@/lib/site-intel/types";
 export interface SiteMapApi {
   showSite(lat: number, lon: number): void;
   showGeometry(profile: SiteProfile | null): void;
+  /**
+   * S-02 layers. Passing null clears them AND the coverage strip - a stale
+   * coverage line under a cleared map would describe a screening that is no
+   * longer on screen.
+   */
+  showConstraints(screening: ConstraintScreening | null): void;
   clearSite(): void;
 }
 
@@ -737,6 +743,7 @@ export default function SitePanel({ mapApi }: Props) {
       setEpc(null);
       setPerformance(null);
       setGrid(null);
+      mapApi.showConstraints(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -757,6 +764,7 @@ export default function SitePanel({ mapApi }: Props) {
           setProfile(data.profile);
           setScreening(data.constraints ?? null);
           mapApi.showGeometry(data.profile);
+          mapApi.showConstraints(data.constraints ?? null);
 
           // Ownership is a separate call: it can be slow (Companies House per
           // proprietor) and the profile should not wait on it.

@@ -37,6 +37,15 @@ export interface ConstraintEntity {
   reference: string | null;
   name: string | null;
   entryDate: string | null;
+  /**
+   * The published extent that produced this flag.
+   *
+   * Carried so the map can draw the actual polygon rather than a marker at the
+   * site. Null where the source published none, which is itself worth knowing:
+   * a constraint with no geometry cannot be shown, and a map that silently
+   * omits it looks like a map with nothing there.
+   */
+  geometry: GeoJSON.Geometry | null;
 }
 
 export interface Constraint {
@@ -61,6 +70,20 @@ export interface ConstraintScreening {
   flags: string[];
   /** Populated when the whole screen could not run. */
   unsupportedReason?: string;
+  /**
+   * The geometry screened against, and the envelope the proximity pass used.
+   *
+   * The envelope is a BOUNDING BOX around the site geometry, not a true
+   * buffer, so its corners reach further than `bufferM`. Returning it lets the
+   * map draw the area actually searched instead of leaving the reader to
+   * assume a neat circle.
+   */
+  searchArea: {
+    site: GeoJSON.Geometry | null;
+    envelope: GeoJSON.Geometry | null;
+    /** True while the envelope is a bounding box rather than a real buffer. */
+    envelopeIsBoundingBox: boolean;
+  };
 }
 
 export interface ConstraintDeps {
@@ -98,6 +121,7 @@ function toConstraintEntity(entity: PlanningEntity): ConstraintEntity {
     reference: entity.reference,
     name: entity.name,
     entryDate: entity.entryDate,
+    geometry: entity.geometry,
   };
 }
 
@@ -133,6 +157,7 @@ export async function screenConstraints(
       bufferM,
       basis: null,
       flags: ["country_not_supported"],
+      searchArea: { site: null, envelope: null, envelopeIsBoundingBox: true },
       unsupportedReason:
         `Constraint screening covers England only. This site is in ${where}; ` +
         "DataMapWales and SpatialData.gov.scot are a later phase.",
@@ -147,6 +172,7 @@ export async function screenConstraints(
       bufferM,
       basis: null,
       flags: ["no_query_geometry"],
+      searchArea: { site: null, envelope: null, envelopeIsBoundingBox: true },
       unsupportedReason:
         profile.titleExtents.length > 1
           ? "Several title extents cover this point and no footprint is available, so there is no single geometry to screen. Confirm the building first."
@@ -190,6 +216,11 @@ export async function screenConstraints(
       bufferM,
       basis: geometry.basis,
       flags,
+      searchArea: {
+        site: geometry.geometry,
+        envelope: bufferBounds(geometry.geometry, bufferM),
+        envelopeIsBoundingBox: true,
+      },
       unsupportedReason: err instanceof Error ? err.message : String(err),
     };
   }
@@ -245,7 +276,17 @@ export async function screenConstraints(
     }
   }
 
-  return { constraints: [...results.values()], bufferM, basis: geometry.basis, flags };
+  return {
+    constraints: [...results.values()],
+    bufferM,
+    basis: geometry.basis,
+    flags,
+    searchArea: {
+      site: geometry.geometry,
+      envelope: buffered,
+      envelopeIsBoundingBox: true,
+    },
+  };
 }
 
 /* ---------------------------------------------------------------- flood --- */

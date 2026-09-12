@@ -23,6 +23,14 @@ import {
 import type { Rag, Substation } from "@/lib/types";
 import type { SiteProfile } from "@/lib/site-intel/types";
 import SitePanel, { type SiteMapApi } from "./SitePanel";
+import type { ConstraintScreening } from "@/lib/site-intel/constraints";
+import {
+  CATEGORIES,
+  categoryOf,
+  summariseCoverage,
+  type ConstraintCategory,
+  type LayerCoverage,
+} from "@/lib/site-intel/constraint-layers";
 
 const GB_CENTRE: [number, number] = [-2.0, 53.2];
 const GB_ZOOM = 5.2;
@@ -31,6 +39,23 @@ const LAYER_ID = "substation-circles";
 const SITE_PIN = "site-pin";
 const SITE_TITLE = "site-title";
 const SITE_FOOTPRINT = "site-footprint";
+
+/*
+ * S-02 constraint layers.
+ *
+ * `present` and `proximity` are SEPARATE sources with different paint, not one
+ * source styled by a property. A proximity polygon drawn like a present one
+ * says the site is inside a conservation area when it is merely near one, and
+ * that is the single most misleading thing this map could do. Separate layers
+ * also make the toggles independent.
+ *
+ * The search envelope is drawn too: it is a bounding box, not a true buffer,
+ * so its corners reach further than the stated metres. Showing it is more
+ * honest than letting a reader picture a neat circle.
+ */
+const CONSTRAINT_PRESENT = "constraint-present";
+const CONSTRAINT_PROXIMITY = "constraint-proximity";
+const CONSTRAINT_SEARCH = "constraint-search";
 
 interface ApiResponse {
   substations: Substation[];
@@ -78,6 +103,59 @@ function featureOf(geometry: GeoJSON.Geometry | null): GeoJSON.FeatureCollection
     ? { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: {} }] }
     : emptyCollection();
 }
+
+/**
+ * Colour a constraint by its category, via a MapLibre `match` expression on a
+ * `category` feature property. Built from CATEGORIES so the legend and the map
+ * cannot drift apart.
+ */
+function categoryColourExpression(): unknown[] {
+  const match: unknown[] = ["match", ["get", "category"]];
+  for (const c of CATEGORIES) {
+    match.push(c.key, c.color);
+  }
+  match.push(CATEGORIES[CATEGORIES.length - 1].color); // fallback
+  return match;
+}
+
+/**
+ * Flattens a screening into drawable features.
+ *
+ * One feature per published extent, carrying the dataset, its label, the
+ * category and the state, so a click can say exactly what was hit and the
+ * paint can colour it without a second lookup.
+ */
+function constraintFeatures(
+  screening: ConstraintScreening | null,
+  want: "present" | "proximity",
+): GeoJSON.FeatureCollection {
+  if (!screening) return emptyCollection();
+
+  const features: GeoJSON.Feature[] = [];
+  for (const constraint of screening.constraints) {
+    if (constraint.state !== want) continue;
+    for (const entity of constraint.entities) {
+      if (!entity.geometry) continue;
+      features.push({
+        type: "Feature",
+        geometry: entity.geometry,
+        properties: {
+          dataset: constraint.dataset,
+          label: constraint.label,
+          category: categoryOf(constraint.dataset),
+          state: constraint.state,
+          name: entity.name ?? "",
+          reference: entity.reference ?? "",
+          message: constraint.message ?? "",
+          check: constraint.check ?? "",
+          unapproved: constraint.wordingUnapproved ? "1" : "",
+        },
+      });
+    }
+  }
+  return { type: "FeatureCollection", features };
+}
+
 
 function prefersDark(): boolean {
   return (
@@ -273,6 +351,67 @@ export default function LandMap({
         },
       });
 
+      // S-02 constraint layers. Added BEFORE the S-01 site layers so the
+      // footprint, title extent and pin stay legible on top of them - a
+      // green belt fill covers the whole viewport at building zoom, and
+      // losing the building under it would defeat the panel above.
+      m.addSource(CONSTRAINT_SEARCH, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: CONSTRAINT_SEARCH,
+        type: "line",
+        source: CONSTRAINT_SEARCH,
+        paint: {
+          "line-color": "#78838E",
+          "line-width": 1,
+          "line-dasharray": [2, 3],
+        },
+      });
+
+      m.addSource(CONSTRAINT_PROXIMITY, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: `${CONSTRAINT_PROXIMITY}-fill`,
+        type: "fill",
+        source: CONSTRAINT_PROXIMITY,
+        paint: {
+          "fill-color": categoryColourExpression() as never,
+          // Deliberately fainter than `present`, and outlined with a dash
+          // below: near is not the same as on, and the map has to say so
+          // without the reader clicking anything.
+          "fill-opacity": 0.1,
+        },
+      });
+      m.addLayer({
+        id: `${CONSTRAINT_PROXIMITY}-line`,
+        type: "line",
+        source: CONSTRAINT_PROXIMITY,
+        paint: {
+          "line-color": categoryColourExpression() as never,
+          "line-width": 1.5,
+          "line-dasharray": [4, 3],
+          "line-opacity": 0.8,
+        },
+      });
+
+      m.addSource(CONSTRAINT_PRESENT, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: `${CONSTRAINT_PRESENT}-fill`,
+        type: "fill",
+        source: CONSTRAINT_PRESENT,
+        paint: {
+          "fill-color": categoryColourExpression() as never,
+          "fill-opacity": 0.3,
+        },
+      });
+      m.addLayer({
+        id: `${CONSTRAINT_PRESENT}-line`,
+        type: "line",
+        source: CONSTRAINT_PRESENT,
+        paint: {
+          "line-color": categoryColourExpression() as never,
+          "line-width": 2,
+        },
+      });
+
       // S-01 layers: title extent outlined, footprint filled, resolved pin on top.
       m.addSource(SITE_TITLE, { type: "geojson", data: emptyCollection() });
       m.addLayer({
@@ -309,6 +448,82 @@ export default function LandMap({
       setReady(true);
       setStyleEpoch((e) => e + 1);
     });
+
+    /*
+     * ONE popup listing EVERY constraint at the clicked point.
+     *
+     * Per-layer handlers looked simpler and were wrong: a green belt covers
+     * the whole viewport, so its fill wins the hit test and a click meant for
+     * the flood zone underneath returns the green belt instead. The smaller,
+     * more specific constraint becomes unreachable - exactly the one a reader
+     * clicked to find out about.
+     *
+     * queryRenderedFeatures returns everything under the cursor across both
+     * layers, and the popup lists all of them with `present` first, so what
+     * applies ON the site is read before what is merely near it.
+     */
+    const CONSTRAINT_FILL_LAYERS = [
+      `${CONSTRAINT_PRESENT}-fill`,
+      `${CONSTRAINT_PROXIMITY}-fill`,
+    ];
+
+    instance.on("click", (e: MapMouseEvent) => {
+      const layers = CONSTRAINT_FILL_LAYERS.filter((id) => instance.getLayer(id));
+      if (!layers.length) return;
+
+      const hits = instance.queryRenderedFeatures(e.point, { layers });
+      if (!hits.length) return;
+
+      // Deduplicate: a MultiPolygon can return one feature per part.
+      const seen = new Set<string>();
+      const items: Record<string, string>[] = [];
+      for (const hit of hits) {
+        const props = (hit.properties ?? {}) as Record<string, string>;
+        const key = `${props.dataset}|${props.reference}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push(props);
+      }
+      items.sort((a, b) => (a.state === "present" ? -1 : 1) - (b.state === "present" ? -1 : 1));
+
+      const body = items
+        .map((props) => {
+          const where =
+            props.state === "present"
+              ? "On this site"
+              : "Near this site — the site is NOT inside it";
+          return `<div class="ml-constraint">
+              <p class="ml-title">${escapeHtml(props.label ?? props.dataset ?? "")}</p>
+              <p class="ml-where ${props.state}">${escapeHtml(where)}</p>
+              ${props.name ? `<p class="ml-sub">${escapeHtml(props.name)}</p>` : ""}
+              ${props.reference ? `<p class="ml-ref">${escapeHtml(props.reference)}</p>` : ""}
+              ${props.message ? `<p class="ml-msg">${escapeHtml(props.message)}</p>` : ""}
+              ${props.check ? `<p class="ml-check">${escapeHtml(props.check)}</p>` : ""}
+              ${props.unapproved ? `<p class="ml-note">Wording not signed off.</p>` : ""}
+            </div>`;
+        })
+        .join("");
+
+      new Popup({ closeButton: true, maxWidth: "330px" })
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div class="ml-popup">${
+            items.length > 1
+              ? `<p class="ml-count">${items.length} constraints at this point</p>`
+              : ""
+          }${body}</div>`,
+        )
+        .addTo(instance);
+    });
+
+    for (const layerId of CONSTRAINT_FILL_LAYERS) {
+      instance.on("mouseenter", layerId, () => {
+        instance.getCanvas().style.cursor = "pointer";
+      });
+      instance.on("mouseleave", layerId, () => {
+        instance.getCanvas().style.cursor = "";
+      });
+    }
 
     instance.on("click", LAYER_ID, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
         const id = e.features?.[0]?.properties?.id as number | undefined;
@@ -382,14 +597,95 @@ export default function LandMap({
           })),
         });
       },
+      showConstraints(screening: ConstraintScreening | null) {
+        setSiteData(CONSTRAINT_PRESENT, constraintFeatures(screening, "present"));
+        setSiteData(CONSTRAINT_PROXIMITY, constraintFeatures(screening, "proximity"));
+        setSiteData(
+          CONSTRAINT_SEARCH,
+          featureOf(screening?.searchArea.envelope ?? null),
+        );
+
+        /*
+         * Frame the map on the area that was actually searched.
+         *
+         * showSite() flies to zoom 18, which is right for "is this the
+         * building?" and wrong the moment constraints are drawn: a green belt
+         * or conservation area covers the whole viewport at that zoom and
+         * reads as a colour wash rather than a boundary. The search envelope
+         * is the honest frame - it is the area screened, it is already drawn,
+         * and anything extending past it is genuinely off-screen rather than
+         * omitted.
+         */
+        const envelope = screening?.searchArea.envelope;
+        if (envelope && envelope.type === "Polygon") {
+          const ring = (envelope as GeoJSON.Polygon).coordinates[0] ?? [];
+          if (ring.length) {
+            const lngs = ring.map((c) => c[0]);
+            const lats = ring.map((c) => c[1]);
+            map.current?.fitBounds(
+              [
+                [Math.min(...lngs), Math.min(...lats)],
+                [Math.max(...lngs), Math.max(...lats)],
+              ],
+              { padding: 90, maxZoom: 17.5, duration: 600 },
+            );
+          }
+        }
+        setCoverage(
+          screening
+            ? summariseCoverage(
+                screening.constraints.map((c) => ({
+                  dataset: c.dataset,
+                  state: c.state,
+                  label: c.label,
+                  entityCount: c.entities.length,
+                  entityGeometryCount: c.entities.filter((e) => e.geometry).length,
+                })),
+              )
+            : null,
+        );
+      },
       clearSite() {
-        for (const id of [SITE_PIN, SITE_TITLE, SITE_FOOTPRINT]) {
+        for (const id of [
+          SITE_PIN, SITE_TITLE, SITE_FOOTPRINT,
+          CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
+        ]) {
           setSiteData(id, emptyCollection());
         }
+        setCoverage(null);
       },
     }),
     [setSiteData],
   );
+
+  /* S-02 layer state. `hidden` is per category; the coverage strip is what
+     stops an empty map reading as an all-clear. */
+  const [coverage, setCoverage] = useState<LayerCoverage | null>(null);
+  const [hiddenCategories, setHiddenCategories] = useState<Set<ConstraintCategory>>(
+    () => new Set(),
+  );
+
+  /*
+   * Toggling a category filters the layers rather than removing data, so the
+   * coverage strip keeps counting what was screened. Hiding a layer must not
+   * change what the map claims was checked.
+   */
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const visible = CATEGORIES.map((c) => c.key).filter((k) => !hiddenCategories.has(k));
+    const filter =
+      visible.length === CATEGORIES.length
+        ? null
+        : (["in", ["get", "category"], ["literal", visible]] as unknown as never);
+
+    for (const id of [
+      `${CONSTRAINT_PRESENT}-fill`, `${CONSTRAINT_PRESENT}-line`,
+      `${CONSTRAINT_PROXIMITY}-fill`, `${CONSTRAINT_PROXIMITY}-line`,
+    ]) {
+      if (m.getLayer(id)) m.setFilter(id, filter);
+    }
+  }, [hiddenCategories, ready, styleEpoch]);
 
   const withHeadroom = useMemo(
     () => substations.filter((s) => s.generationHeadroomMva !== null).length,
@@ -519,6 +815,79 @@ export default function LandMap({
               <span className="basemap">
                 Base map: {basemapName()}
                 {tilesFailed && " — tiles unavailable"}
+              </span>
+            </div>
+          )}
+
+          {/*
+            * S-02 legend and coverage.
+            *
+            * Only rendered once a site has been screened, and then it is the
+            * thing that stops an empty map reading as an all-clear. The
+            * coverage line comes first for that reason; the toggles are below
+            * it, because hiding a layer must never change what the map claims
+            * was checked.
+            */}
+          {ready && coverage && (
+            <div className="c-legend">
+              <span className="eyebrow">Planning &amp; environmental (S-02)</span>
+
+              <p
+                className={`c-coverage ${coverage.couldNotCheck ? "gap" : ""}`}
+              >
+                {coverage.statement}
+              </p>
+
+              {coverage.couldNotCheckDatasets.length > 0 && (
+                <p className="c-gaps">
+                  Not established: {coverage.couldNotCheckDatasets.join(", ")}
+                </p>
+              )}
+
+              {coverage.flaggedWithoutGeometry > 0 && (
+                <p className="c-gaps">
+                  {coverage.flaggedWithoutGeometry} flagged constraint
+                  {coverage.flaggedWithoutGeometry === 1 ? "" : "s"} published no
+                  extent, so {coverage.flaggedWithoutGeometry === 1 ? "it is" : "they are"}{" "}
+                  in the panel but not on the map.
+                </p>
+              )}
+
+              <div className="c-cats">
+                {CATEGORIES.map((c) => {
+                  const off = hiddenCategories.has(c.key);
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      className={`c-cat ${off ? "off" : ""}`}
+                      aria-pressed={!off}
+                      onClick={() =>
+                        setHiddenCategories((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(c.key)) next.delete(c.key);
+                          else next.add(c.key);
+                          return next;
+                        })
+                      }
+                    >
+                      <span className="c-swatch" style={{ background: c.color }} />
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Solid vs dashed is the load-bearing distinction on this map. */}
+              <span className="row c-key">
+                <span className="c-sample present" /> On the site
+              </span>
+              <span className="row c-key">
+                <span className="c-sample proximity" /> Nearby, not on it
+              </span>
+              <span className="row c-key">
+                <span className="c-sample search" /> Area searched (a bounding box,
+                so its corners reach further than the buffer)
               </span>
             </div>
           )}

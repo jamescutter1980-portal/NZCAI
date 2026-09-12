@@ -363,6 +363,43 @@ No lease data, so no trigger-year segmentation — EPC expiry is a third of that
 calculation and a lease event usually comes first. This finds prospects; it does
 not track a client's portfolio. See PRELAUNCH TICKET-12.
 
+## Constraint map layers (S-02)
+
+Screened constraints are drawn on the map at `/land`, in three layers:
+
+| layer | meaning | style |
+|---|---|---|
+| on the site | the polygon intersects the building | solid outline, 0.3 fill |
+| nearby | within the 50 m buffer, **not** on the site | **dashed** outline, 0.1 fill |
+| area searched | what the proximity pass actually queried | grey dashed, no fill |
+
+Grouped into Heritage, Designated land, Ecology, Flood and Other, each with a
+toggle. Clicking anywhere lists **every** constraint at that point — a large
+designation would otherwise shadow the smaller, more specific one underneath it.
+
+### A map that draws nothing looks like open country
+
+That is why the layers come with a coverage line above them, not a footnote:
+
+> 2 drawn on the site, 3 nearby · 1 flagged but published no extent to draw —
+> **15 COULD NOT BE CHECKED**, so an empty map is not an all-clear.
+
+The panel's empty list prompts "did it look?". A map has no empty list, so the
+strip has to say it. The datasets behind that number are named. Toggling a layer
+off filters the map and **does not** change those counts — hiding a layer must
+never make the map claim something was not checked.
+
+Two other things it admits: the **search envelope is a bounding box**, not a
+true buffer, so its corners reach further than 50 m — and it is drawn, rather
+than leaving you to picture a circle. And a constraint whose source published
+**no extent** is counted separately: it is real, it is in the panel, and there
+is simply nothing to draw.
+
+```bash
+node fixtures/planning-data-stub.mjs        # invented fixture geometry
+PLANNING_DATA_BASE=http://localhost:3900 npm run dev
+```
+
 ## Grid capacity (S-03)
 
 ```bash
@@ -503,7 +540,8 @@ src/lib/             db pool, types, headroom RAG bands, fixed grid wording,
                      base map config, geo-polygon (containment, distance)
 src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      resolution chain, profile builder, stores, service
-                     S-02: constraint_rules.yaml, constraints, flood
+                     S-02: constraint_rules.yaml, constraints, flood,
+                     constraint-layers (map categories + coverage)
                      S-04: ownership matching, Companies House
                      S-06: VOA assessments, floor area, use class
                      S-05: performance (bands, validity, fuel),
@@ -518,8 +556,9 @@ scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health,
                      /api/site-intel/* including /search
 src/components/      LandMap, SitePanel, SiteSearch, MeesProspects
-fixtures/            sample substations, EPC certificates and DNO licence
-                     areas — all invented, not DNO, NESO or register data
+fixtures/            sample substations, EPC certificates, DNO licence areas
+                     and a planning.data stub — all invented, not DNO, NESO,
+                     register or planning.data content
 docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 ```
 
@@ -535,6 +574,7 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run grid:verify` | Probe DNO datasets, report real schemas |
 | `npm run grid:ingest` | Pull and load capacity heatmap + ECR |
 | `npm run grid:boundaries -- <geojson>` | Load NESO DNO licence areas for point-in-polygon |
+| `npm run planning:stub` | Serve invented constraint geometry on :3900 for offline work |
 | `npm run maplibre:worker` | Re-stage the MapLibre worker into `public/` |
 | `npm test` | Unit tests (no network required) |
 | `npm run site:verify` | S-01 readiness: reference data, slugs, attributions |
