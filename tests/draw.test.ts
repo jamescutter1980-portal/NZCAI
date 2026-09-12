@@ -7,9 +7,12 @@ import {
   MIN_VERTICES,
   SNAP_EDGE_PX,
   SNAP_PX,
+  SQUARE_PX,
   candidatesFrom,
   edgeAt,
   edgesFrom,
+  hingesForAppend,
+  hingesForVertex,
   insertAfter,
   midpoints,
   moveEdge,
@@ -199,6 +202,7 @@ describe("snapping", () => {
       kind: "none",
       target: null,
       edge: null,
+      square: null,
       source: null,
     });
   });
@@ -543,5 +547,193 @@ describe("snapping a wall that is being dragged", () => {
     assert.deepEqual(out.result.edge, target);
     assert.equal(out.a[1], 0.00005, "flush against it");
     assert.equal(out.b[1], 0.00005);
+  });
+});
+
+/* ------------------------------------------------------- right angles --- */
+
+/*
+ * `project` is 100,000 px to the degree in BOTH axes, which is not what the
+ * globe does. Squaring works in a frame where longitude is scaled by
+ * cos(latitude), so these run at the equator, where the two agree and a
+ * screen distance is a real one. The latitude case is covered separately.
+ */
+describe("squaring a corner", () => {
+  // A wall running east from the origin to the pivot at (0.001, 0).
+  const pivot: Vertex = [0.001, 0];
+  const reference: Vertex = [0, 0];
+  const hinge = { pivot, reference };
+  const square = (v: Vertex) => snap(v, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+
+  test("a corner a little off square is pulled square", () => {
+    // Almost due north of the pivot, leaning 4 px east.
+    const result = square([0.001004, 0.0001]);
+    assert.equal(result.snapped, true);
+    assert.equal(result.kind, "square");
+    assert.deepEqual(result.square, hinge);
+    // Due north of the pivot: the wall now meets the reference wall at 90°.
+    assert.ok(Math.abs(result.vertex[0] - pivot[0]) < 1e-15, "same longitude as the pivot");
+  });
+
+  test("the wall keeps the length the user chose", () => {
+    // Only the bearing is corrected; the vertex slides along an arc.
+    const raw: Vertex = [0.001004, 0.0001];
+    const before = Math.hypot(raw[0] - pivot[0], raw[1] - pivot[1]);
+    const result = square(raw);
+    const after = Math.hypot(result.vertex[0] - pivot[0], result.vertex[1] - pivot[1]);
+    assert.ok(Math.abs(after - before) < 1e-15, `${before} -> ${after}`);
+  });
+
+  test("a corner well off square is left alone", () => {
+    // 100 px out from the pivot and 8.5° off square, which is 15 px of
+    // correction — plainly not aiming at a right angle.
+    const raw: Vertex = [0.00115, 0.001];
+    const result = square(raw);
+    assert.equal(result.snapped, false);
+    assert.deepEqual(result.vertex, raw);
+  });
+
+  test("the tolerance is a DISTANCE, so it narrows as the wall gets longer", () => {
+    /*
+     * The threshold is 8 px of correction, not 8° of angle. The same angular
+     * error is a bigger correction further from the pivot, so a long wall has
+     * to be aimed more precisely than a short one — which is right: on a short
+     * wall you cannot see the angle anyway, and on a long one you can.
+     */
+    const offBy = (dLng: number, dLat: number): boolean =>
+      square([pivot[0] + dLng, pivot[1] + dLat]).snapped;
+
+    // ~7° off square, close in: 1.2 px of correction, taken.
+    assert.equal(offBy(0.0000123, 0.0001), true);
+    // The same ~7° off square, ten times further out: 12 px, refused.
+    assert.equal(offBy(0.000123, 0.001), false);
+  });
+
+  test("both square corners are offered, not just the first", () => {
+    assert.equal(square([0.001004, 0.0001]).kind, "square", "north of the pivot");
+    assert.equal(square([0.001004, -0.0001]).kind, "square", "south of it");
+  });
+
+  test("two walls running straight on is a right angle's half turn", () => {
+    // Continuing east past the pivot: a legitimate shape, and the vertex is
+    // still placed exactly on the line.
+    const result = square([0.002, 0.000004]);
+    assert.equal(result.kind, "square");
+    assert.ok(Math.abs(result.vertex[1]) < 1e-15, "back on the reference wall's line");
+  });
+
+  test("a wall folded back along the reference wall is never offered", () => {
+    // West of the pivot, back along the wall: it would lay one wall on top of
+    // the other and give the shape a zero-area spike.
+    const raw: Vertex = [0.0005, 0.000004];
+    assert.equal(square(raw).snapped, false);
+    assert.deepEqual(square(raw).vertex, raw);
+  });
+
+  test("a point sitting on the pivot has no bearing to correct", () => {
+    assert.equal(square(pivot).snapped, false);
+  });
+
+  test("a reference wall of no length squares nothing", () => {
+    const degenerate = { pivot, reference: pivot };
+    const raw: Vertex = [0.001004, 0.0001];
+    assert.equal(
+      snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [degenerate]).snapped,
+      false,
+    );
+  });
+
+  test("longitude is scaled by latitude, or the angle is not a real one", () => {
+    /*
+     * The same shape at 53.5°N. A wall running east and one running north meet
+     * at 90° on the ground; in raw degrees they would not, because a degree of
+     * longitude there is about six tenths of a degree of latitude.
+     */
+    const north: Vertex = [0.001, 53.5];
+    const west: Vertex = [0, 53.5];
+    const result = snap(
+      [0.001004, 53.50006], corners(), project, SNAP_PX, SNAP_EDGE_PX,
+      [{ pivot: north, reference: west }],
+    );
+    assert.equal(result.kind, "square");
+    assert.ok(
+      Math.abs(result.vertex[0] - north[0]) < 1e-15,
+      "due north of the pivot, whatever the longitude scale",
+    );
+  });
+});
+
+describe("right angles never outrank published data", () => {
+  const pivot: Vertex = [0.001, 0];
+  const hinge = { pivot, reference: [0, 0] as Vertex };
+  // The raw point is 4 px off square, and a published corner sits 9 px away -
+  // further, but real.
+  const raw: Vertex = [0.001004, 0.0001];
+
+  test("a corner in range wins however much nearer the right angle is", () => {
+    const result = snap(
+      raw,
+      corners({ vertex: [0.001013, 0.0001], source: "neighbour" }),
+      project, SNAP_PX, SNAP_EDGE_PX, [hinge],
+    );
+    assert.equal(result.kind, "vertex");
+    assert.equal(result.source, "neighbour");
+  });
+
+  test("a wall in range wins too", () => {
+    const result = snap(
+      raw,
+      walls({ a: [0.00102, -0.001] as Vertex, b: [0.00102, 0.001] as Vertex, source: "terrace" }),
+      project, SNAP_PX, SNAP_EDGE_PX, [hinge],
+    );
+    assert.equal(result.kind, "edge");
+  });
+
+  test("no hinges means the assist is simply off", () => {
+    assert.equal(snap(raw, corners(), project).snapped, false);
+  });
+
+  test("the threshold sits below the corner one, deliberately", () => {
+    assert.equal(SQUARE_PX, 8);
+    assert.ok(SQUARE_PX < SNAP_PX);
+  });
+});
+
+describe("which corners a vertex can be squared against", () => {
+  const ring: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+
+  test("both walls that meet at the vertex, and neither of them moves", () => {
+    const hinges = hingesForVertex(ring, 0);
+    assert.equal(hinges.length, 2);
+    assert.deepEqual(hinges[0], { pivot: ring[3], reference: ring[2] });
+    assert.deepEqual(hinges[1], { pivot: ring[1], reference: ring[2] });
+  });
+
+  test("the ring wraps, so the first vertex is not a special case", () => {
+    const hinges = hingesForVertex(ring, 2);
+    assert.deepEqual(hinges[0], { pivot: ring[1], reference: ring[0] });
+    assert.deepEqual(hinges[1], { pivot: ring[3], reference: ring[0] });
+  });
+
+  test("a triangle squares against its one unmoving wall", () => {
+    const tri: Vertex[] = [[0, 0], [0.001, 0], [0, 0.001]];
+    const hinges = hingesForVertex(tri, 0);
+    assert.deepEqual(hinges[0], { pivot: tri[2], reference: tri[1] });
+    assert.deepEqual(hinges[1], { pivot: tri[1], reference: tri[2] });
+  });
+
+  test("below three vertices there is no corner to square", () => {
+    assert.deepEqual(hingesForVertex([[0, 0], [1, 1]], 0), []);
+    assert.deepEqual(hingesForVertex(ring, 9), []);
+  });
+
+  test("placing a corner squares against the wall running back from the last", () => {
+    const hinges = hingesForAppend([[0, 0], [0.001, 0]]);
+    assert.deepEqual(hinges, [{ pivot: [0.001, 0], reference: [0, 0] }]);
+  });
+
+  test("the first two points have no wall to square to", () => {
+    assert.deepEqual(hingesForAppend([]), []);
+    assert.deepEqual(hingesForAppend([[0, 0]]), []);
   });
 });

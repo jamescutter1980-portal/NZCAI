@@ -1906,13 +1906,132 @@ grabbed 30 px west of its midpoint — on the wall, clear of every handle:
 
 - **No rectangle or right-angle assist.** Buildings are mostly orthogonal and
   nothing helps the user keep them so. Dragging a wall preserves an angle; it
-  cannot correct one.
+  cannot correct one. *(Done in §2q.)*
 - **No wall snapping to parallel alignment.** A wall clicks into place when a
   *corner* meets a target. Two walls that should be collinear but share no
   corner still have to be lined up by eye.
 - **No removing a wall** (merging its two corners). Only vertices are removable.
 - **Walls cannot be dragged in draw mode**, by design above, but that is a
   split a user has to learn rather than see.
+- **Neighbours are still the 120 largest in the bbox**, holes are still
+  dropped, and nothing is touch-tested.
+
+## 2q. S-01 right-angle assist
+
+The last of the three gaps §2n opened. Buildings are overwhelmingly rectilinear
+and nothing helped the user keep them so: every corner was placed by hand and
+came out a degree or two off.
+
+### It can only mean square to the adjoining wall
+
+The obvious reading — constrain to horizontal and vertical — is useless here. A
+building sits at whatever bearing its street does, and almost none of them are
+aligned to north. "Right angle" has to mean **square to the wall beside it**,
+measured from the shape's own geometry, or it helps with nothing.
+
+So the primitive is a **hinge**: the corner a moving wall turns on, and the far
+end of the wall the angle is measured from. Dragging a vertex offers two, one
+on each side; placing a corner offers one, the wall running back from the last
+point. Neither hinge moves, so both are stable references mid-drag.
+
+The vertex then slides along an **arc centred on the pivot** to the nearest
+right-angled bearing. Its distance from the pivot is untouched, so the wall
+length the user chose survives and only the bearing is corrected — the
+alternative, moving it perpendicular onto a line, would silently change how big
+the building is.
+
+### A right angle is an assumption, not evidence
+
+This is the decision that shapes everything else about it.
+
+Snapping (§2n, §2o) puts a point on something a source published. Squaring puts
+it where **no source says anything**, on the grounds that buildings are usually
+rectilinear — usually, and this one may not be. That difference is carried
+through three ways:
+
+- **Last in precedence, and never on distance.** Where a corner or a wall is
+  also in range, the published one wins *however much nearer the right angle
+  happens to be*. Taking the guess would quietly move the point off real data.
+- **Its own toggle.** Riding on the snap checkbox would mean turning off
+  alignment-to-data in order to turn off geometry-guessing.
+- **Its own colour.** Blue means published; amber means inferred. Both arms of
+  the angle are drawn, because with two walls meeting at the pivot "square to
+  what?" is a real question.
+
+The first version gave a squared corner the blue ring as well as the amber
+arms, which said "this point is on published data" about a point that is not.
+Caught by looking at the screenshot. The ring is now data-only, and the amber
+arms end at the vertex, so the jump is still explained.
+
+### Degrees are not degrees
+
+The angle is worked in a frame where longitude is scaled by cos(latitude). In
+raw lng/lat a corner that measures 90° is not 90° on the ground or on the
+screen, because a degree of longitude here is about six tenths of a degree of
+latitude — the same trap as §2o's perpendicular.
+
+Screen space would serve equally well, since Web Mercator is conformal and
+therefore preserves angles, but that would need an unprojection this module
+deliberately does not have. The local frame gets the same answer with the
+inputs already to hand.
+
+### The tolerance is a distance, so it is not a fixed angle
+
+`SQUARE_PX` is 8 px of **correction**, not 8° of angle, which follows from
+§2n's screen-pixel rule. The consequence is worth stating because it surprised
+me while writing the tests: the same angular error is a bigger correction
+further from the pivot, so **a long wall has to be aimed more precisely than a
+short one**. ~7° off square is taken at 11 px out from the pivot and refused at
+110 px.
+
+That is the right way round. On a short wall the angle cannot be judged by eye
+at all; on a long one it can, so an error there is more likely to be deliberate.
+
+### Two turns are offered, and one is refused
+
+A quarter turn either way is a corner. A half turn — the two walls running
+straight on through the pivot — is a legitimate shape and is offered. A **zero**
+turn would lay the moving wall back along the reference wall and give the shape
+a zero-area spike, so it is refused outright rather than left to the threshold.
+
+### Verified in the browser
+
+- **Placing a corner**, clicked 6 px off perpendicular: the corner before it
+  came out at **90.000000°**.
+- **Dragging a vertex** 60 px with a 5 px lean: the corner at the hinge came
+  out **90.000000°**, and the amber arms were drawn (1,882 px of amber).
+- **The same drag with the assist off**: **79.09°** and **88.98°** — neither
+  square. That pair is the cleanest evidence there is.
+- **Around the dragged handle while squared: 42 px of amber, 0 px of the
+  indicator blue**, so the colour code holds.
+- Both toggles present and independent. No page errors.
+
+The angle at the *dragged* vertex ends up 78.26°, which is not a defect: one
+corner of a rectangle cannot be moved with every angle preserved. The assist
+squares the hinge, which is the corner the user is not touching.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `SQUARE_PX`, `SquareHinge`, `squarePosition`, `hingesForVertex`, `hingesForAppend`; `snap` gains the third precedence step |
+| `LandMap.tsx` | the amber layer, hinges at both call sites, `setSquare`, the ring made data-only |
+| `SitePanel.tsx` | the second toggle and the note on what amber means |
+
+**20 more tests**, 466 across the suite.
+
+### Not done
+
+- **A dragged WALL is not squared.** Translating a wall preserves its own
+  bearing but changes its two neighbours', and correcting those would constrain
+  the translation — a different problem, not attempted.
+- **No parallel alignment.** A wall clicks square to the wall beside it; two
+  walls that should be collinear but share no corner are still lined up by eye.
+- **Nothing squares a shape after the fact.** There is no "regularise this
+  polygon" action, only help while a point is moving.
+- **The assist is on by default**, which means a corner that genuinely is not
+  square takes a little care to place. The toggle is right there, and the
+  correction never exceeds 8 px, but it is an assumption applied unasked.
 - **Neighbours are still the 120 largest in the bbox**, holes are still
   dropped, and nothing is touch-tested.
 

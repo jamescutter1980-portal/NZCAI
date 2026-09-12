@@ -52,6 +52,11 @@ export interface SiteMapApi {
   finishDraw(): GeoJSON.Polygon | null;
   /** Snap new and dragged vertices to nearby corners and walls. */
   setSnap(on: boolean): void;
+  /**
+   * Pull corners square to the wall beside them. SEPARATE from snapping: that
+   * aligns the shape to published data, this to an assumption about buildings.
+   */
+  setSquare(on: boolean): void;
   /** Neighbouring polygons: context to draw against, and snap targets. */
   showNeighbours(buildings: { geometry: GeoJSON.Geometry; label: string }[]): void;
 
@@ -706,6 +711,7 @@ export default function SitePanel({ mapApi }: Props) {
   /* True between pressing Move pin and the next map click. */
   const [picking, setPicking] = useState(false);
   const [snapOn, setSnapOn] = useState(true);
+  const [squareOn, setSquareOn] = useState(true);
   /*
    * Null until asked for. Both halves matter: with nothing to snap to, the
    * reason is either "no buildings near this site" or "no building polygons
@@ -1231,11 +1237,24 @@ export default function SitePanel({ mapApi }: Props) {
                     ? " — no building polygons are loaded, so nothing to snap to"
                     : " — none within 150 m of this site, so nothing to snap to")}
               </label>
+              <label className="site-snap">
+                <input
+                  type="checkbox"
+                  checked={squareOn}
+                  onChange={(e) => { setSquareOn(e.target.checked); mapApi.setSquare(e.target.checked); }}
+                />
+                Keep corners square
+              </label>
               <p className="site-snap-note">
                 A snapped corner takes the neighbour&rsquo;s exact coordinate, and a
                 snapped wall puts the point exactly on it — which is how a party wall
                 ends up agreeing with the building next door. That does not make the
                 shape source data — it is still your drawing.
+              </p>
+              <p className="site-snap-note">
+                A squared corner is different again: nothing published says the corner
+                is 90°, only that buildings usually are. It is drawn in amber rather
+                than blue for that reason — blue is data, amber is our assumption.
                 {drawPoints === 3 &&
                   " At three points a corner cannot be removed: it would leave no area."}
               </p>

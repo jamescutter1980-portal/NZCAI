@@ -541,6 +541,43 @@ Snapping does **not** change provenance. A shape built entirely from OS
 vertices and walls is still a user drawing at T4, because you chose which ones
 and in what order. The panel says so under the checkbox.
 
+### Keeping corners square
+
+A separate toggle, because it aligns the shape to a different thing. Snapping
+puts a point on something a source published; **squaring puts it where no
+source says anything**, on the grounds that buildings are usually rectilinear —
+usually, and this one may not be.
+
+It can only mean square **to the wall beside it**. Constraining to horizontal
+and vertical would help with nothing: a building sits at whatever bearing its
+street does, and almost none are aligned to north. So a moving vertex slides
+along an arc centred on the corner it hinges on, to the nearest right-angled
+bearing. Its distance from that corner is untouched, so the wall length you
+chose survives and only the bearing is corrected. Dragging a vertex offers both
+walls that meet at it; placing a corner squares against the wall running back
+from the last point.
+
+Because it is a guess rather than data, three things follow. It is **last in
+precedence and never on distance** — where a published corner or wall is also
+in range, that wins however much nearer the right angle happens to be. It has
+its **own toggle**, so you are not turning off alignment-to-data in order to
+turn off geometry-guessing. And it is drawn in its **own colour: blue means
+published, amber means inferred**, with both arms of the angle shown, because
+with two walls meeting at the corner "square to what?" is a real question.
+
+The tolerance is 8 px of **correction**, not a fixed number of degrees, which
+follows from the screen-pixel rule above. So a long wall has to be aimed more
+precisely than a short one — about 7° off square is taken 11 px out from the
+hinge and refused at 110 px. That is the right way round: on a short wall you
+cannot judge the angle by eye at all.
+
+Two walls running straight on through a corner is a legitimate shape and is
+offered. Folding a wall back along the one beside it is not — it would give the
+shape a zero-area spike — so it is refused outright.
+
+Note that one corner of a rectangle cannot be moved with every angle preserved.
+The assist squares the **hinge**, the corner you are not touching.
+
 With nothing to snap to, the reason is given, because "no buildings near this
 site" and "no building polygons loaded at all" call for different things: the
 route reports both the nearby count and the loaded total.

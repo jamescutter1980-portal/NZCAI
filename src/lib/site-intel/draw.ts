@@ -18,6 +18,13 @@
  * A shape built entirely from OS vertices is still a user drawing at T4,
  * because the user chose which vertices and in what order.
  *
+ * A RIGHT ANGLE IS AN ASSUMPTION, NOT EVIDENCE. Snapping to a corner or a wall
+ * puts the point on something a source published. Squaring a corner puts it
+ * where no source says anything, on the grounds that buildings are usually
+ * rectilinear — usually, and this one may not be. So it is last in precedence,
+ * it has its own toggle rather than riding on the snap one, and it is drawn in
+ * its own colour: blue means published, amber means inferred.
+ *
  * CORNERS AND WALLS ARE DIFFERENT TARGETS. A corner is a point you aim at; a
  * wall is a line you cross. Walls are continuous and cover far more of the map
  * than corners do, so a vertex dragged across a street would stick to every
@@ -33,6 +40,18 @@ export type Project = (vertex: Vertex) => ScreenPoint;
 
 /** Default snap radius for corners, in screen pixels. */
 export const SNAP_PX = 12;
+
+/**
+ * Screen distance at which a corner is pulled square. Below SNAP_PX, because
+ * a published coordinate is better evidence than a guess about buildings.
+ *
+ * A DISTANCE, not an angle, and that has a consequence worth knowing: the same
+ * angular error is a bigger correction further from the pivot, so a long wall
+ * has to be aimed more precisely than a short one. That is the right way round
+ * — on a short wall the angle cannot be judged by eye anyway, and on a long
+ * one it can.
+ */
+export const SQUARE_PX = 8;
 
 /**
  * Screen distance at which the shape's OWN wall can be grabbed and dragged.
@@ -159,15 +178,29 @@ export interface SnapTargets {
   edges: SnapEdge[];
 }
 
+/**
+ * A corner a moving vertex can be squared against.
+ *
+ * `pivot` is the corner the moving wall hinges on; `reference` is the far end
+ * of the wall the right angle is measured FROM. Both belong to the shape being
+ * edited and neither moves.
+ */
+export interface SquareHinge {
+  pivot: Vertex;
+  reference: Vertex;
+}
+
 export interface SnapResult {
   vertex: Vertex;
   snapped: boolean;
-  /** What was taken. The indicator draws a corner and a wall differently. */
-  kind: "none" | "vertex" | "edge";
+  /** What was taken. The indicator draws each of these differently. */
+  kind: "none" | "vertex" | "edge" | "square";
   /** The corner taken, when `kind` is "vertex". */
   target: SnapCandidate | null;
   /** The wall taken, when `kind` is "edge". Drawn, so the jump is explained. */
   edge: SnapEdge | null;
+  /** The corner squared, when `kind` is "square". Drawn, in its own colour. */
+  square: SquareHinge | null;
   /** Whatever was taken belongs to this, for a label. */
   source: string | null;
 }
@@ -178,8 +211,54 @@ const NO_SNAP = (vertex: Vertex): SnapResult => ({
   kind: "none",
   target: null,
   edge: null,
+  square: null,
   source: null,
 });
+
+/**
+ * Where `moving` would have to be for the wall pivot→moving to meet the wall
+ * reference→pivot at a right angle, keeping the distance the user chose.
+ *
+ * WORKED IN A LOCAL FLAT FRAME, NOT IN RAW DEGREES. A degree of longitude is
+ * about six tenths of a degree of latitude on the ground here, so a corner
+ * that is 90° in raw lng/lat is not 90° on the ground or on the screen.
+ * Scaling longitude by cos(latitude) makes the frame locally isotropic, so an
+ * angle in it is a true angle. (Screen space would do as well — Web Mercator
+ * is conformal, so it preserves angles — but that would need an unprojection
+ * this module deliberately does not have.)
+ *
+ * The vertex slides along an arc centred on the pivot: its distance from the
+ * pivot is preserved, so the wall length the user chose survives and only its
+ * bearing is corrected.
+ *
+ * Returns null when there is no angle to speak of: a moving point sitting on
+ * the pivot, a reference wall of no length, or a correction that would fold
+ * the wall back along the reference wall and give the shape a zero-area spike.
+ */
+function squarePosition(moving: Vertex, pivot: Vertex, reference: Vertex): Vertex | null {
+  const k = Math.cos((pivot[1] * Math.PI) / 180);
+  if (k === 0) return null;
+
+  const rx = (reference[0] - pivot[0]) * k;
+  const ry = reference[1] - pivot[1];
+  const mx = (moving[0] - pivot[0]) * k;
+  const my = moving[1] - pivot[1];
+
+  const radius = Math.hypot(mx, my);
+  if (radius === 0 || Math.hypot(rx, ry) === 0) return null;
+
+  const QUARTER = Math.PI / 2;
+  const referenceAngle = Math.atan2(ry, rx);
+  const turns = Math.round((Math.atan2(my, mx) - referenceAngle) / QUARTER);
+
+  // Turn 0 points the moving wall back along the reference wall, laying one on
+  // top of the other. A quarter turn either way is a corner; a half turn is
+  // two walls running straight on, which is a legitimate shape.
+  if (((turns % 4) + 4) % 4 === 0) return null;
+
+  const angle = referenceAngle + turns * QUARTER;
+  return [pivot[0] + (radius * Math.cos(angle)) / k, pivot[1] + radius * Math.sin(angle)];
+}
 
 /**
  * The closest point on segment a-b to `point`, measured in SCREEN space.
@@ -234,6 +313,12 @@ function footOnSegment(
  * the foot of the wall is almost exactly the corner too, so "nearest wins"
  * would have the point stick to the wall a hair short of the corner — which is
  * precisely the corner the user was aiming at. A corner in range settles it.
+ *
+ * RIGHT ANGLES LAST, and never on distance. A corner or a wall is somewhere a
+ * source published; a right angle is a guess about how buildings are usually
+ * built. Where both are in range the published one wins however much nearer
+ * the guess happens to be, because taking the guess would quietly move the
+ * point off real data.
  */
 export function snap(
   vertex: Vertex,
@@ -241,6 +326,8 @@ export function snap(
   project: Project,
   thresholdPx: number = SNAP_PX,
   edgeThresholdPx: number = SNAP_EDGE_PX,
+  hinges: SquareHinge[] = [],
+  squareThresholdPx: number = SQUARE_PX,
 ): SnapResult {
   const at = project(vertex);
 
@@ -262,6 +349,7 @@ export function snap(
       kind: "vertex",
       target: bestCorner,
       edge: null,
+      square: null,
       source: bestCorner.source,
     };
   }
@@ -291,11 +379,66 @@ export function snap(
       kind: "edge",
       target: null,
       edge: bestEdge,
+      square: null,
       source: bestEdge.source,
     };
   }
 
+  let bestSquare: { vertex: Vertex; hinge: SquareHinge } | null = null;
+  let bestSquareDist = Infinity;
+  for (const hinge of hinges) {
+    const squared = squarePosition(vertex, hinge.pivot, hinge.reference);
+    if (!squared) continue;
+    const p = project(squared);
+    const d = Math.hypot(p.x - at.x, p.y - at.y);
+    if (d < bestSquareDist) {
+      bestSquareDist = d;
+      bestSquare = { vertex: squared, hinge };
+    }
+  }
+
+  if (bestSquare && bestSquareDist <= squareThresholdPx) {
+    return {
+      vertex: bestSquare.vertex,
+      snapped: true,
+      kind: "square",
+      target: null,
+      edge: null,
+      square: bestSquare.hinge,
+      source: null,
+    };
+  }
+
   return NO_SNAP(vertex);
+}
+
+/**
+ * The corners a vertex being dragged can be squared against.
+ *
+ * Both walls that meet at it: one hinging on the vertex before, measured from
+ * the one before that, and the mirror image on the other side. Neither hinge
+ * moves, so both are stable references while the drag is in flight.
+ */
+export function hingesForVertex(vertices: Vertex[], index: number): SquareHinge[] {
+  const n = vertices.length;
+  if (n < 3 || index < 0 || index >= n) return [];
+  const at = (i: number) => vertices[((i % n) + n) % n];
+  return [
+    { pivot: at(index - 1), reference: at(index - 2) },
+    { pivot: at(index + 1), reference: at(index + 2) },
+  ];
+}
+
+/**
+ * The corner a vertex being PLACED can be squared against: the wall running
+ * back from the last point placed. Nothing to square to below two points.
+ */
+export function hingesForAppend(vertices: Vertex[]): SquareHinge[] {
+  if (vertices.length < 2) return [];
+  return [{
+    pivot: vertices[vertices.length - 1],
+    reference: vertices[vertices.length - 2],
+  }];
 }
 
 /**

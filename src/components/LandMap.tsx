@@ -36,7 +36,10 @@ import {
   DRAG_START_PX,
   SNAP_EDGE_PX,
   SNAP_PX,
+  SQUARE_PX,
   edgeAt,
+  hingesForAppend,
+  hingesForVertex,
   insertAfter,
   midpoints,
   moveEdge,
@@ -49,6 +52,7 @@ import {
   toPolygon,
   vertexAt,
   type SnapTargets,
+  type SquareHinge,
   type Vertex,
 } from "@/lib/site-intel/draw";
 import {
@@ -112,6 +116,12 @@ const DRAW_MIDS = "site-draw-midpoints";
 const DRAW_SNAP = "site-draw-snap";
 /** The wall a vertex is snapped to, drawn so the jump is explained. */
 const DRAW_SNAP_EDGE = "site-draw-snap-edge";
+/**
+ * The corner a right angle was applied to. Drawn in AMBER, not the snap blue:
+ * blue means the point is on something a source published, amber means it is
+ * where we guessed a building would put it.
+ */
+const DRAW_SQUARE = "site-draw-square";
 /** Neighbouring OS polygons: context to draw against, and snap targets. */
 const NEIGHBOURS = "site-neighbours";
 
@@ -710,6 +720,14 @@ export default function LandMap({
         paint: { "line-color": "#1B4DD1", "line-width": 3, "line-opacity": 0.8 },
       });
 
+      m.addSource(DRAW_SQUARE, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: DRAW_SQUARE,
+        type: "line",
+        source: DRAW_SQUARE,
+        paint: { "line-color": "#B26B00", "line-width": 3, "line-opacity": 0.85 },
+      });
+
       m.addSource(DRAW_SNAP, { type: "geojson", data: emptyCollection() });
       m.addLayer({
         id: DRAW_SNAP,
@@ -914,7 +932,10 @@ export default function LandMap({
       const point = { x: e.point.x, y: e.point.y };
 
       if (dragging.current !== null) {
-        const vertex = withSnap([e.lngLat.lng, e.lngLat.lat]);
+        const vertex = withSnap(
+          [e.lngLat.lng, e.lngLat.lat],
+          hingesForVertex(drawing.current as Vertex[], dragging.current),
+        );
         drawing.current = moveVertex(drawing.current as Vertex[], dragging.current, vertex);
         renderDrawing();
         return;
@@ -1005,7 +1026,10 @@ export default function LandMap({
         ) {
           return;
         }
-        const vertex = withSnap([e.lngLat.lng, e.lngLat.lat]);
+        const vertex = withSnap(
+          [e.lngLat.lng, e.lngLat.lat],
+          hingesForAppend(drawing.current as Vertex[]),
+        );
         drawing.current = [...drawing.current, vertex];
         renderDrawing();
         showSnap(null);
@@ -1205,8 +1229,15 @@ export default function LandMap({
     );
   }, []);
 
-  /** Shows or clears the snap indicator, and the wall behind it if there is one. */
-  const showSnap = useCallback((vertex: Vertex | null, wall: [Vertex, Vertex] | null = null) => {
+  /**
+   * Shows or clears the snap indicator: the ring at the point taken, the
+   * neighbour's wall behind it in blue, or the squared corner in amber.
+   */
+  const showSnap = useCallback((
+    vertex: Vertex | null,
+    wall: [Vertex, Vertex] | null = null,
+    squared: [Vertex, Vertex, Vertex] | null = null,
+  ) => {
     const point = map.current?.getSource(DRAW_SNAP) as GeoJSONSource | undefined;
     point?.setData(
       vertex
@@ -1234,6 +1265,25 @@ export default function LandMap({
           }
         : emptyCollection(),
     );
+
+    /*
+     * Both arms of the right angle, so the user can see WHAT it was squared
+     * against - the pivot alone would not say which wall the 90° is measured
+     * from, and with two walls meeting there it is a real question.
+     */
+    const square = map.current?.getSource(DRAW_SQUARE) as GeoJSONSource | undefined;
+    square?.setData(
+      squared
+        ? {
+            type: "FeatureCollection",
+            features: [{
+              type: "Feature",
+              geometry: { type: "LineString", coordinates: squared },
+              properties: {},
+            }],
+          }
+        : emptyCollection(),
+    );
   }, []);
 
   /**
@@ -1246,25 +1296,34 @@ export default function LandMap({
    * thresholds are screen pixels at whatever zoom is in force.
    */
   const withSnap = useCallback(
-    (lngLat: Vertex): Vertex => {
+    (lngLat: Vertex, hinges: SquareHinge[] = []): Vertex => {
       const m = map.current;
-      if (!m || !snapOn.current) {
+      const wantSquare = squareOn.current && hinges.length > 0;
+      if (!m || (!snapOn.current && !wantSquare)) {
         showSnap(null);
         return lngLat;
       }
       const result = snap(
         lngLat,
-        snapTargets.current,
+        // With snapping off the assist can still run, and vice versa: they are
+        // separate toggles because they align to different things.
+        snapOn.current ? snapTargets.current : { vertices: [], edges: [] },
         (v) => {
           const p = m.project({ lng: v[0], lat: v[1] });
           return { x: p.x, y: p.y };
         },
         SNAP_PX,
         SNAP_EDGE_PX,
+        wantSquare ? hinges : [],
+        SQUARE_PX,
       );
       showSnap(
-        result.snapped ? result.vertex : null,
+        // The blue ring means "this point is on published data". A squared
+        // corner is not, so it gets the amber arms and no ring — and those
+        // arms end at the vertex, so the jump is still explained.
+        result.snapped && result.kind !== "square" ? result.vertex : null,
         result.edge ? [result.edge.a, result.edge.b] : null,
+        result.square ? [result.square.reference, result.square.pivot, result.vertex] : null,
       );
       return result.vertex;
     },
@@ -1517,6 +1576,11 @@ export default function LandMap({
         if (!on) showSnap(null);
       },
 
+      setSquare(on: boolean) {
+        squareOn.current = on;
+        if (!on) showSnap(null);
+      },
+
       showNeighbours(
         buildings: { geometry: GeoJSON.Geometry; label: string }[],
       ) {
@@ -1585,7 +1649,8 @@ export default function LandMap({
           SITE_PIN, SITE_TITLE, SITE_FOOTPRINT,
           CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
           GRID_SUPPLY_AREA, GRID_SITE_SUBS, GRID_ECR,
-          DRAW_LINE, DRAW_POINTS, DRAW_MIDS, DRAW_SNAP, DRAW_SNAP_EDGE, NEIGHBOURS,
+          DRAW_LINE, DRAW_POINTS, DRAW_MIDS, DRAW_SNAP, DRAW_SNAP_EDGE,
+          DRAW_SQUARE, NEIGHBOURS,
         ]) {
           setSiteData(id, emptyCollection());
         }
@@ -1636,6 +1701,8 @@ export default function LandMap({
   const neighbours = useRef<{ geometry: GeoJSON.Geometry; label: string }[]>([]);
   const snapTargets = useRef<SnapTargets>({ vertices: [], edges: [] });
   const snapOn = useRef(true);
+  /** Right-angle assist. Separate from snapping: it aligns to an assumption. */
+  const squareOn = useRef(true);
   /** Index of the vertex being dragged, or null. */
   const dragging = useRef<number | null>(null);
   /**
