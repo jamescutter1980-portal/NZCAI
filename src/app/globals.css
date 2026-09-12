@@ -397,3 +397,49 @@ body {
   margin: 0; padding-top: 8px; border-top: 1px solid var(--rule);
   font-size: 11.5px; line-height: 1.45; color: var(--ink-3);
 }
+
+/* ---- S-04 ownership ------------------------------------------------------ */
+
+.ownership {
+  padding-top: 10px; border-top: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 9px;
+}
+
+.own-title {
+  padding: 9px 10px; border-radius: 3px;
+  border-left: 3px solid var(--rule); background: var(--surface);
+}
+.own-title.postcode_and_address { border-left-color: var(--accent); }
+.own-title.postcode_only { border-left-color: var(--ink-3); }
+
+.own-head { margin: 0; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.own-number { font-family: var(--f-mono); font-size: 12.5px; font-weight: 500; }
+.own-quality {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-3); white-space: nowrap;
+}
+.own-title.postcode_and_address .own-quality { color: var(--accent); }
+
+.own-addr { margin: 4px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.own-meta { margin: 3px 0 0; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+
+.own-prop {
+  margin-top: 8px; padding: 7px 9px;
+  background: var(--surface-2); border-radius: 3px;
+}
+.own-prop-name { margin: 0; font-size: 13px; font-weight: 600; }
+.own-prop-meta { margin: 2px 0 0; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+.own-psc { margin: 4px 0 0; font-size: 12px; color: var(--ink-2); }
+.own-warn { margin: 4px 0 0; font-size: 12px; color: var(--risk); }
+
+.own-reasons {
+  list-style: none; margin: 7px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 11px; color: var(--ink-3);
+}
+
+.own-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.own-caveat {
+  margin: 0; padding-top: 8px; border-top: 1px solid var(--rule);
+  font-size: 11.5px; line-height: 1.45; color: var(--ink-3);
+}

@@ -223,3 +223,78 @@ export async function overrideProfile(
   await saveProfile(buildingId, updated);
   return updated;
 }
+
+/* ------------------------------------------------------- S-04 ownership --- */
+
+import { buildOwnershipResult, distinctProprietors, type OwnershipResult } from "./ownership";
+import { getCompany, normaliseCompanyNumber, type CompanyRecord } from "./companies-house";
+import { titlesForCompany, titlesInPostcode } from "./stores";
+
+export interface OwnershipReport {
+  ownership: OwnershipResult;
+  /** Companies House records, keyed by normalised company number. */
+  companies: Record<string, CompanyRecord>;
+  /** Set when Companies House could not be consulted at all. */
+  companiesUnavailable: string | null;
+}
+
+/**
+ * Ownership for a resolved site.
+ *
+ * The match is by address within a postcode, because open polygon data has no
+ * title number - see the header of ownership.ts. Every candidate is a lead to
+ * verify, and `inferredFromAddress` is always true.
+ */
+export async function ownershipFor(
+  profile: SiteProfile,
+  options: { enrich?: boolean } = {},
+): Promise<OwnershipReport> {
+  if (!profile.postcode) {
+    return {
+      ownership: buildOwnershipResult({ address: null, postcode: null }, []),
+      companies: {},
+      companiesUnavailable: null,
+    };
+  }
+
+  const titles = await titlesInPostcode(profile.postcode);
+  // Pass address: null rather than the postcode. A SiteProfile carries no
+  // free-text address today - that arrives with the EPC register (Task 0) -
+  // and feeding the postcode in as an address produces "tokens agree 0%",
+  // which claims a comparison that never happened. Null makes the match
+  // report honestly that there was no address to compare.
+  const ownership = buildOwnershipResult(
+    { address: null, postcode: profile.postcode },
+    titles,
+  );
+
+  if (options.enrich === false) {
+    return { ownership, companies: {}, companiesUnavailable: null };
+  }
+
+  const companies: Record<string, CompanyRecord> = {};
+  let unavailable: string | null = null;
+
+  for (const proprietor of distinctProprietors(ownership)) {
+    const number = normaliseCompanyNumber(proprietor.companyNumber);
+    if (!number || companies[number]) continue;
+    const record = await getCompany(number);
+    companies[number] = record;
+    if (!record.profile && record.unavailable && !unavailable) {
+      unavailable = record.unavailable;
+    }
+  }
+
+  return { ownership, companies, companiesUnavailable: unavailable };
+}
+
+/** Everything a company owns, for the portfolio question. */
+export async function portfolioFor(companyNumber: string) {
+  const number = normaliseCompanyNumber(companyNumber);
+  if (!number) return { companyNumber: null, titles: [], company: null };
+  const [titles, company] = await Promise.all([
+    titlesForCompany(number),
+    getCompany(number),
+  ]);
+  return { companyNumber: number, titles, company };
+}

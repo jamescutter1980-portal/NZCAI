@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **S-01 resolve · S-02 constraints · S-03 grid.** Updated 12 September 2026.
+Status: **S-01 resolve · S-02 constraints · S-03 grid · S-04 ownership.** Updated 12 September 2026.
 
 ---
 
@@ -180,6 +180,76 @@ narrative path when that lands.
   specified. DataMapWales and SpatialData.gov.scot are phase 2.
 - **Surface-water flood risk** - out of scope for phase 1, per the brief.
 
+## 2d. S-04 — corporate ownership
+
+**Built without a specification.** The brief lists S-04 under section 10, "Out
+of scope (later briefs)", in one line. Everything below is an assumption to
+check against the real S-04 brief when it exists.
+
+### The structural problem, which decides the whole design
+
+The obvious join — building → polygon → title number → owner — **does not exist
+on open data**. HM Land Registry's INSPIRE index polygons carry a Land
+Registry-INSPIRE ID, *not* a title number; each one has to be typed into a web
+form individually to reach the title. The bulk polygon-to-title linkage is the
+**National Polygon Service, £20,000 a year**. CCOD and OCOD, meanwhile, are keyed
+*by* title number.
+
+So there is no free path from a resolved building to a definitive owner. This is
+the same £20k gate identified in the investor note, and it is what Searchland and
+its competitors are really paying for.
+
+### What was built instead
+
+The reverse join. CCOD and OCOD carry the property address and postcode as free
+text, so a resolved site can be matched *against* them:
+
+1. narrow by postcode (indexed);
+2. score the address by token containment, with abbreviations expanded and noise
+   words dropped;
+3. return ranked candidates, every one at **tier T3, inferred**.
+
+Quality is either `postcode_and_address` or `postcode_only`, never "exact".
+Conflicting building numbers block an address match. A title covering several
+addresses says so, because it weakens the match. The result object carries
+`inferredFromAddress: true` permanently and a note stating it is a lead to
+verify, not proof of ownership.
+
+Companies House enrichment turns a proprietor's company number into status,
+registered address, officers and **persons with significant control** — which is
+the part that actually answers "who controls this landlord" for ESG work. Free,
+but needs `COMPANIES_HOUSE_API_KEY`; without one, screening still runs and
+reports company details as unavailable.
+
+`portfolioFor(companyNumber)` answers the reverse question — everything a company
+owns — via a GIN index on the proprietors JSON.
+
+**31 further tests**, 115 across the suite.
+
+### Two honesty fixes the tests and the run-through forced
+
+- Companies House returning an unexpected shape was reading as "no officers".
+  An empty list and a broken call now look different: a payload without an
+  `items` array is a failure, and `unavailable` says so.
+- The service was passing the postcode in as the site's address, which produced
+  "address tokens agree 0%" — claiming a comparison that never happened. It now
+  passes null, and the reason reads "No site address to compare, so the postcode
+  is all that matched".
+
+### Consequence worth stating plainly
+
+Until the EPC register lands (Task 0), a SiteProfile has **no street address**,
+so every ownership match is `postcode_only`. On a postcode with several
+corporate titles that means several candidates and no way to choose between
+them. Task 0 is therefore the unlock for S-04 as much as for S-01.
+
+### Licence caution
+
+CCOD and OCOD are **not plain OGL**. Both require registration and acceptance of
+HMLR's own licence, which carries conditions on redistribution. The terms have
+not been read — this build could not reach the pages — and `sources.yaml` marks
+them accordingly. **Check before any commercial use or any client deliverable.**
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -295,5 +365,10 @@ needs its own adapter. Highest-value next piece of S-03.
   these are signed off.
 - **The 50 m proximity buffer** and whether it should differ per dataset (the
   setting of a listed building may warrant more than an AQMA).
+- **CCOD/OCOD licence terms** — not plain OGL, not yet read. Blocking for any
+  client-facing use of ownership data.
+- **Whether the £20,000 National Polygon Service is worth buying.** Without it
+  ownership stays inferred. With it, building → title → owner becomes
+  definitive, and S-04 becomes a product rather than a lead generator.
 - **Base map tile source.** OS Data Hub key needed for production; CARTO
   fallback has not had its terms checked for commercial use.

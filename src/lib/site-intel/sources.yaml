@@ -157,3 +157,76 @@ sources:
       flood risk is out of scope for phase 1. ENDPOINT SHAPE UNVERIFIED - this
       build could not reach environment.data.gov.uk.
 
+  hmlr-ccod:
+    name: UK companies that own property in England and Wales (CCOD)
+    publisher: HM Land Registry
+    dataset: ccod
+    kind: bulk
+    url: https://use-land-property-data.service.gov.uk/datasets/ccod
+    licence: hmlr-ccod-licence
+    licence_url: https://use-land-property-data.service.gov.uk/datasets/ccod/licence
+    attribution: >-
+      Contains HM Land Registry data © Crown copyright and database right {year}.
+      This data is licensed under the Open Government Licence v3.0.
+    attribution_verified: false
+    refresh: 30d
+    coverage: England and Wales
+    notes: >
+      Keyed by title number, with the property address as free text. Registration
+      and licence acceptance required before download. CHECK THE LICENCE TERMS
+      BEFORE ANY COMMERCIAL USE - CCOD is not plain OGL and carries conditions on
+      redistribution.
+
+  hmlr-ocod:
+    name: Overseas companies that own property in England and Wales (OCOD)
+    publisher: HM Land Registry
+    dataset: ocod
+    kind: bulk
+    url: https://use-land-property-data.service.gov.uk/datasets/ocod
+    licence: hmlr-ocod-licence
+    licence_url: https://use-land-property-data.service.gov.uk/datasets/ocod/licence
+    attribution: >-
+      Contains HM Land Registry data © Crown copyright and database right {year}.
+      This data is licensed under the Open Government Licence v3.0.
+    attribution_verified: false
+    refresh: 30d
+    coverage: England and Wales
+    notes: >
+      As CCOD, plus country of incorporation. Same licence caution applies.
+
+  hmlr-national-polygon:
+    name: National Polygon Service
+    publisher: HM Land Registry
+    dataset: national-polygon
+    kind: bulk
+    url: https://use-land-property-data.service.gov.uk/datasets/nps
+    licence: hmlr-nps-commercial
+    licence_url: https://use-land-property-data.service.gov.uk/datasets/nps/licence/view
+    attribution: >-
+      Contains HM Land Registry data © Crown copyright and database right {year}.
+    attribution_verified: false
+    refresh: quarterly
+    coverage: England and Wales
+    notes: >
+      NOT LICENSED, NOT IN USE. £20,000 per year. This is the only dataset that
+      links a polygon to a title number, and therefore the only way to turn an
+      address match into a definitive owner. Everything in S-04 is inferred
+      because we do not hold it. Listed here so the gap is explicit.
+
+  companies-house:
+    name: Companies House public data
+    publisher: Companies House
+    dataset: company-information
+    kind: api
+    url: https://api.company-information.service.gov.uk
+    licence: OGL-UK-3.0
+    licence_url: https://developer.company-information.service.gov.uk/
+    attribution: "Contains public sector information licensed under the Open Government Licence v3.0"
+    attribution_verified: false
+    refresh: 7d
+    notes: >
+      Free with a registered API key (COMPANIES_HOUSE_API_KEY). Supplies company
+      status, registered address, officers and persons with significant control.
+      Without a key, ownership screening still runs and reports company details
+      as unavailable.
+

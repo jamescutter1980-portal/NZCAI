@@ -3,8 +3,8 @@
 NZC and ESG AI App.
 
 The **Land** module resolves a building from an address (S-01), screens it for
-planning and environmental constraints (S-02), and checks nearby DNO grid
-capacity for solar PV (S-03). See
+planning and environmental constraints (S-02), checks nearby DNO grid capacity
+for solar PV (S-03), and identifies likely corporate owners (S-04). See
 [`docs/site-intel/BRIEF.md`](docs/site-intel/BRIEF.md) for the full spec and
 [`docs/site-intel/PLAN.md`](docs/site-intel/PLAN.md) for current status, open
 decisions and what is not yet verified.
@@ -102,6 +102,42 @@ Env: `EA_FLOOD_SERVICE_URL` to point at the EA service (the default path is
 unverified), `EA_FLOOD_DISABLED=1` to skip the cross-check,
 `PLANNING_DATA_BASE` to point at a fixture server.
 
+## Ownership (S-04)
+
+Who owns this building, and who controls them.
+
+```bash
+npm run site:load-ccod -- CCOD_FULL.csv   # UK companies
+npm run site:load-ccod -- OCOD_FULL.csv   # overseas companies (auto-detected)
+```
+
+Both from [use-land-property-data.service.gov.uk](https://use-land-property-data.service.gov.uk).
+Set `COMPANIES_HOUSE_API_KEY` (free, from
+[developer.company-information.service.gov.uk](https://developer.company-information.service.gov.uk))
+to add company status, officers and persons with significant control.
+
+**Read this before trusting a result.** There is no free path from a building to
+a definitive owner. HM Land Registry's INSPIRE polygons carry an INSPIRE ID, not
+a title number; the bulk polygon-to-title linkage is the National Polygon
+Service at **£20,000 a year**, and CCOD/OCOD are keyed by title number. So this
+module works backwards — matching the resolved site's postcode and address
+against the property addresses CCOD and OCOD carry as free text.
+
+Every result is therefore **tier T3, inferred**: a lead to verify against the
+title register, never proof of ownership. Matches are labelled `address match`
+or `postcode only`, conflicting building numbers block an address match, and a
+title covering several addresses says so.
+
+Until the EPC register lands (Task 0) a resolved site has no street address, so
+**every match is currently `postcode only`** — several candidates on a shared
+postcode, with no way to choose between them.
+
+`?company=` answers the reverse: everything one company owns.
+
+**Licence caution:** CCOD and OCOD are not plain OGL. Both need registration and
+acceptance of HMLR's own terms, which carry conditions on redistribution. Those
+terms have not been read. Check before any commercial use.
+
 ## Loading real grid data
 
 `npm run db:seed` loads **invented sample rows**, tagged `fixture:sample`, so
@@ -175,6 +211,7 @@ src/lib/             db pool, types, headroom RAG bands, fixed grid wording,
 src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      resolution chain, profile builder, stores, service
                      S-02: constraint_rules.yaml, constraints, flood
+                     S-04: ownership matching, Companies House
 tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health
@@ -199,6 +236,7 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run site:verify` | S-01 readiness: reference data, slugs, attributions |
 | `npm run site:load-uprn -- <csv>` | Load OS Open UPRN or ONSUD |
 | `npm run site:postcodes` | Derive postcode centroids from loaded UPRNs |
+| `npm run site:load-ccod -- <csv>` | Load HMLR CCOD or OCOD ownership data |
 
 ## Caveat
 

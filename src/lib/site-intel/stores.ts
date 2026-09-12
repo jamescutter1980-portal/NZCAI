@@ -2,6 +2,7 @@ import { query } from "@/lib/db";
 import { boxAround, bounds, distanceM, type LatLon } from "./geo";
 import type { PostcodeStore, UprnPoint, UprnStore } from "./resolve";
 import type { FootprintStore } from "./profile";
+import type { CorporateTitle, Proprietor } from "./ownership";
 
 /**
  * Postgres-backed stores for the resolution chain.
@@ -130,4 +131,79 @@ export async function referenceDataCounts(): Promise<{
     postcodes: Number(row.postcodes),
     profiles: Number(row.profiles),
   };
+}
+
+/* --------------------------------------------------------- S-04 titles --- */
+
+interface TitleRow {
+  title_number: string;
+  dataset: "ccod" | "ocod";
+  tenure: string | null;
+  property_address: string | null;
+  postcode: string | null;
+  district: string | null;
+  county: string | null;
+  region: string | null;
+  multiple_address: boolean;
+  price_paid: string | null;
+  proprietors: Proprietor[];
+  date_proprietor_added: Date | string | null;
+}
+
+function toTitle(row: TitleRow): CorporateTitle {
+  return {
+    titleNumber: row.title_number,
+    dataset: row.dataset,
+    tenure: row.tenure,
+    propertyAddress: row.property_address,
+    postcode: row.postcode,
+    district: row.district,
+    county: row.county,
+    region: row.region,
+    multipleAddress: row.multiple_address,
+    pricePaid: row.price_paid === null ? null : Number(row.price_paid),
+    proprietors: row.proprietors ?? [],
+    dateProprietorAdded: row.date_proprietor_added
+      ? new Date(row.date_proprietor_added).toISOString().slice(0, 10)
+      : null,
+  };
+}
+
+/** Candidate titles for a postcode. The address scoring happens in ownership.ts. */
+export async function titlesInPostcode(postcode: string): Promise<CorporateTitle[]> {
+  const rows = await query<TitleRow & Record<string, unknown>>(
+    `SELECT title_number, dataset, tenure, property_address, postcode, district,
+            county, region, multiple_address, price_paid, proprietors,
+            date_proprietor_added
+       FROM corporate_title
+      WHERE postcode = $1
+      ORDER BY title_number
+      LIMIT 200`,
+    [postcode.toUpperCase()],
+  );
+  return rows.map(toTitle);
+}
+
+/** Everything a company owns - the portfolio question. */
+export async function titlesForCompany(companyNumber: string): Promise<CorporateTitle[]> {
+  const rows = await query<TitleRow & Record<string, unknown>>(
+    `SELECT title_number, dataset, tenure, property_address, postcode, district,
+            county, region, multiple_address, price_paid, proprietors,
+            date_proprietor_added
+       FROM corporate_title
+      WHERE proprietors @> $1::jsonb
+      ORDER BY postcode, title_number
+      LIMIT 500`,
+    [JSON.stringify([{ companyNumber: companyNumber.toUpperCase() }])],
+  );
+  return rows.map(toTitle);
+}
+
+export async function titleCounts(): Promise<{ ccod: number; ocod: number }> {
+  const [row] = await query<{ ccod: string; ocod: string }>(
+    `SELECT count(*) FILTER (WHERE dataset = 'ccod')::text AS ccod,
+            count(*) FILTER (WHERE dataset = 'ocod')::text AS ocod
+       FROM corporate_title`,
+  );
+  return { ccod: Number(row.ccod), ocod: Number(row.ocod) };
 }

@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import type { Candidate, SiteProfile } from "@/lib/site-intel/types";
 import type { ConstraintScreening } from "@/lib/site-intel/constraints";
+import type { OwnershipResult } from "@/lib/site-intel/ownership";
+import type { CompanyRecord } from "@/lib/site-intel/companies-house";
 import { TIER_LABEL } from "@/lib/site-intel/types";
 
 /**
@@ -43,6 +45,92 @@ const STATE_COPY: Record<string, string> = {
   not_supported: "not supported here",
   source_error: "source unavailable",
 };
+
+interface OwnershipReport {
+  ownership: OwnershipResult;
+  companies: Record<string, CompanyRecord>;
+  companiesUnavailable: string | null;
+}
+
+/**
+ * Corporate ownership. Every candidate is a lead matched on address, never a
+ * confirmed owner, so the wording and the ordering both say so.
+ */
+function OwnershipList({ report }: { report: OwnershipReport }) {
+  const { ownership, companies, companiesUnavailable } = report;
+
+  return (
+    <section className="ownership">
+      <p className="eyebrow">Corporate ownership</p>
+
+      {ownership.candidates.length === 0 ? (
+        <p className="own-note">
+          {ownership.searchedPostcode
+            ? `No corporate title matched ${ownership.searchedPostcode}. That does not mean the site is not company-owned — only that no match was found in the loaded data.`
+            : "No postcode resolved for this site, so ownership could not be searched."}
+        </p>
+      ) : (
+        ownership.candidates.slice(0, 5).map((candidate) => {
+          const t = candidate.title;
+          return (
+            <div key={t.titleNumber} className={`own-title ${candidate.quality}`}>
+              <p className="own-head">
+                <span className="own-number">{t.titleNumber}</span>
+                <span className="own-quality">
+                  {candidate.quality === "postcode_and_address" ? "address match" : "postcode only"}
+                </span>
+              </p>
+              {t.propertyAddress && <p className="own-addr">{t.propertyAddress}</p>}
+              <p className="own-meta">
+                {t.tenure ?? "tenure unknown"}
+                {t.dataset === "ocod" ? " · overseas-owned" : ""}
+                {t.multipleAddress ? " · covers several addresses" : ""}
+              </p>
+
+              {t.proprietors.map((proprietor) => {
+                const record = proprietor.companyNumber
+                  ? companies[proprietor.companyNumber.toUpperCase().padStart(8, "0")]
+                  : undefined;
+                return (
+                  <div key={proprietor.name} className="own-prop">
+                    <p className="own-prop-name">{proprietor.name}</p>
+                    <p className="own-prop-meta">
+                      {proprietor.companyNumber ?? "no company number"}
+                      {proprietor.countryIncorporated ? ` · ${proprietor.countryIncorporated}` : ""}
+                      {record?.profile?.status ? ` · ${record.profile.status}` : ""}
+                    </p>
+                    {record?.profile?.inactive && (
+                      <p className="own-warn">
+                        This company is not active at Companies House.
+                      </p>
+                    )}
+                    {record && record.psc.filter((p) => !p.ceasedOn).length > 0 && (
+                      <p className="own-psc">
+                        Controlled by{" "}
+                        {record.psc.filter((p) => !p.ceasedOn).map((p) => p.name).join(", ")}
+                      </p>
+                    )}
+                    {record?.unavailable && <p className="own-note">{record.unavailable}</p>}
+                  </div>
+                );
+              })}
+
+              <ul className="own-reasons">
+                {candidate.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        })
+      )}
+
+      {companiesUnavailable && <p className="own-note">{companiesUnavailable}</p>}
+
+      <p className="own-caveat">{ownership.note}</p>
+    </section>
+  );
+}
 
 /** Constraints found on or near the site. Absences are stated, never implied. */
 function ConstraintList({ screening }: { screening: ConstraintScreening }) {
@@ -136,6 +224,7 @@ export default function SitePanel({ mapApi }: Props) {
   const [profile, setProfile] = useState<SiteProfile | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [screening, setScreening] = useState<ConstraintScreening | null>(null);
+  const [ownership, setOwnership] = useState<OwnershipReport | null>(null);
 
   const reset = useCallback(() => {
     setCandidates([]);
@@ -143,6 +232,7 @@ export default function SitePanel({ mapApi }: Props) {
     setProfile(null);
     setConfirmed(false);
     setScreening(null);
+    setOwnership(null);
     setStep(null);
     mapApi.clearSite();
   }, [mapApi]);
@@ -195,6 +285,7 @@ export default function SitePanel({ mapApi }: Props) {
       setSelected(candidate);
       setConfirmed(false);
       setScreening(null);
+      setOwnership(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -215,6 +306,15 @@ export default function SitePanel({ mapApi }: Props) {
           setProfile(data.profile);
           setScreening(data.constraints ?? null);
           mapApi.showGeometry(data.profile);
+
+          // Ownership is a separate call: it can be slow (Companies House per
+          // proprietor) and the profile should not wait on it.
+          void fetch(`/api/site-intel/ownership?uprn=${encodeURIComponent(candidate.uprn)}`)
+            .then((r) => r.json())
+            .then((own: OwnershipReport & { error?: string }) => {
+              if (!own.error) setOwnership(own);
+            })
+            .catch(() => undefined);
         } else if (data.error) {
           setError(data.error);
         }
@@ -351,6 +451,8 @@ export default function SitePanel({ mapApi }: Props) {
           )}
 
           {screening && <ConstraintList screening={screening} />}
+
+          {ownership && <OwnershipList report={ownership} />}
 
           <div className="site-actions">
             {!confirmed && selected.uprn && (

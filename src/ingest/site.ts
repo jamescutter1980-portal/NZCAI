@@ -4,6 +4,7 @@
  *   npm run site:verify              probe planning.data, report readiness
  *   npm run site:load-uprn <file>    load OS Open UPRN (or ONSUD) CSV
  *   npm run site:postcodes           derive postcode centroids from loaded UPRNs
+ *   npm run site:load-ccod <file>    load HMLR CCOD or OCOD ownership CSV
  *
  * OS Open UPRN is ~40M rows and is distributed as a zipped CSV from the OS
  * Downloads API, so loading takes a local file rather than fetching: download
@@ -20,7 +21,7 @@ import { checkSlugs } from "@/lib/site-intel/planning-data";
 import { DATASETS } from "@/lib/site-intel/profile";
 import { loadSources, unverifiedAttributions } from "@/lib/site-intel/sources";
 import { ruleDatasets, unapprovedRules } from "@/lib/site-intel/rules";
-import { referenceDataCounts } from "@/lib/site-intel/stores";
+import { referenceDataCounts, titleCounts } from "@/lib/site-intel/stores";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 
 const GREEN = "\x1b[32m", RED = "\x1b[31m", YELLOW = "\x1b[33m", DIM = "\x1b[2m", OFF = "\x1b[0m";
@@ -156,14 +157,128 @@ async function derivePostcodeCentroids(): Promise<void> {
   console.log(`${GREEN}OK${OFF} derived ${rowCount ?? 0} postcode centroids from os_uprn`);
 }
 
+/**
+ * Loads CCOD (UK companies) or OCOD (overseas companies). The dataset is
+ * detected from the header: OCOD carries a country-of-incorporation column.
+ *
+ * Both hold up to four proprietors in repeated column groups; those are folded
+ * into one JSON array per title so a title is one row.
+ */
+async function loadOwnershipCsv(path: string, limit: number): Promise<void> {
+  const stream = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
+
+  let header: string[] | null = null;
+  let dataset: "ccod" | "ocod" = "ccod";
+  let idx: Record<string, number> = {};
+  let proprietorGroups: { name: number; number: number; category: number; address: number; country: number }[] = [];
+  let read = 0, written = 0, skipped = 0;
+
+  const cell = (cells: string[], i: number): string | null =>
+    i === -1 ? null : (cells[i] ?? "").trim() || null;
+
+  for await (const line of stream) {
+    if (!line.trim()) continue;
+    const cells = splitCsv(line);
+
+    if (!header) {
+      header = cells;
+      idx = {
+        title: columnIndex(header, ["Title Number", "TitleNumber"]),
+        tenure: columnIndex(header, ["Tenure"]),
+        address: columnIndex(header, ["Property Address", "PropertyAddress"]),
+        postcode: columnIndex(header, ["Postcode"]),
+        district: columnIndex(header, ["District"]),
+        county: columnIndex(header, ["County"]),
+        region: columnIndex(header, ["Region"]),
+        multiple: columnIndex(header, ["Multiple Address Indicator", "MultipleAddressIndicator"]),
+        price: columnIndex(header, ["Price Paid", "PricePaid"]),
+        added: columnIndex(header, ["Date Proprietor Added", "DateProprietorAdded"]),
+      };
+      if (idx.title === -1) {
+        throw new Error(`No "Title Number" column in ${path}. Header: ${header.slice(0, 8).join(",")}`);
+      }
+
+      // Proprietor groups are numbered (1)..(4) in the HMLR headers.
+      proprietorGroups = [1, 2, 3, 4].map((n) => ({
+        name: columnIndex(header as string[], [`Proprietor Name (${n})`]),
+        number: columnIndex(header as string[], [`Company Registration No. (${n})`]),
+        category: columnIndex(header as string[], [`Proprietorship Category (${n})`]),
+        address: columnIndex(header as string[], [`Proprietor (${n}) Address (1)`, `Proprietor Address (${n})`]),
+        country: columnIndex(header as string[], [`Country Incorporated (${n})`]),
+      }));
+
+      dataset = proprietorGroups.some((g) => g.country !== -1) ? "ocod" : "ccod";
+      console.log(`${DIM}detected ${dataset.toUpperCase()}, ${proprietorGroups.filter(g => g.name !== -1).length} proprietor slots${OFF}`);
+      continue;
+    }
+
+    read += 1;
+    if (read > limit) break;
+
+    const titleNumber = cell(cells, idx.title);
+    if (!titleNumber) { skipped += 1; continue; }
+
+    const proprietors = proprietorGroups
+      .map((g) => ({
+        name: cell(cells, g.name),
+        companyNumber: cell(cells, g.number),
+        category: cell(cells, g.category),
+        address: cell(cells, g.address),
+        countryIncorporated: cell(cells, g.country),
+      }))
+      .filter((pr) => pr.name !== null);
+
+    const priceRaw = cell(cells, idx.price);
+    const price = priceRaw ? Number(priceRaw.replace(/[^0-9.]/g, "")) : null;
+
+    await getPool().query(
+      `INSERT INTO corporate_title
+         (title_number, dataset, tenure, property_address, postcode, district,
+          county, region, multiple_address, price_paid, proprietors,
+          date_proprietor_added)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12)
+       ON CONFLICT (title_number) DO UPDATE SET
+         dataset = EXCLUDED.dataset, tenure = EXCLUDED.tenure,
+         property_address = EXCLUDED.property_address, postcode = EXCLUDED.postcode,
+         district = EXCLUDED.district, county = EXCLUDED.county,
+         region = EXCLUDED.region, multiple_address = EXCLUDED.multiple_address,
+         price_paid = EXCLUDED.price_paid, proprietors = EXCLUDED.proprietors,
+         date_proprietor_added = EXCLUDED.date_proprietor_added,
+         loaded_at = now()`,
+      [
+        titleNumber.toUpperCase(),
+        dataset,
+        cell(cells, idx.tenure),
+        cell(cells, idx.address),
+        normalisePostcode(cell(cells, idx.postcode) ?? ""),
+        cell(cells, idx.district),
+        cell(cells, idx.county),
+        cell(cells, idx.region),
+        (cell(cells, idx.multiple) ?? "N").toUpperCase().startsWith("Y"),
+        Number.isFinite(price as number) ? price : null,
+        JSON.stringify(proprietors),
+        cell(cells, idx.added),
+      ],
+    );
+    written += 1;
+  }
+
+  console.log(`${GREEN}OK${OFF} ${dataset.toUpperCase()}: read ${read}, wrote ${written}, skipped ${skipped}`);
+}
+
 async function verify(): Promise<void> {
   console.log("Site Intelligence readiness\n");
 
   const counts = await referenceDataCounts();
   const mark = (n: number) => (n > 0 ? `${GREEN}${n}${OFF}` : `${RED}0${OFF}`);
+  const titles = await titleCounts();
   console.log(`  os_uprn            ${mark(counts.uprns)} rows`);
   console.log(`  postcode_centroid  ${mark(counts.postcodes)} rows`);
   console.log(`  site_profile       ${counts.profiles} rows`);
+  console.log(`  corporate_title    ${mark(titles.ccod + titles.ocod)} rows ${DIM}(CCOD ${titles.ccod}, OCOD ${titles.ocod})${OFF}`);
+  if (titles.ccod + titles.ocod === 0) {
+    console.log(`  ${YELLOW}-> load ownership: npm run site:load-ccod <file.csv>${OFF}`);
+  }
   if (counts.uprns === 0) {
     console.log(`  ${YELLOW}-> load OS Open UPRN: npm run site:load-uprn <file.csv>${OFF}`);
   }
@@ -221,11 +336,16 @@ async function main(): Promise<void> {
     await loadUprnCsv(arg, limit);
     return closePool();
   }
+  if (command === "load-ccod") {
+    if (!arg) throw new Error("Usage: site:load-ccod <path-to-csv>");
+    await loadOwnershipCsv(arg, limit);
+    return closePool();
+  }
   if (command === "postcodes") {
     await derivePostcodeCentroids();
     return closePool();
   }
-  throw new Error("Usage: tsx src/ingest/site.ts <verify|load-uprn|postcodes> [file]");
+  throw new Error("Usage: tsx src/ingest/site.ts <verify|load-uprn|load-ccod|postcodes> [file]");
 }
 
 main().catch((err) => {
