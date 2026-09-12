@@ -90,11 +90,13 @@ subprocess for local use, or a long-lived Streamable HTTP service for the portal
 ```
 src/nzcai_mcp/
   config.py        environment -> Config, the only place env vars are read
-  datasets.py      versioned reference data + provenance
+  reference.py     the DESNZ flat file loader (the portal's file, same rules)
+  datasets.py      versioned pathway datasets + provenance
+  auth.py          bearer token middleware for the HTTP transport
   server.py        the only module that imports the MCP SDK
   tools/           pure calculations: no MCP, no I/O, unit tested directly
 data/
-  factors/         emission factor sets      (mounted read-only at /data)
+  reference/       published tables, supplied per deployment (gitignored)
   pathways/        decarbonisation pathways
 ```
 
@@ -139,34 +141,66 @@ configuration. See `.env.example` for the full set of variables.
 
 | Tool | Returns |
 | --- | --- |
-| `calculate_carbon_intensity` | EUI (kWh/m²), emissions by fuel, and dual location-based / market-based Scope 2 intensities |
+| `calculate_carbon_intensity` | EUI (kWh/m²), emissions by fuel, and dual location-based / market-based Scope 2 intensities, from the DESNZ factors for the reporting year |
+| `search_emission_factors` | Rows of the loaded DESNZ flat file with their ids, so a fuel or activity can point at a published row |
 | `crrem_misalignment_year` | First year an asset exceeds a decarbonisation pathway, the year-by-year projection, and cumulative excess emissions |
-| `list_reference_datasets` | The factor sets and pathways this server can apply, with their provenance |
+| `list_reference_datasets` | Which DESNZ years are loaded, and which pathways are available |
 
-### Reference data and provenance
+### Emission factors
 
-Factor tables and pathways are **mounted, not baked into the image** — factors are
-reissued annually and CRREM pathways are licensed data that must not ship in a
-container. Each dataset carries a `provenance` block, and every result derived from
-one repeats it:
+Factors come from the **DESNZ UK Government GHG Conversion Factors for Company
+Reporting** — the same annual flat file the portal reads, in the same place, parsed
+by the same rules. Nothing here holds its own copy of a factor value.
+
+Supply the file once and both layers use it:
+
+1. Download the *flat file for automatic processing* (XLSX) for the reporting year
+   from the [DESNZ publication](https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025).
+2. Export the `Factors by Category` sheet to CSV (UTF-8). Leave the title rows; the
+   loader finds the header by its first cell, `ID`.
+3. Save it as `data/reference/desnz-conversion-factors/<year>.csv`.
+
+`data/reference/` is gitignored: published tables are supplied per deployment and
+never enter version control. `REFERENCE_DATA_DIR` overrides the location and is the
+same variable the portal uses, so one setting configures both. Files are re-read when
+their mtime or size changes — no restart needed.
+
+Two rules the loader enforces, both inherited from the portal:
+
+- **A blank factor means "not available" and is never read as 0.** DESNZ republished
+  the 2026 flat file in July 2026 because unavailable factors had been shown as zero.
+  A calculation that would consume one fails instead. A published `0` is a real zero.
+- **Location-based Scope 2 is generation plus transmission & distribution.** The WTT
+  rows are Scope 3 and are not included.
+
+`electricity` and `natural_gas` resolve through the selectors the portal defines
+(`src/lib/carbon/factors.ts`). Any other fuel is addressed by its published row id,
+which `search_emission_factors` will find — no fuel's lookup text is guessed here.
+
+Every result names the rows behind it:
 
 ```json
 "provenance": {
-  "dataset": "factors/example-uk",
-  "source": "PLACEHOLDER — illustrative values only",
-  "verified": false,
-  "warning": "UNVERIFIED PLACEHOLDER DATA — not for client issue"
+  "source": "DESNZ UK Government GHG Conversion Factors for Company Reporting",
+  "reporting_year": 2025,
+  "file": "2025.csv",
+  "factors": {
+    "electricity": {
+      "reference": "DESNZ 2025 row 1001, 2001 (2025.csv)",
+      "rows": [{"id": "1001", "scope": "Scope 2", "description": "UK electricity / Electricity generated", "...": "..."}]
+    }
+  }
 }
 ```
 
-**The bundled datasets are placeholders.** The factor values are illustrative, and
-`data/pathways/example-office-eu.json` is a synthetic straight line, not a CRREM
-pathway. Replace both with the real exports and set `verified: true` before any
-output reaches a client. Nothing in the code checks this for you — the warning
-travelling with every result is the control.
+### Decarbonisation pathways
 
-Datasets are cached for the process lifetime, so restart the container after
-editing one.
+Still a placeholder: `data/pathways/example-office-eu.json` is a synthetic straight
+line, explicitly **not** a CRREM pathway, flagged `verified: false` so every result
+derived from it carries a warning. The repo already documents a
+`data/reference/crrem-pathways/<version>.csv` convention
+(`docs/integrations/reference-data.md`); moving pathways onto it, as factors now are,
+is the obvious next step.
 
 ### Authentication
 

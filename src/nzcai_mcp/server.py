@@ -23,6 +23,12 @@ from starlette.responses import JSONResponse
 from .auth import BearerTokenMiddleware, validate_auth_config
 from .config import Config, load_config
 from .datasets import DatasetError, get_dataset, list_datasets
+from .reference import (
+    ReferenceDataError,
+    available_years,
+    load_year,
+    resolve_fuel_factors,
+)
 from .tools import carbon, crrem
 from .tools.carbon import CalculationError
 
@@ -34,7 +40,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # withholds the text of any other exception from the client and reports a bare
 # "Error executing tool", so these are re-raised as ToolError to keep the detail --
 # the model needs to read "available: example-uk" to correct its own argument.
-EXPECTED_FAILURES = (DatasetError, CalculationError)
+EXPECTED_FAILURES = (DatasetError, CalculationError, ReferenceDataError)
 
 
 def _report_expected_failures(fn: F) -> F:
@@ -50,9 +56,13 @@ def _report_expected_failures(fn: F) -> F:
 INSTRUCTIONS = """\
 Tools for UK/EU building energy and carbon analysis.
 
-Every result that depends on reference data carries a `provenance` block naming the
-dataset it came from. If `provenance.verified` is false the numbers are placeholder
-data and must not be issued to a client.
+Emission factors are resolved from the published DESNZ flat file for the reporting
+year -- never from a value held in this server. Every result carries a `provenance`
+block naming the publication, the row ids used and the file, so any number can be
+traced back to its published row.
+
+A factor published as blank means "not available" and is refused rather than
+treated as zero.
 """
 
 
@@ -69,8 +79,10 @@ def build_server(config: Config | None = None) -> MCPServer:
         title="Calculate carbon intensity",
         description=(
             "Convert annual metered consumption into emissions and floor-area "
-            "intensities (EUI and kgCO2e/m2), with dual location-based and "
-            "market-based Scope 2 reporting when a supplier factor is supplied."
+            "intensities (EUI and kgCO2e/m2) using the published DESNZ conversion "
+            "factors for the reporting year. Location-based Scope 2 combines the UK "
+            "electricity generation and transmission & distribution rows; supply a "
+            "supplier factor for the market-based figure as well."
         ),
     )
     @_report_expected_failures
@@ -80,9 +92,20 @@ def build_server(config: Config | None = None) -> MCPServer:
             Field(description="Annual kWh by fuel, e.g. {'electricity': 250000, 'natural_gas': 480000}"),
         ],
         floor_area_m2: Annotated[float, Field(gt=0, description="Gross internal area in m2")],
-        factor_set: Annotated[
-            str, Field(description="Name of the emission factor dataset to apply")
-        ] = "example-uk",
+        reporting_year: Annotated[
+            int,
+            Field(description="Reporting year, selecting which DESNZ flat file to apply"),
+        ],
+        factor_row_ids: Annotated[
+            dict[str, str] | None,
+            Field(
+                default=None,
+                description=(
+                    "DESNZ row id per fuel, for anything beyond 'electricity' and "
+                    "'natural_gas'. Find ids with search_emission_factors."
+                ),
+            ),
+        ] = None,
         market_based_electricity_factor: Annotated[
             float | None,
             Field(
@@ -92,15 +115,67 @@ def build_server(config: Config | None = None) -> MCPServer:
             ),
         ] = None,
     ) -> dict[str, Any]:
-        dataset = get_dataset(config.data_dir, "factors", factor_set)
+        index = load_year(config.reference_dir, reporting_year)
+        resolved = resolve_fuel_factors(index, consumption_kwh.keys(), factor_row_ids)
         result = carbon.calculate_carbon_intensity(
             consumption_kwh=consumption_kwh,
             floor_area_m2=floor_area_m2,
-            factors_kgco2e_per_kwh=dataset.values,
+            factors_kgco2e_per_kwh={f: r.value for f, r in resolved.items()},
             market_based_electricity_factor=market_based_electricity_factor,
         )
-        result["provenance"] = dataset.citation()
+        result["provenance"] = {
+            "source": "DESNZ UK Government GHG Conversion Factors for Company Reporting",
+            "reporting_year": reporting_year,
+            "file": index.file_name,
+            "factors": {f: r.provenance(index) for f, r in resolved.items()},
+        }
         return result
+
+    @server.tool(
+        title="Search emission factors",
+        description=(
+            "Search the loaded DESNZ flat file for a reporting year and return "
+            "matching rows with their ids, so a fuel or activity can point at a "
+            "published row. Only rows actually loaded are offered."
+        ),
+    )
+    @_report_expected_failures
+    def search_emission_factors(
+        reporting_year: Annotated[int, Field(description="Reporting year to search")],
+        query: Annotated[
+            str | None,
+            Field(default=None, description="Free text matched across the level and unit columns"),
+        ] = None,
+        level1: Annotated[
+            str | None, Field(default=None, description="Restrict to one Level 1 category")
+        ] = None,
+        limit: Annotated[int, Field(default=50, ge=1, le=500)] = 50,
+    ) -> dict[str, Any]:
+        index = load_year(config.reference_dir, reporting_year)
+        needle = (query or "").strip().lower()
+        rows = [
+            r for r in index.rows
+            if (not level1 or r.level1.lower() == level1.lower())
+            and (
+                not needle
+                or needle in f"{r.level1} {r.level2} {r.level3} {r.level4} "
+                             f"{r.column_text} {r.uom}".lower()
+            )
+        ]
+        return {
+            "reporting_year": reporting_year,
+            "file": index.file_name,
+            "total_matching": len(rows),
+            "levels": sorted({r.level1 for r in index.rows if r.level1}),
+            "rows": [
+                {
+                    "id": r.id, "scope": r.scope, "description": r.describe(),
+                    "column_text": r.column_text, "uom": r.uom, "ghg_unit": r.ghg_unit,
+                    "factor": r.factor, "availability": r.availability,
+                }
+                for r in rows[:limit]
+            ],
+        }
 
     @server.tool(
         title="CRREM misalignment year",
@@ -145,19 +220,37 @@ def build_server(config: Config | None = None) -> MCPServer:
 
     @server.tool(
         title="List reference datasets",
-        description="List the emission factor sets and decarbonisation pathways this server can apply.",
+        description=(
+            "Report which DESNZ conversion factor years are loaded and which "
+            "decarbonisation pathways are available."
+        ),
     )
     @_report_expected_failures
     def list_reference_datasets() -> dict[str, Any]:
-        out: dict[str, Any] = {"data_dir": str(config.data_dir)}
-        for kind in ("factors", "pathways"):
-            entries = []
-            for name in list_datasets(config.data_dir, kind):
-                try:
-                    entries.append(get_dataset(config.data_dir, kind, name).citation())
-                except DatasetError as exc:  # a malformed file should not hide the rest
-                    entries.append({"dataset": f"{kind}/{name}", "error": str(exc)})
-            out[kind] = entries
+        years = available_years(config.reference_dir)
+        out: dict[str, Any] = {
+            "reference_dir": str(config.reference_dir),
+            "desnz_conversion_factors": {
+                "years_loaded": years,
+                "detail": (
+                    None
+                    if years
+                    else (
+                        "No DESNZ flat file loaded. Export the 'Factors by Category' "
+                        f"sheet to CSV and save it as {config.reference_dir}/"
+                        "desnz-conversion-factors/<year>.csv "
+                        "(docs/integrations/reference-data.md)."
+                    )
+                ),
+            },
+        }
+        pathways = []
+        for name in list_datasets(config.data_dir, "pathways"):
+            try:
+                pathways.append(get_dataset(config.data_dir, "pathways", name).citation())
+            except DatasetError as exc:
+                pathways.append({"dataset": f"pathways/{name}", "error": str(exc)})
+        out["pathways"] = pathways
         return out
 
     @server.custom_route("/healthz", methods=["GET"], include_in_schema=False)

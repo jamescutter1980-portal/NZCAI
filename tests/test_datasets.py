@@ -8,9 +8,9 @@ from nzcai_mcp.datasets import DatasetError, load_dataset
 REPO_DATA = Path(__file__).resolve().parent.parent / "data"
 
 
-def test_bundled_factor_set_loads_and_is_flagged_unverified():
-    dataset = load_dataset(REPO_DATA, "factors", "example-uk")
-    assert dataset.values["electricity"] > 0
+def test_bundled_pathway_loads_and_is_flagged_unverified():
+    dataset = load_dataset(REPO_DATA, "pathways", "example-office-eu")
+    assert dataset.values["2030"] > 0
     assert dataset.is_verified is False
     assert "warning" in dataset.citation()
 

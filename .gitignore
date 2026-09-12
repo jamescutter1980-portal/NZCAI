@@ -7,9 +7,10 @@ coverage/
 .env
 .env.*
 !.env.example
-# Portal runtime data (SQLite, consents) is ignored; MCP reference datasets are committed.
+# Portal runtime data (SQLite, consents) is ignored, and so is data/reference:
+# the DESNZ flat file and other published tables are supplied per deployment and
+# never enter version control. Only the MCP pathway datasets are committed.
 data/*
-!data/factors/
 !data/pathways/
 next-env.d.ts
 tsconfig.tsbuildinfo

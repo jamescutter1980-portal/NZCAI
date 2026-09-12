@@ -10,6 +10,9 @@ services:
       NZCAI_MCP_HOST: 0.0.0.0
       NZCAI_MCP_PORT: 8080
       NZCAI_DATA_DIR: /data
+      # Where the DESNZ flat file is read from. Same variable the portal uses.
+      # Defaults to <NZCAI_DATA_DIR>/reference, which the mount below covers.
+      REFERENCE_DATA_DIR: ${REFERENCE_DATA_DIR:-}
       # Host header allowlist for DNS-rebinding protection. The container binds
       # 0.0.0.0, for which the SDK applies no default, so this is the only guard.
       NZCAI_MCP_ALLOWED_HOSTS: ${NZCAI_MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*}
@@ -24,7 +27,8 @@ services:
       # since a bearer token on plain HTTP is readable in transit.
       - "127.0.0.1:8080:8080"
     volumes:
-      # Factor tables and pathways, read-only: the server never writes reference data.
+      # Pathways and data/reference (the DESNZ flat file), read-only: the server
+      # never writes reference data.
       - ./data:/data:ro
     read_only: true
     tmpfs:
