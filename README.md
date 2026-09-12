@@ -985,16 +985,30 @@ maplibre-gl** so the copies don't drift.
 
 ## Google Maps
 
-Google is no longer the base map. The key is still used for the **Solar API**
-(roof segments, pitch, azimuth, panel layout — UK covered at medium imagery
-quality, 10,000 free Building Insights calls/month) and **Maps Static** images
-in reports.
+Google is not the base map, and not a coordinate source: a stored position
+always comes from OS Open UPRN, and a guard throws if anything else tries to
+persist one. Two keys are kept, and only one of them is wired to anything.
 
-Enable: Maps JavaScript, Places (New), Geocoding, Solar, Maps Static. Create two
-keys, never one — a browser key restricted by HTTP referrer, and a server key
-restricted by IP. Restrict each to only the APIs it calls, and set a billing
-budget alert plus per-API daily quota caps. `.env` is gitignored; keys must never
-be committed.
+| Key | Status | What it does |
+|---|---|---|
+| `GOOGLE_MAPS_SERVER_KEY` | live, optional | Last step of the address chain — geocode an address the EPC register could not match, then offer OS Open UPRN points within 25 m of the result. The Google coordinate finds the neighbours and is then thrown away. |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | reserved | Read by no code. Held for Places autocomplete in the address box, which isn't built. |
+
+**The geocoder is a fallback, not a dependency.** Leave it unset and search
+still works through the EPC register, a UPRN, a postcode or a map click — an
+address the register can't match just stops at the postcode centroid instead of
+offering candidate buildings. `npm run site:verify` says so on the line itself,
+and reports the browser key as *reserved* rather than *absent*, so a blank value
+doesn't read as something broken.
+
+Solar API roof analysis and static map images in reports are planned for the
+server key and **not built**. Until one of them lands, restrict that key to the
+Geocoding API alone rather than granting scope nothing calls.
+
+Create two keys, never one — the browser key restricted by HTTP referrer, the
+server key by IP. Restrict each to only the APIs it actually calls, and set a
+billing budget alert plus per-API daily quota caps before the first live call.
+`.env` is gitignored; keys must never be committed.
 
 ## Layout
 

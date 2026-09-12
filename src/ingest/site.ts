@@ -367,7 +367,14 @@ async function verify(): Promise<void> {
   const epc = await epcCounts();
   console.log(`  ${DIM}cached certificates: ${epc.certificates} (${epc.withUprn} with a UPRN)${OFF}`);
   console.log(`  ${DIM}check the endpoint with: npm run epc:verify -- <postcode>${OFF}`);
-  console.log(`  ${process.env.GOOGLE_MAPS_SERVER_KEY ? GREEN + "OK" : DIM + "absent"}${OFF} geocoder fallback`);
+  const geocoder = !!process.env.GOOGLE_MAPS_SERVER_KEY;
+  console.log(`  ${geocoder ? GREEN + "OK" : DIM + "absent"}${OFF} geocoder fallback (Google server key)` +
+    (geocoder ? "" : ` ${DIM}- optional; without it an unmatched address stops at the postcode centroid${OFF}`));
+  // Reported as reserved rather than absent. Nothing reads this key, so a blank
+  // one is the expected state, and listing it as missing would invent a
+  // dependency. See .env.example and PLAN.md 3.4.
+  const browserKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? "set" : "unset";
+  console.log(`  ${DIM}reserved${OFF} Google browser key ${DIM}- ${browserKey}, and read by no code yet${OFF}`);
 
   await closePool();
 }

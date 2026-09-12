@@ -2822,7 +2822,7 @@ more is built**, because the answer changes roughly half the code.
 Switched on request. The base map is MapLibre GL: Ordnance Survey vector tiles
 where `NEXT_PUBLIC_OS_MAPS_API_KEY` is set, CARTO raster as a keyless fallback,
 and a plain background if tiles cannot be fetched at all so the data stays
-usable. Google is retained for the Solar API and static report images only.
+usable. What Google is still for, and what it is not, is set out in §3.4.
 
 This also removes the terms problem: Google bars digitising electrical
 infrastructure from satellite imagery, and bars showing Google content alongside
@@ -2850,6 +2850,48 @@ plan agreed in this session put grid screening first. Grid was built first.
 That is defensible — S-03 is independently useful and needs no UPRN — but it
 means there is no building resolution yet, so the grid layer cannot currently be
 attached to a specific site. **S-01 is the natural next piece either way.**
+
+### 3.4 Google Maps Platform — SETTLED, both keys kept, neither extra use built
+
+Settled on instruction: **keep both keys and both reserved uses, build neither
+now.** Recorded here because the config had started to imply an integration that
+does not exist — `.env.example` described the browser key as serving the Solar
+API and report images, and nothing reads that key at all.
+
+What Google does today, in full:
+
+| Key | Status | What it does |
+|---|---|---|
+| `GOOGLE_MAPS_SERVER_KEY` | wired, optional | Step d of the resolution chain: geocode an address the EPC register could not match, then claim OS Open UPRN points within 25 m of the result. |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | reserved | Read by no code. Held for Places autocomplete in the address box. |
+
+And what it does not do. It is not the base map (§3.2). It is not a coordinate
+source — the geocode result is used to find neighbouring UPRNs and then
+discarded, which is the brief's §3.1 rule and is enforced by
+`assertNoGoogleCoordinates`, not merely intended. The Solar API roof analysis
+and the static map images in reports are **not built**, so the server key stays
+scoped to the Geocoding API alone; granting it Solar and Maps Static now would
+widen a key ahead of anything that calls it.
+
+Two consequences worth stating.
+
+**The geocoder is a fallback, not a dependency.** Unset it and the chain still
+resolves through the register, an explicit UPRN, a postcode, or a map click.
+What is lost is narrow: an address the register cannot match stops at the
+postcode centroid instead of offering candidate buildings. `site:verify` now
+says that in the line itself, and reports the browser key as *reserved* rather
+than *absent*, so a blank value does not read as a broken dependency. This is
+the same rule the rest of the system follows — never report a bare absence.
+
+**The branch name is wrong, and cosmetically so.** `claude/google-maps-linking`
+was named before the map library was switched, and every slice on it since has
+been MapLibre drawing work. Nothing reads the name, but nobody reading the
+history should take it as evidence of a Google map.
+
+Worth noting for cost: no Google call has ever succeeded from this environment
+— egress is `403` to every external host — so the geocoder path is written and
+tested against injected fakes but has never run against Google. Budget alerts
+and per-API quota caps should be set before it first does.
 
 ## 4. Datasets — verification status
 
