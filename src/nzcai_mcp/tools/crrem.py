@@ -1,96 +1,125 @@
-"""CRREM-style stranding analysis.
+"""CRREM misalignment (stranding) year.
 
-Pure functions. The decarbonisation pathway is supplied by the caller (loaded
-from a dataset by ``server.py``) rather than embedded here — pathways are
-licensed, versioned data and must never be hardcoded into the image.
+Pure functions. The pathway is supplied by the caller, loaded from the licensed
+reference file by ``pathways.py`` -- never embedded here.
+
+The method matches the portal's ``computeMisalignment``: the misalignment year is
+the first year the asset intensity exceeds the pathway. A single asset value is
+held **constant** across the pathway years. That is a static projection, not the
+CRREM tool's method -- it ignores grid decarbonisation and any planned measures --
+so it is reported as a warning rather than dressed up with an assumed rate of
+improvement. For a CRREM-consistent answer the caller supplies the projected
+series.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable, Sequence
 
-from .carbon import CalculationError
+STATIC_PROJECTION_WARNING = (
+    "Single asset value held constant across all years (static projection). Supply a "
+    "projected series for a CRREM-consistent misalignment year."
+)
+BASIS_WARNING = (
+    "Check floor-area basis, scope and grid factor assumptions match the pathway "
+    "before reporting."
+)
 
 
-def _parse_pathway(pathway: dict[str, float]) -> list[tuple[int, float]]:
-    if not pathway:
-        raise CalculationError("pathway must contain at least one year")
-    rows: list[tuple[int, float]] = []
-    for year, limit in pathway.items():
-        try:
-            rows.append((int(year), float(limit)))
-        except (TypeError, ValueError) as exc:
-            raise CalculationError(f"pathway entry {year!r}: {limit!r} is not year: number") from exc
-    return sorted(rows)
+class CalculationError(ValueError):
+    """Raised when inputs cannot produce a meaningful result."""
 
 
 def misalignment_year(
-    baseline_intensity_kgco2e_per_m2: float,
-    baseline_year: int,
-    pathway_kgco2e_per_m2: dict[str, float],
-    annual_improvement_rate: float = 0.0,
+    pathway: Sequence[tuple[int, float | None]],
+    asset_series: Iterable[tuple[int, float]],
     floor_area_m2: float | None = None,
 ) -> dict[str, Any]:
-    """Project an asset against a pathway and find the first year it exceeds it.
+    """Compare an asset's intensity series against a pathway.
 
-    ``annual_improvement_rate`` is the compound fractional reduction in the
-    asset's own intensity each year (0.02 = 2% per year); leave at zero for a
-    do-nothing baseline. Supply ``floor_area_m2`` to also get excess emissions in
-    tCO2e rather than intensity units alone.
+    ``pathway`` is (year, value) with ``None`` where the file publishes no value.
+    ``asset_series`` is (year, value); a single pair is held constant across every
+    pathway year.
     """
-    if baseline_intensity_kgco2e_per_m2 < 0:
-        raise CalculationError("baseline intensity cannot be negative")
-    if not 0.0 <= annual_improvement_rate < 1.0:
-        raise CalculationError(
-            f"annual_improvement_rate must be in [0, 1), got {annual_improvement_rate}"
-        )
+    if not pathway:
+        raise CalculationError("pathway must contain at least one year")
+    asset = sorted(asset_series)
+    if not asset:
+        raise CalculationError("asset_series must contain at least one year and value")
+    if any(value < 0 for _, value in asset):
+        raise CalculationError("asset intensity cannot be negative")
     if floor_area_m2 is not None and floor_area_m2 <= 0:
         raise CalculationError("floor_area_m2 must be greater than zero when supplied")
 
-    rows = _parse_pathway(pathway_kgco2e_per_m2)
-    projection: list[dict[str, Any]] = []
-    first_misaligned: int | None = None
-    cumulative_excess_kgco2e_per_m2 = 0.0
+    by_year = dict(pathway)
+    years = sorted(by_year)
+    asset_constant = len(asset) == 1
+    series = [(year, asset[0][1]) for year in years] if asset_constant else asset
 
-    for year, limit in rows:
-        if year < baseline_year:
+    rows: list[dict[str, Any]] = []
+    first_misaligned: int | None = None
+    cumulative_excess = 0.0
+    skipped_years: list[int] = []
+
+    for year, value in series:
+        if year not in by_year:
+            skipped_years.append(year)
             continue
-        elapsed = year - baseline_year
-        intensity = baseline_intensity_kgco2e_per_m2 * (1 - annual_improvement_rate) ** elapsed
-        excess = max(0.0, intensity - limit)
-        cumulative_excess_kgco2e_per_m2 += excess
-        if excess > 0 and first_misaligned is None:
+        limit = by_year[year]
+        if limit is None:
+            # Published without a value: never read as zero, so the year is
+            # reported and skipped rather than counted as an exceedance.
+            rows.append({
+                "year": year, "asset_value": round(value, 3),
+                "pathway_value": None, "excess": None, "status": "no_pathway_value",
+            })
+            continue
+        excess = value - limit
+        misaligned = excess > 0
+        if misaligned and first_misaligned is None:
             first_misaligned = year
+        if misaligned:
+            cumulative_excess += excess
         row: dict[str, Any] = {
             "year": year,
-            "asset_intensity_kgco2e_per_m2": round(intensity, 2),
-            "pathway_limit_kgco2e_per_m2": round(limit, 2),
-            "excess_kgco2e_per_m2": round(excess, 2),
-            "aligned": excess == 0,
+            "asset_value": round(value, 3),
+            "pathway_value": round(limit, 3),
+            "excess": round(excess, 6),
+            "status": "misaligned" if misaligned else "aligned",
         }
         if floor_area_m2 is not None:
-            row["excess_tco2e"] = round(excess * floor_area_m2 / 1000.0, 3)
-        projection.append(row)
+            row["excess_tco2e"] = round(max(0.0, excess) * floor_area_m2 / 1000.0, 3)
+        rows.append(row)
 
-    if not projection:
-        raise CalculationError(
-            f"pathway ends in {rows[-1][0]}, before the baseline year {baseline_year}"
+    warnings: list[str] = []
+    if asset_constant:
+        warnings.append(STATIC_PROJECTION_WARNING)
+    if skipped_years:
+        warnings.append(
+            f"Asset years outside the pathway were ignored: "
+            f"{', '.join(str(y) for y in skipped_years)}."
         )
+    if any(r["status"] == "no_pathway_value" for r in rows):
+        warnings.append("Some pathway years carry no value in the file and were skipped.")
+    warnings.append(BASIS_WARNING)
 
-    horizon_end = projection[-1]["year"]
+    compared = [r for r in rows if r["status"] != "no_pathway_value"]
     result: dict[str, Any] = {
-        "baseline_year": baseline_year,
-        "horizon_end": horizon_end,
         "misalignment_year": first_misaligned,
-        "aligned_over_horizon": first_misaligned is None,
-        "years_to_misalignment": (
-            None if first_misaligned is None else first_misaligned - baseline_year
-        ),
-        "cumulative_excess_kgco2e_per_m2": round(cumulative_excess_kgco2e_per_m2, 2),
-        "projection": projection,
+        "aligned_over_horizon": first_misaligned is None and bool(compared),
+        "pathway_first_year": years[0],
+        "pathway_last_year": years[-1],
+        "years_compared": len(compared),
+        "asset_held_constant": asset_constant,
+        "cumulative_excess_per_m2": round(cumulative_excess, 3),
+        "projection": rows,
+        "warnings": warnings,
     }
     if floor_area_m2 is not None:
-        result["cumulative_excess_tco2e"] = round(
-            cumulative_excess_kgco2e_per_m2 * floor_area_m2 / 1000.0, 3
+        result["cumulative_excess_tco2e"] = round(cumulative_excess * floor_area_m2 / 1000.0, 3)
+    if not compared:
+        result["detail"] = (
+            f"No overlap: the asset series shares no year carrying a pathway value with "
+            f"the pathway ({years[0]}-{years[-1]}), so no misalignment year can be computed."
         )
     return result

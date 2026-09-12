@@ -11,7 +11,7 @@ import functools
 import logging
 import sys
 from collections.abc import Callable
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, Literal, TypeVar
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -22,7 +22,14 @@ from starlette.responses import JSONResponse
 
 from .auth import BearerTokenMiddleware, validate_auth_config
 from .config import Config, load_config
-from .datasets import DatasetError, get_dataset, list_datasets
+from .pathways import (
+    ATTRIBUTION,
+    LICENCE_NOTE,
+    PathwayDataError,
+    available_versions,
+    load_version,
+    require_series,
+)
 from .reference import (
     ReferenceDataError,
     available_years,
@@ -40,7 +47,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # withholds the text of any other exception from the client and reports a bare
 # "Error executing tool", so these are re-raised as ToolError to keep the detail --
 # the model needs to read "available: example-uk" to correct its own argument.
-EXPECTED_FAILURES = (DatasetError, CalculationError, ReferenceDataError)
+EXPECTED_FAILURES = (CalculationError, ReferenceDataError, PathwayDataError)
 
 
 def _report_expected_failures(fn: F) -> F:
@@ -63,6 +70,9 @@ traced back to its published row.
 
 A factor published as blank means "not available" and is refused rather than
 treated as zero.
+
+CRREM pathways are licensed data supplied per deployment. Pathway results carry
+CRREM's attribution and are `modelled` values, not measurements.
 """
 
 
@@ -180,55 +190,106 @@ def build_server(config: Config | None = None) -> MCPServer:
     @server.tool(
         title="CRREM misalignment year",
         description=(
-            "Project a building against a decarbonisation pathway and return the "
-            "first year its carbon intensity exceeds the pathway limit, with the "
-            "year-by-year projection and cumulative excess emissions."
+            "Compare a building's carbon or energy intensity against a CRREM "
+            "decarbonisation pathway and report the first year it exceeds the "
+            "pathway. Supply a projected asset series for a CRREM-consistent "
+            "result; a single value is held constant, which is a static projection."
         ),
     )
     @_report_expected_failures
     def crrem_misalignment_year(
-        baseline_intensity_kgco2e_per_m2: Annotated[
-            float, Field(ge=0, description="Current whole-building carbon intensity")
+        country_code: Annotated[str, Field(description="ISO alpha-2, e.g. GB")],
+        property_type: Annotated[
+            str, Field(description="CRREM property type as named in the file, e.g. Office")
         ],
-        baseline_year: Annotated[int, Field(description="Year the baseline intensity relates to")],
-        pathway: Annotated[
-            str, Field(description="Name of the pathway dataset to project against")
-        ] = "example-office-eu",
-        annual_improvement_rate: Annotated[
-            float,
+        asset_series: Annotated[
+            dict[str, float],
             Field(
-                ge=0,
-                lt=1,
-                description="Compound annual reduction in the asset's own intensity (0.02 = 2%/yr)",
+                description=(
+                    "Asset intensity by year in the pathway's unit, e.g. "
+                    "{'2025': 65, '2026': 63}. A single entry is held constant "
+                    "across every pathway year."
+                )
             ),
-        ] = 0.0,
+        ],
+        pathway_type: Annotated[
+            Literal["ghg", "energy"], Field(description="GHG or energy intensity pathway")
+        ] = "ghg",
+        scenario: Annotated[Literal["1.5C", "2C"], Field(description="Warming scenario")] = "1.5C",
+        version: Annotated[
+            str | None,
+            Field(default=None, description="CRREM release, e.g. v2.04. Defaults to the newest loaded."),
+        ] = None,
         floor_area_m2: Annotated[
             float | None,
             Field(default=None, gt=0, description="Supply to also get excess emissions in tCO2e"),
         ] = None,
     ) -> dict[str, Any]:
-        dataset = get_dataset(config.data_dir, "pathways", pathway)
+        index = load_version(config.reference_dir, version)
+        series = require_series(index, country_code, property_type, pathway_type, scenario)
+        try:
+            asset = [(int(year), value) for year, value in asset_series.items()]
+        except (TypeError, ValueError) as exc:
+            raise CalculationError(
+                f"asset_series keys must be years: {sorted(asset_series)}"
+            ) from exc
+
         result = crrem.misalignment_year(
-            baseline_intensity_kgco2e_per_m2=baseline_intensity_kgco2e_per_m2,
-            baseline_year=baseline_year,
-            pathway_kgco2e_per_m2=dataset.values,
-            annual_improvement_rate=annual_improvement_rate,
+            pathway=[(p.year, p.value) for p in series],
+            asset_series=asset,
             floor_area_m2=floor_area_m2,
         )
-        result["provenance"] = dataset.citation()
+        result["unit"] = series[0].unit
+        result["provenance"] = {
+            "source": "CRREM (Carbon Risk Real Estate Monitor)",
+            "version": index.version,
+            "file": index.file_name,
+            "basis": "modelled",
+            "selection": {
+                "country_code": country_code.strip().upper(),
+                "property_type": series[0].property_type,
+                "pathway_type": pathway_type,
+                "scenario": scenario,
+            },
+            "attribution": ATTRIBUTION,
+            "licence": LICENCE_NOTE,
+        }
         return result
 
     @server.tool(
         title="List reference datasets",
         description=(
-            "Report which DESNZ conversion factor years are loaded and which "
-            "decarbonisation pathways are available."
+            "Report which DESNZ conversion factor years and CRREM pathway versions "
+            "are loaded, and what each covers."
         ),
     )
     @_report_expected_failures
     def list_reference_datasets() -> dict[str, Any]:
         years = available_years(config.reference_dir)
-        out: dict[str, Any] = {
+        versions = available_versions(config.reference_dir)
+        pathways: dict[str, Any] = {
+            "versions_loaded": versions,
+            "detail": (
+                None
+                if versions
+                else (
+                    "No CRREM pathway file loaded. Export the pathway tables to "
+                    f"{config.reference_dir}/crrem-pathways/<version>.csv "
+                    "(docs/integrations/reference-data.md)."
+                )
+            ),
+        }
+        if versions:
+            newest = load_version(config.reference_dir, versions[0])
+            pathways["newest"] = {
+                "version": newest.version,
+                "file": newest.file_name,
+                "countries": newest.countries,
+                "property_types": newest.property_types,
+                "points": len(newest.points),
+            }
+            pathways["attribution"] = ATTRIBUTION
+        return {
             "reference_dir": str(config.reference_dir),
             "desnz_conversion_factors": {
                 "years_loaded": years,
@@ -243,15 +304,8 @@ def build_server(config: Config | None = None) -> MCPServer:
                     )
                 ),
             },
+            "crrem_pathways": pathways,
         }
-        pathways = []
-        for name in list_datasets(config.data_dir, "pathways"):
-            try:
-                pathways.append(get_dataset(config.data_dir, "pathways", name).citation())
-            except DatasetError as exc:
-                pathways.append({"dataset": f"pathways/{name}", "error": str(exc)})
-        out["pathways"] = pathways
-        return out
 
     @server.custom_route("/healthz", methods=["GET"], include_in_schema=False)
     async def healthz(_request: Request) -> JSONResponse:
