@@ -79,43 +79,87 @@ export const postcodeStore: PostcodeStore = {
 };
 
 /**
- * Building footprints from OS OpenMap Local. Genuinely needs PostGIS - polygon
- * containment and intersection are not things to hand-roll over a whole
- * national dataset - so this returns null until the extension and the bulk
- * load are both in place, and the profile reports `unavailable` rather than
+ * Building footprints from OS OpenMap Local. Brief §3.2.
+ *
+ * THIS NO LONGER REQUIRES POSTGIS, reversing what this comment used to say.
+ * The old note claimed containment and intersection were "not things to
+ * hand-roll over a whole national dataset". Containment was already
+ * hand-rolled in geo.ts; intersection is an orientation test over edges, and
+ * exact for simple polygons. Nothing scans the dataset - a bounding-box lookup
+ * returns a handful of candidates and the exact test runs over those.
+ *
+ * The cost of that mistake was not theoretical. PostGIS was never installed
+ * here, so this returned undefined, so every profile reported
+ * `footprint: unavailable`, so `queryGeometry` had nothing to screen and S-02
+ * could not run from the UPRN search path at all.
+ *
+ * Returns undefined only when no buildings are loaded - which is a real
+ * absence of data, and the profile still reports `unavailable` rather than
  * inventing a footprint.
  */
 export async function footprintStore(): Promise<FootprintStore | undefined> {
-  const rows = await query<{ ready: boolean }>(
-    `SELECT (to_regclass('public.os_building') IS NOT NULL
-             AND EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis')) AS ready`,
+  const [row] = await query<{ n: string }>(
+    `SELECT CASE WHEN to_regclass('public.os_building') IS NULL THEN '0'
+                 ELSE (SELECT count(*)::text FROM os_building) END AS n`,
   );
-  if (!rows[0]?.ready) return undefined;
+  if (!Number(row?.n ?? 0)) return undefined;
+
+  const { pointInPolygon, polygonsIntersect, bounds } = await import("./geo");
 
   return {
     async containing(point: LatLon) {
-      const found = await query<{ geom: string }>(
-        `SELECT ST_AsGeoJSON(geom) AS geom
-           FROM os_building
-          WHERE ST_Contains(geom::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
-          LIMIT 1`,
-        [point.lon, point.lat],
+      // The bbox window is the filter; the ray cast decides. Ordering by area
+      // ascending makes the SMALLEST containing polygon win, which is the
+      // right answer when a unit sits inside a larger terrace outline.
+      const rows = await query<{ geometry: unknown }>(
+        `SELECT geometry FROM os_building
+          WHERE $1 BETWEEN min_lat AND max_lat
+            AND $2 BETWEEN min_lng AND max_lng
+          ORDER BY area_m2 ASC NULLS LAST
+          LIMIT 50`,
+        [point.lat, point.lon],
       );
-      return found.length ? (JSON.parse(found[0].geom) as GeoJSON.Geometry) : null;
+
+      for (const r of rows) {
+        const geometry = r.geometry as GeoJSON.Geometry;
+        if (pointInPolygon(point, geometry)) return geometry;
+      }
+      return null;
     },
 
     async largestIntersecting(geometry: GeoJSON.Geometry) {
-      const found = await query<{ geom: string }>(
-        `SELECT ST_AsGeoJSON(geom) AS geom
-           FROM os_building
-          WHERE ST_Intersects(geom::geometry, ST_GeomFromGeoJSON($1))
-          ORDER BY ST_Area(geom::geometry) DESC
-          LIMIT 1`,
-        [JSON.stringify(geometry)],
+      const box = bounds(geometry);
+      if (!box) return null;
+      const [west, south, east, north] = box;
+
+      // Ordered largest first, so the first exact hit is the answer and the
+      // rest need not be tested. The cap is a guard against a title extent
+      // covering a whole estate; it is generous for a single title.
+      const rows = await query<{ geometry: unknown }>(
+        `SELECT geometry FROM os_building
+          WHERE min_lat <= $1 AND max_lat >= $2
+            AND min_lng <= $3 AND max_lng >= $4
+          ORDER BY area_m2 DESC NULLS LAST
+          LIMIT 200`,
+        [north, south, east, west],
       );
-      return found.length ? (JSON.parse(found[0].geom) as GeoJSON.Geometry) : null;
+
+      for (const r of rows) {
+        const candidate = r.geometry as GeoJSON.Geometry;
+        if (polygonsIntersect(candidate, geometry)) return candidate;
+      }
+      return null;
     },
   };
+}
+
+/** How many building polygons are loaded, for readiness reporting. */
+export async function buildingCount(): Promise<number> {
+  const [row] = await query<{ n: string }>(
+    `SELECT CASE WHEN to_regclass('public.os_building') IS NULL THEN '0'
+                 ELSE (SELECT count(*)::text FROM os_building) END AS n`,
+  );
+  return Number(row?.n ?? 0);
 }
 
 export async function referenceDataCounts(): Promise<{

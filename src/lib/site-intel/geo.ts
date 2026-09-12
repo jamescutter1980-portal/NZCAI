@@ -219,3 +219,117 @@ export function bufferBounds(
     coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]],
   };
 }
+
+/* ----------------------------------------------- polygon intersection --- */
+
+/**
+ * Tolerance for "a point lies on this line", in degrees of perpendicular
+ * distance. About 1e-7 m at UK latitudes - far below any meaningful survey
+ * tolerance, and far above floating-point noise at these magnitudes.
+ *
+ * A tolerance is not optional here. Two buildings sharing a party wall have
+ * coordinates that agree to the precision the publisher wrote them at, and an
+ * exact `=== 0` test decides that knife edge by rounding error: -1.12 + 0.001
+ * is -1.1190000000000002, not -1.119. Getting it wrong silently is exactly the
+ * failure this codebase keeps guarding against.
+ */
+const COLLINEAR_EPSILON_DEG = 1e-12;
+
+/**
+ * Do two line segments cross?
+ *
+ * Orientation test, with the cross products NORMALISED BY SEGMENT LENGTH so
+ * the tolerance means a distance rather than an area. A raw cross product
+ * scales with the size of the segments, so a fixed epsilon against it would be
+ * strict for small polygons and loose for large ones.
+ *
+ * Touching counts as crossing: two buildings on a party wall do intersect, and
+ * PostGIS's ST_Intersects says the same, so the non-PostGIS path here gives the
+ * same answer as the PostGIS one would.
+ */
+function segmentsCross(
+  [ax, ay]: [number, number], [bx, by]: [number, number],
+  [cx, cy]: [number, number], [dx, dy]: [number, number],
+): boolean {
+  const cross = (ox: number, oy: number, px: number, py: number, qx: number, qy: number): number =>
+    (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
+
+  const lenAB = Math.hypot(bx - ax, by - ay);
+  const lenCD = Math.hypot(dx - cx, dy - cy);
+  // A zero-length edge is a duplicated vertex, not a segment.
+  if (lenAB === 0 || lenCD === 0) return false;
+
+  // Perpendicular distance of each endpoint from the other segment's line.
+  const d1 = cross(ax, ay, bx, by, cx, cy) / lenAB;
+  const d2 = cross(ax, ay, bx, by, dx, dy) / lenAB;
+  const d3 = cross(cx, cy, dx, dy, ax, ay) / lenCD;
+  const d4 = cross(cx, cy, dx, dy, bx, by) / lenCD;
+
+  const side = (d: number): number => (d > COLLINEAR_EPSILON_DEG ? 1 : d < -COLLINEAR_EPSILON_DEG ? -1 : 0);
+  const s1 = side(d1), s2 = side(d2), s3 = side(d3), s4 = side(d4);
+
+  if (s1 * s2 < 0 && s3 * s4 < 0) return true;
+
+  // Collinear or touching: an endpoint on the other segment.
+  const onSeg = (
+    ox: number, oy: number, px: number, py: number, qx: number, qy: number,
+  ): boolean =>
+    Math.min(ox, px) - COLLINEAR_EPSILON_DEG <= qx && qx <= Math.max(ox, px) + COLLINEAR_EPSILON_DEG &&
+    Math.min(oy, py) - COLLINEAR_EPSILON_DEG <= qy && qy <= Math.max(oy, py) + COLLINEAR_EPSILON_DEG;
+
+  if (s1 === 0 && onSeg(ax, ay, bx, by, cx, cy)) return true;
+  if (s2 === 0 && onSeg(ax, ay, bx, by, dx, dy)) return true;
+  if (s3 === 0 && onSeg(cx, cy, dx, dy, ax, ay)) return true;
+  if (s4 === 0 && onSeg(cx, cy, dx, dy, bx, by)) return true;
+  return false;
+}
+
+function ringsOf(geometry: GeoJSON.Geometry): Ring[] {
+  return [...outerRings(geometry), ...holes(geometry)];
+}
+
+/**
+ * Do two polygons intersect?
+ *
+ * EXACT for simple polygons, and no PostGIS. Three cases cover it:
+ *   - an edge of one crosses an edge of the other (partial overlap);
+ *   - a vertex of A lies in B (A inside B, or overlapping);
+ *   - a vertex of B lies in A (B inside A).
+ *
+ * The edge test comes first because it is the common case and cheapest to
+ * fail. Building footprints carry tens of vertices, and callers prefilter on
+ * bounding boxes, so the quadratic edge comparison is over small numbers.
+ *
+ * Note this is intersection, not area of intersection. "Largest polygon
+ * intersecting the title extent" (brief 3.2) asks which polygon is biggest,
+ * not how much of it overlaps - a building that merely clips the boundary is
+ * still a candidate, and flagged `footprint_inferred` either way.
+ */
+export function polygonsIntersect(
+  a: GeoJSON.Geometry | null,
+  b: GeoJSON.Geometry | null,
+): boolean {
+  if (!a || !b) return false;
+
+  const aRings = ringsOf(a);
+  const bRings = ringsOf(b);
+  if (!aRings.length || !bRings.length) return false;
+
+  for (const ra of aRings) {
+    for (let i = 0; i < ra.length - 1; i++) {
+      for (const rb of bRings) {
+        for (let j = 0; j < rb.length - 1; j++) {
+          if (segmentsCross(ra[i], ra[i + 1], rb[j], rb[j + 1])) return true;
+        }
+      }
+    }
+  }
+
+  // No edges cross, so either one contains the other or they are disjoint.
+  const firstA = aRings[0][0];
+  if (pointInPolygon({ lon: firstA[0], lat: firstA[1] }, b)) return true;
+  const firstB = bRings[0][0];
+  if (pointInPolygon({ lon: firstB[0], lat: firstB[1] }, a)) return true;
+
+  return false;
+}

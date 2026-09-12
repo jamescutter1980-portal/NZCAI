@@ -260,3 +260,27 @@ figures from ENA Engineering Recommendation G98 and G99 before that changes.
 One thing that is certain and already encoded in the note: a G99 application is
 made on **kWac**, not kWp, which is why the PV design module must pass AC export
 capacity rather than array size.
+
+---
+
+## TICKET-15 — No real OS OpenMap Local load
+
+**Raised by:** S-01 footprint store · **Status:** verify on first real run
+
+`npm run site:load-buildings` reads OS OpenMap Local building polygons. Outbound
+access to the OS Downloads API was blocked throughout this build, so no real
+extract has been loaded — the store is verified against 29 invented polygons.
+
+**Reproject before loading.** OS publishes in British National Grid
+(EPSG:27700), in metres. A BNG file loaded unconverted does not error: it places
+polygons at longitude 400000, where they fall outside every query and silently
+match nothing. The store would look loaded and answer null to everything.
+
+The loader guards against this — it range-checks coordinates, stops on the first
+bad feature, and prints the `ogr2ogr -t_srs EPSG:4326` command. That guard is
+tested against a synthetic BNG file. Confirm it behaves the same on a real one.
+
+**Coverage is whatever is loaded.** A site outside the loaded extract reports
+`footprint: unavailable`, and S-02 then has no geometry to screen. That is
+correct behaviour, but it means footprint coverage decides constraint coverage,
+and `npm run site:verify` is the place that says so.

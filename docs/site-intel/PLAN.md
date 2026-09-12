@@ -1182,6 +1182,148 @@ dot's.
   as points; the sample data carries one so the layer is exercised. When absent
   the substation method falls back to `nearest_by_distance` and both the panel
   and the map legend say so.
+## 2l. S-01 footprint store
+
+### I was wrong, and it cost four sections
+
+The old comment in `stores.ts` read:
+
+> "Building footprints from OS OpenMap Local. **Genuinely needs PostGIS** —
+> polygon containment and intersection are not things to hand-roll over a whole
+> national dataset."
+
+Wrong on every clause.
+
+**Containment was already hand-rolled**, in `geo.ts`, since S-01 — `pointInPolygon`
+has been sitting there the whole time. **Intersection** is an orientation test
+over edges; it is about sixty lines and exact for simple polygons. And **"over a
+whole national dataset"** was the real error: nothing scans the dataset. A
+bounding-box lookup on an index returns a handful of candidates and the exact
+test runs over those. A building carries tens of vertices.
+
+The consequence was not theoretical. PostGIS was never installed here — the
+install was declined early on — so the store returned `undefined`, so every
+profile reported `footprint: unavailable`, so `queryGeometry` had nothing to
+screen, so **S-02 could not run at all from the UPRN search path**. I worked
+around that twice in browser checks by redirecting the request to a stored
+profile, and wrote it up both times as a gap in the demo path. It was not a gap
+in the demo path. It was a dependency that was never needed, blocking the chain.
+
+The brief does say PostGIS (§3.2). This deviates, for the reason migration 004
+already established: PostGIS stays optional so the app runs on plain Postgres.
+If it is ever installed, `ST_Contains` over a GIST index is faster. It is not
+required, and saying it was is what did the damage.
+
+### The store
+
+Two methods, both bbox-filter-then-exact-test:
+
+- **`containing(point)`** — bbox window in SQL, ray cast in TypeScript, ordered
+  by area **ascending** so the *smallest* containing polygon wins. That matters
+  where a unit sits inside a larger terrace outline: the unit is the answer.
+- **`largestIntersecting(geometry)`** — bbox overlap in SQL, ordered by area
+  **descending**, exact edge test in TypeScript, first hit returned. Area is
+  precomputed at load, because recomputing it per query would mean parsing every
+  candidate.
+
+`polygonsIntersect` is exact for simple polygons: an edge of one crossing an
+edge of the other, or a vertex of either lying inside the other. The edge test
+runs first because it is the common case and the cheapest to fail.
+
+### The epsilon is not a fudge
+
+The first version compared cross products to exactly zero. Two buildings sharing
+a **party wall** then came out as not intersecting — because `-1.12 + 0.001` is
+`-1.1190000000000002`, not `-1.119`, and an exact test decides that knife edge
+by rounding error.
+
+Fixed by normalising each cross product by its segment length, so the tolerance
+means a *perpendicular distance* rather than an area — a raw cross product
+scales with polygon size, so a fixed epsilon against it would be strict for
+small polygons and loose for large ones. The tolerance is 1e-12 degrees, about
+1e-7 m: far below any survey tolerance, far above float noise.
+
+Touching counts as intersecting, which is also what `ST_Intersects` says — so
+the non-PostGIS path gives the same answer the PostGIS path would.
+
+### The projection trap
+
+OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, whose
+coordinates are metres — eastings around 400000. Everything downstream expects
+WGS84.
+
+A BNG file loaded unconverted **does not error**. It produces polygons at
+longitude 400000, which fall outside every bbox query and silently match
+nothing: the store would look loaded and answer null to everything. So the
+loader range-checks coordinates and **stops on the first bad feature** with the
+fix in the message — a partial import of misplaced polygons is worse than none,
+because they match nothing and nothing says why.
+
+It refuses two different ways, with different reasons: out-of-range magnitudes
+("this looks like British National Grid"), and valid lat/lng outside the British
+Isles ("check the file and its projection" — a building in Barcelona in a UK
+dataset is the wrong file, not the wrong projection).
+
+No datum shift is attempted here. OSTN15 is a grid transformation, not a
+formula, and an approximate one would move buildings by metres. `ogr2ogr` does
+it properly and the message says so.
+
+### Reading the file
+
+Streamed line by line, not `JSON.parse`d whole: a single local-authority extract
+runs to hundreds of MB and the parse would exhaust memory before the first
+insert. Per-line features are the common export shape; a single-line
+FeatureCollection falls back to a whole-file parse.
+
+### The chain finally runs
+
+First time end to end from a bare UPRN, no redirect:
+
+```
+footprint method : uprn_contained · 4,044 m²
+constraint basis : footprint        (was null)
+constraint states: 3 present, 3 proximity, 15 coverage-unknown
+```
+
+The address is populated too, because the EPC register supplies it — so S-01,
+S-02, S-03, S-05 and S-06 all now run from one search box.
+
+`npm run site:verify` reports the polygon count, and when it is zero says
+plainly what that costs: *"no footprints, so every profile reports footprint:
+unavailable and S-02 has no geometry to screen"*.
+
+### Also
+
+`site_profile` gained `footprint_original`, `footprint_original_method` and
+`footprint_overridden_at`. Brief §3.2 asks for a user redraw stored as an
+override tier **keeping the original** — an override that destroys what the
+source published cannot be undone, and the original's provenance is what makes
+the override reviewable. The columns exist; the redraw UI does not (below).
+
+### What was built
+
+| file | role |
+|---|---|
+| `db/migrations/011_footprints.sql` | `os_building` with bbox index, override columns, `building_load` |
+| `geo.ts` | `polygonsIntersect` with a length-normalised tolerance |
+| `stores.ts` | the store, no PostGIS; `buildingCount` |
+| `ingest/buildings-load.ts` | streaming loader with the projection guard |
+| `fixtures/os-buildings.sample.geojson` | 29 invented polygons, all `SAMPLE-BLD-*` |
+
+**17 tests**, 367 across the suite.
+
+### Not done
+
+- **No real OS OpenMap Local file has been loaded.** Egress is blocked. The
+  loader is verified against an invented fixture and against a synthetic BNG
+  file that it correctly refuses.
+- **No redraw UI.** The columns are there; the map has no draw tool, so
+  `user_drawn` is still unreachable and `footprint_overridden_at` is always null.
+- **Title extents are still empty**, so the `title_intersect` fallback cannot
+  trigger from the UI — `title-boundary` reports `coverage unknown`. The method
+  is tested directly and works; it has no data to work on.
+- **No spatial index beyond the bbox btree.** Fine at this scale. A national
+  load would want either PostGIS or a coarse grid key.
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -1292,6 +1434,10 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
 - **TICKET-14 G98/G99 values are null placeholders** — deliberately, so reading
   them fails loudly. Nothing reads them yet. Replace from ENA Engineering
   Recommendation G98/G99 before the PV export screen takes a real input.
+- **TICKET-15 no real OS OpenMap Local load.** The footprint store and its
+  loader are verified against an invented fixture and a synthetic British
+  National Grid file that it correctly refuses. No real extract has been
+  loaded, and coverage is whatever has been.
 - NESO "GIS Boundaries for GB DNO Licence Areas" loader now exists
   (`npm run grid:boundaries`), but has only been run against an invented
   fixture — the real GeoJSON has never been fetched.

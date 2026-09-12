@@ -363,6 +363,56 @@ No lease data, so no trigger-year segmentation — EPC expiry is a third of that
 calculation and a lease event usually comes first. This finds prospects; it does
 not track a client's portfolio. See PRELAUNCH TICKET-12.
 
+## Building footprints (S-01)
+
+```bash
+ogr2ogr -t_srs EPSG:4326 buildings.geojson Building.shp   # OS OpenMap Local
+npm run site:load-buildings -- buildings.geojson
+```
+
+Resolving a building needs a footprint: it is what S-02 screens against, and
+what the map draws. The store picks the polygon **containing the UPRN point**;
+failing that, the **largest polygon intersecting the title extent**, flagged
+`footprint_inferred`.
+
+### It does not need PostGIS
+
+An earlier version of this code said it did, and was wrong. Containment was
+already in `geo.ts`; intersection is an orientation test over edges, exact for
+simple polygons. Nothing scans the dataset — a bounding-box lookup returns a
+handful of candidates and the exact test runs over those.
+
+That mistake was expensive: PostGIS was never installed, so the store returned
+nothing, so every profile reported `footprint: unavailable`, so S-02 had no
+geometry and could not run from the UPRN search path at all. Migration 004 still
+adds PostGIS columns where the extension exists; it is an optimisation, not a
+requirement.
+
+`containing()` orders by area **ascending** so the smallest containing polygon
+wins — where a unit sits inside a larger terrace outline, the unit is the
+answer. `largestIntersecting()` orders **descending** and returns the first
+exact hit.
+
+### Reproject first — the loader will stop you
+
+OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.
+A BNG file loaded unconverted does **not** error: it produces polygons at
+longitude 400000, which fall outside every query and silently match nothing —
+the store looks loaded and answers null to everything.
+
+So the loader range-checks coordinates and stops on the first bad feature with
+the `ogr2ogr` command in the message. It refuses two ways with different
+reasons: coordinates too large for lat/lng ("this looks like British National
+Grid"), and valid lat/lng outside the British Isles ("check the file and its
+projection"). No datum shift is attempted here — OSTN15 is a grid
+transformation, not a formula, and an approximate one would move buildings by
+metres.
+
+Files are streamed line by line, not parsed whole: a local-authority extract
+runs to hundreds of MB.
+
+`npm run site:verify` reports the polygon count, and says what zero costs.
+
 ## Constraint map layers (S-02)
 
 Screened constraints are drawn on the map at `/land`, in three layers:
@@ -595,9 +645,9 @@ scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health,
                      /api/site-intel/* including /search
 src/components/      LandMap, SitePanel, SiteSearch, MeesProspects
-fixtures/            sample substations, EPC certificates, DNO licence areas
-                     and a planning.data stub — all invented, not DNO, NESO,
-                     register or planning.data content
+fixtures/            sample substations, EPC certificates, DNO licence areas,
+                     building footprints and a planning.data stub — all
+                     invented, not DNO, NESO, OS, register or planning.data
 docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 ```
 
@@ -620,6 +670,7 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run epc:verify -- <postcode>` | Task 0: check both EPC hosts |
 | `npm run site:load-uprn -- <csv>` | Load OS Open UPRN or ONSUD |
 | `npm run site:postcodes` | Derive postcode centroids from loaded UPRNs |
+| `npm run site:load-buildings -- <geojson>` | Load OS OpenMap Local footprints (reproject to EPSG:4326 first) |
 | `npm run site:load-ccod -- <csv>` | Load HMLR CCOD or OCOD ownership data |
 | `npm run site:load-voa -- list\|smv <csv>` | Load VOA rating list or summary valuations |
 | `npm run epc:load -- <csv>` | Bulk-load EPC certificates from the register's download |

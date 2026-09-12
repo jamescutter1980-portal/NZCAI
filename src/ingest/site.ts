@@ -22,7 +22,7 @@ import { DATASETS } from "@/lib/site-intel/profile";
 import { loadSources, unverifiedAttributions } from "@/lib/site-intel/sources";
 import { ruleDatasets, unapprovedRules } from "@/lib/site-intel/rules";
 import { loadMeesRules, unapprovedMeesRules } from "@/lib/site-intel/mees";
-import { epcCounts, referenceDataCounts, titleCounts, voaCounts } from "@/lib/site-intel/stores";
+import { buildingCount, epcCounts, referenceDataCounts, titleCounts, voaCounts } from "@/lib/site-intel/stores";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 
 const GREEN = "\x1b[32m", RED = "\x1b[31m", YELLOW = "\x1b[33m", DIM = "\x1b[2m", OFF = "\x1b[0m";
@@ -279,6 +279,18 @@ async function verify(): Promise<void> {
   console.log(`  corporate_title    ${mark(titles.ccod + titles.ocod)} rows ${DIM}(CCOD ${titles.ccod}, OCOD ${titles.ocod})${OFF}`);
   if (titles.ccod + titles.ocod === 0) {
     console.log(`  ${YELLOW}-> load ownership: npm run site:load-ccod <file.csv>${OFF}`);
+  }
+
+  const buildings = await buildingCount();
+  console.log(`  os_building        ${mark(buildings)} polygons`);
+  if (buildings === 0) {
+    console.log(`  ${YELLOW}-> no footprints, so every profile reports footprint: unavailable${OFF}`);
+    console.log(`  ${YELLOW}   and S-02 has no geometry to screen. Load OS OpenMap Local:${OFF}`);
+    console.log(`  ${DIM}   ogr2ogr -t_srs EPSG:4326 buildings.geojson Building.shp${OFF}`);
+    console.log(`  ${DIM}   npm run site:load-buildings -- buildings.geojson${OFF}`);
+  } else {
+    console.log(`  ${DIM}Footprint lookup is exact and needs no PostGIS: bbox filter in SQL,${OFF}`);
+    console.log(`  ${DIM}ray cast and edge test in geo.ts. Coverage is what has been loaded.${OFF}`);
   }
 
   const voa = await voaCounts();
