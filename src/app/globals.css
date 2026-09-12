@@ -136,20 +136,10 @@ body {
 .dot.unknown { background: var(--ink-3); }
 
 .map-wrap { flex: 1; position: relative; min-width: 0; background: var(--surface-2); }
-.map { position: absolute; inset: 0; }
-
-.placeholder {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 12px; padding: 32px; text-align: center;
-}
-.placeholder h2 { font-family: var(--f-display); font-size: 20px; margin: 0; font-weight: 600; }
-.placeholder p { margin: 0; max-width: 46ch; color: var(--ink-2); font-size: 14px; }
-.placeholder code {
-  font-family: var(--f-mono); font-size: 12.5px;
-  background: var(--surface); border: 1px solid var(--rule);
-  padding: 2px 6px; border-radius: 3px;
-}
+/* MapLibre stamps .maplibregl-map { position: relative } on this element, and
+   its stylesheet loads after this one - equal specificity, so it would win and
+   collapse the map to zero height. Two classes outrank it. */
+.map-wrap .map { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .legend {
   position: absolute; left: 12px; bottom: 12px; z-index: 2;
@@ -188,3 +178,83 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+.empty { padding: 18px; color: var(--ink-3); font-size: 14px; }
+.empty code, .banner code {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.legend .basemap {
+  margin-top: 3px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+/* ---- MapLibre chrome, themed to match the app ---------------------------- */
+
+.maplibregl-popup-content {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 13px 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+  font-family: var(--f-body);
+}
+.maplibregl-popup-tip { border-top-color: var(--surface); border-bottom-color: var(--surface); }
+.maplibregl-popup-close-button { color: var(--ink-3); font-size: 17px; padding: 2px 6px; }
+.maplibregl-popup-close-button:hover { background: var(--surface-2); color: var(--ink); }
+
+.ml-popup strong { font-size: 14.5px; }
+.ml-popup .ml-sub {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.ml-popup dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 12px;
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+.ml-popup dt { color: var(--ink-2); }
+.ml-popup dd {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.ml-popup .ml-note { margin: 9px 0 0; font-size: 12.5px; color: var(--warn); }
+.ml-popup .ml-stale {
+  margin-top: 9px;
+  padding: 5px 8px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 11.5px;
+  border-radius: 2px;
+}
+.ml-popup .ml-caveat {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--rule);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* Attribution must stay legible in both themes — it is a licence condition. */
+.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--surface) 88%, transparent) !important;
+  color: var(--ink-2);
+  font-size: 11px;
+}
+.maplibregl-ctrl-attrib a { color: var(--ink-2); }

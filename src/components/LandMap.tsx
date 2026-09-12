@@ -1,13 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader } from "@googlemaps/js-api-loader";
+import {
+  Map as MapLibreMap,
+  NavigationControl,
+  Popup,
+  ScaleControl,
+  setWorkerUrl,
+  type GeoJSONSource,
+  type MapMouseEvent,
+} from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { RAG_COLOR } from "@/lib/headroom";
 import { gridCaveat, isStale } from "@/lib/grid";
+import {
+  basemapName,
+  basemapStyle,
+  offlineStyle,
+  osApiKey,
+  osTransformRequest,
+} from "@/lib/basemap";
 import type { Rag, Substation } from "@/lib/types";
 
-const GB_CENTRE = { lat: 53.2, lng: -2.0 };
-const GB_ZOOM = 6;
+const GB_CENTRE: [number, number] = [-2.0, 53.2];
+const GB_ZOOM = 5.2;
+const SOURCE_ID = "substations";
+const LAYER_ID = "substation-circles";
 
 interface ApiResponse {
   substations: Substation[];
@@ -24,28 +42,77 @@ function fmt(value: number | null, unit: string): string {
   return value === null ? "—" : `${value.toFixed(1)} ${unit}`;
 }
 
-export default function LandMap() {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapObj = useRef<google.maps.Map | null>(null);
-  const markers = useRef<Map<number, google.maps.Marker>>(new Map());
-  const infoWindow = useRef<google.maps.InfoWindow | null>(null);
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function toGeoJson(rows: Substation[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  return {
+    type: "FeatureCollection",
+    features: rows
+      .filter((s) => s.lat !== null && s.lng !== null)
+      .map((s) => ({
+        type: "Feature",
+        id: s.id,
+        geometry: { type: "Point", coordinates: [s.lng as number, s.lat as number] },
+        properties: { id: s.id, rag: ragClass(s.generationRag) },
+      })),
+  };
+}
+
+function prefersDark(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches === true
+  );
+}
+
+interface LandMapProps {
+  initialSubstations: Substation[];
+  initialHasSample: boolean;
+  initialError?: string;
+}
+
+export default function LandMap({
+  initialSubstations,
+  initialHasSample,
+  initialError,
+}: LandMapProps) {
+  const container = useRef<HTMLDivElement>(null);
+  const map = useRef<MapLibreMap | null>(null);
+  const popup = useRef<Popup | null>(null);
+  const byId = useRef<Map<number, Substation>>(new Map());
+  const geojson = useRef<GeoJSON.FeatureCollection<GeoJSON.Point>>({
+    type: "FeatureCollection",
+    features: [],
+  });
+  const swappedToOffline = useRef(false);
 
   const [ready, setReady] = useState(false);
+  // Bumped on every style load so the data push re-runs after a style swap,
+  // which destroys and recreates all sources.
+  const [styleEpoch, setStyleEpoch] = useState(0);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [substations, setSubstations] = useState<Substation[]>([]);
-  const [hasSample, setHasSample] = useState(false);
+  const [tilesFailed, setTilesFailed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(initialError ?? null);
+  const [substations, setSubstations] = useState<Substation[]>(initialSubstations);
+  const [hasSample, setHasSample] = useState(initialHasSample);
   const [selected, setSelected] = useState<number | null>(null);
   const [minHeadroom, setMinHeadroom] = useState(0);
   const [minVoltage, setMinVoltage] = useState(0);
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
+  useEffect(() => {
+    byId.current = new Map(substations.map((s) => [s.id, s]));
+  }, [substations]);
 
   /* ---- fetch ------------------------------------------------------------ */
 
   const load = useCallback(async () => {
-    const params = new URLSearchParams({ limit: "2000" });
+    const params = new URLSearchParams({ limit: "5000" });
     if (minHeadroom > 0) params.set("minGenerationHeadroomMva", String(minHeadroom));
     if (minVoltage > 0) params.set("minVoltageKv", String(minVoltage));
 
@@ -65,122 +132,183 @@ export default function LandMap() {
     }
   }, [minHeadroom, minVoltage]);
 
+  const isFirstLoad = useRef(true);
   useEffect(() => {
+    // The server already rendered the unfiltered set - don't refetch it.
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      return;
+    }
     void load();
   }, [load]);
+
+  /* ---- popup ------------------------------------------------------------ */
+
+  const openPopup = useCallback((s: Substation) => {
+    const m = map.current;
+    if (!m || s.lat === null || s.lng === null) return;
+
+    const stale = isStale(s.ingestedAt)
+      ? '<div class="ml-stale">Source data is over 90 days old.</div>'
+      : "";
+
+    popup.current?.remove();
+    popup.current = new Popup({ closeButton: true, maxWidth: "300px" })
+      .setLngLat([s.lng, s.lat])
+      .setHTML(
+        `<div class="ml-popup">
+           <strong>${escapeHtml(s.name ?? s.sourceRef)}</strong>
+           <div class="ml-sub">${escapeHtml(s.dnoName)}${s.voltageKv ? ` · ${s.voltageKv} kV` : ""}</div>
+           <dl>
+             <dt>Generation headroom</dt><dd>${fmt(s.generationHeadroomMva, "MVA")}</dd>
+             <dt>Demand headroom</dt><dd>${fmt(s.demandHeadroomMva, "MVA")}</dd>
+           </dl>
+           ${s.constraintNote ? `<p class="ml-note">${escapeHtml(s.constraintNote)}</p>` : ""}
+           ${stale}
+           <p class="ml-caveat">${escapeHtml(gridCaveat(s.dnoName, s.ingestedAt))}</p>
+         </div>`,
+      )
+      .addTo(m);
+  }, []);
 
   /* ---- map init --------------------------------------------------------- */
 
   useEffect(() => {
-    if (!apiKey || !mapRef.current || mapObj.current) return;
+    if (!container.current || map.current) return;
 
-    let cancelled = false;
-    const loader = new Loader({ apiKey, version: "weekly" });
+    // v6 spawns a module worker that imports a sibling shared chunk; neither
+    // bundler emits that pair resolvably, so point it at the copies staged in
+    // public/ by scripts/copy-maplibre-worker.mjs. Without this the worker
+    // never starts and no data layer ever renders.
+    setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
-    loader
-      .importLibrary("maps")
-      .then(({ Map, InfoWindow }) => {
-        if (cancelled || !mapRef.current) return;
-        mapObj.current = new Map(mapRef.current, {
-          center: GB_CENTRE,
-          zoom: GB_ZOOM,
-          mapTypeId: "hybrid",
-          mapTypeControl: true,
-          streetViewControl: false,
-          fullscreenControl: false,
-          ...(mapId ? { mapId } : {}),
-        });
-        infoWindow.current = new InfoWindow();
-        setReady(true);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setMapError(err instanceof Error ? err.message : "Google Maps failed to load");
+    let instance: MapLibreMap;
+    try {
+      instance = new MapLibreMap({
+        container: container.current,
+        style: basemapStyle(prefersDark()),
+        center: GB_CENTRE,
+        zoom: GB_ZOOM,
+        // Only attach the transform when there is an OS key to inject; a
+        // hook that returns undefined for every request is a no-op at best.
+        ...(osApiKey() ? { transformRequest: osTransformRequest } : {}),
+        attributionControl: { compact: false },
+      });
+    } catch (err) {
+      setMapError(err instanceof Error ? err.message : "Map failed to initialise");
+      return;
+    }
+
+    map.current = instance;
+    // Namespaced handle for debugging and support in the browser console.
+    (window as unknown as { __nzcai?: { map: MapLibreMap } }).__nzcai = { map: instance };
+    instance.addControl(new NavigationControl({ showCompass: false }), "top-right");
+    instance.addControl(new ScaleControl({ unit: "metric" }), "bottom-right");
+
+    instance.on("error", (e: { error?: { message?: string } }) => {
+      const message = e.error?.message ?? "";
+      if (!message) return;
+      // A failed tile, sprite or glyph fetch is transient and expected on a
+      // flaky connection - it degrades the backdrop, not the data. Note it
+      // quietly instead of raising an error banner over a working map.
+      if (/AJAXError|Failed to fetch|NetworkError/i.test(message)) {
+        setTilesFailed(true);
+        // A raster source that never resolves keeps the style perpetually
+        // "loading", which stops our own layers painting at all. Drop to a
+        // plain background once so the substation data stays usable.
+        if (!swappedToOffline.current) {
+          swappedToOffline.current = true;
+          instance.setStyle(offlineStyle(prefersDark()));
+          instance.once("styledata", () => {
+            addDataLayer(instance);
+            setReady(true);
+            setStyleEpoch((e) => e + 1);
+          });
+        }
+        return;
+      }
+      setMapError(message);
+    });
+
+    const addDataLayer = (m: MapLibreMap) => {
+      if (m.getSource(SOURCE_ID)) return;
+      // Seed from the ref: after a style swap the source is recreated, and
+      // the data effect below will not re-run on its own.
+      m.addSource(SOURCE_ID, { type: "geojson", data: geojson.current });
+
+      m.addLayer({
+        id: LAYER_ID,
+        type: "circle",
+        source: SOURCE_ID,
+        paint: {
+          // A GPU-rendered circle layer scales to the full ~400k substation
+          // set, which per-marker DOM never would.
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 4, 10, 7, 14, 11],
+          "circle-color": [
+            "match",
+            ["get", "rag"],
+            "green", RAG_COLOR.green,
+            "amber", RAG_COLOR.amber,
+            "red", RAG_COLOR.red,
+            RAG_COLOR.unknown,
+          ],
+          "circle-opacity": 0.9,
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+    };
+
+    instance.on("load", () => {
+      addDataLayer(instance);
+      setReady(true);
+      setStyleEpoch((e) => e + 1);
+    });
+
+    instance.on("click", LAYER_ID, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+        const id = e.features?.[0]?.properties?.id as number | undefined;
+        if (id === undefined) return;
+        const s = byId.current.get(Number(id));
+        if (s) {
+          setSelected(s.id);
+          openPopup(s);
         }
       });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [apiKey, mapId]);
+    instance.on("mouseenter", LAYER_ID, () => {
+      instance.getCanvas().style.cursor = "pointer";
+    });
+    instance.on("mouseleave", LAYER_ID, () => {
+      instance.getCanvas().style.cursor = "";
+    });
 
-  /* ---- markers ---------------------------------------------------------- */
+    return () => {
+      popup.current?.remove();
+      instance.remove();
+      map.current = null;
+      setReady(false);
+    };
+  }, [openPopup]);
+
+  /* ---- push data into the source ---------------------------------------- */
 
   useEffect(() => {
-    const map = mapObj.current;
-    if (!ready || !map) return;
+    geojson.current = toGeoJson(substations);
+    if (!ready || !map.current) return;
+    const source = map.current.getSource(SOURCE_ID) as GeoJSONSource | undefined;
+    source?.setData(geojson.current);
+  }, [ready, substations, styleEpoch]);
 
-    const seen = new Set<number>();
-
-    for (const s of substations) {
-      if (s.lat === null || s.lng === null) continue;
-      seen.add(s.id);
-
-      const colour = RAG_COLOR[ragClass(s.generationRag) as keyof typeof RAG_COLOR];
-      let marker = markers.current.get(s.id);
-
-      if (!marker) {
-        marker = new google.maps.Marker({
-          position: { lat: s.lat, lng: s.lng },
-          map,
-          title: s.name ?? s.sourceRef,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: colour,
-            fillOpacity: 0.95,
-            strokeColor: "#ffffff",
-            strokeWeight: 1.5,
-          },
-        });
-        marker.addListener("click", () => {
-          setSelected(s.id);
-          infoWindow.current?.setContent(
-            `<div style="font-family:system-ui;font-size:13px;line-height:1.5">
-               <strong>${s.name ?? s.sourceRef}</strong><br>
-               ${s.dnoName}${s.voltageKv ? ` · ${s.voltageKv} kV` : ""}<br>
-               Generation headroom: <strong>${fmt(s.generationHeadroomMva, "MVA")}</strong><br>
-               Demand headroom: ${fmt(s.demandHeadroomMva, "MVA")}
-               ${s.constraintNote ? `<br><em>${s.constraintNote}</em>` : ""}
-               <div style="margin-top:8px;padding-top:7px;border-top:1px solid #ddd;font-size:11.5px;color:#555">
-                 ${gridCaveat(s.dnoName, s.ingestedAt)}
-               </div>
-             </div>`,
-          );
-          infoWindow.current?.open({ map, anchor: marker });
-        });
-        markers.current.set(s.id, marker);
-      } else {
-        marker.setIcon({
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 7,
-          fillColor: colour,
-          fillOpacity: 0.95,
-          strokeColor: "#ffffff",
-          strokeWeight: 1.5,
-        });
-        marker.setMap(map);
-      }
-    }
-
-    // Drop markers filtered out of the current result set.
-    for (const [id, marker] of markers.current) {
-      if (!seen.has(id)) {
-        marker.setMap(null);
-        markers.current.delete(id);
-      }
-    }
-  }, [ready, substations]);
-
-  const focus = useCallback((s: Substation) => {
-    setSelected(s.id);
-    const map = mapObj.current;
-    if (!map || s.lat === null || s.lng === null) return;
-    map.panTo({ lat: s.lat, lng: s.lng });
-    if ((map.getZoom() ?? 0) < 11) map.setZoom(11);
-    const marker = markers.current.get(s.id);
-    if (marker) google.maps.event.trigger(marker, "click");
-  }, []);
+  const focus = useCallback(
+    (s: Substation) => {
+      setSelected(s.id);
+      const m = map.current;
+      if (!m || s.lat === null || s.lng === null) return;
+      m.flyTo({ center: [s.lng, s.lat], zoom: Math.max(m.getZoom(), 11), duration: 600 });
+      openPopup(s);
+    },
+    [openPopup],
+  );
 
   const withHeadroom = useMemo(
     () => substations.filter((s) => s.generationHeadroomMva !== null).length,
@@ -210,6 +338,11 @@ export default function LandMap() {
         <div className="banner error">
           Could not load substations: {loadError}. Check <code>DATABASE_URL</code> and that{" "}
           <code>npm run db:migrate</code> has been run.
+        </div>
+      )}
+      {mapError && (
+        <div className="banner error">
+          Base map problem: {mapError}. The substation list still works.
         </div>
       )}
 
@@ -248,7 +381,7 @@ export default function LandMap() {
 
           <div className="results">
             {substations.length === 0 && !loadError && (
-              <div style={{ padding: "18px", color: "var(--ink-3)", fontSize: 14 }}>
+              <div className="empty">
                 No substations match. Loosen the filters, or seed the database with{" "}
                 <code>npm run db:seed</code>.
               </div>
@@ -283,26 +416,7 @@ export default function LandMap() {
         </aside>
 
         <div className="map-wrap">
-          {!apiKey ? (
-            <div className="placeholder">
-              <h2>Google Maps key not set</h2>
-              <p>
-                Add <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to <code>.env</code> and restart
-                the dev server. The substation list on the left works without it.
-              </p>
-            </div>
-          ) : mapError ? (
-            <div className="placeholder">
-              <h2>Map failed to load</h2>
-              <p>{mapError}</p>
-              <p>
-                Usually the key is missing the Maps JavaScript API, or the referrer restriction
-                excludes <code>localhost</code>.
-              </p>
-            </div>
-          ) : null}
-
-          <div ref={mapRef} className="map" aria-label="Substation capacity map" />
+          <div ref={container} className="map" aria-label="Substation capacity map" />
 
           {ready && (
             <div className="legend">
@@ -318,6 +432,10 @@ export default function LandMap() {
               </span>
               <span className="row">
                 <span className="dot unknown" /> Not published
+              </span>
+              <span className="basemap">
+                Base map: {basemapName()}
+                {tilesFailed && " — tiles unavailable"}
               </span>
             </div>
           )}

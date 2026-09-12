@@ -77,21 +77,30 @@ dataset registry, normalisation rules and screening logic all port to Python
 cheaply; the API routes and UI do not. **Confirm which is authoritative before
 more is built**, because the answer changes roughly half the code.
 
-### 3.2 Map library conflict
+### 3.2 Map library — RESOLVED, now MapLibre
 
-The brief says **MapLibre by default, Google only on paid tiers**, and "free and
-open data only". This session set up a Google Maps API key and asked for Google
-Maps, which is what was built.
+Switched on request. The base map is MapLibre GL: Ordnance Survey vector tiles
+where `NEXT_PUBLIC_OS_MAPS_API_KEY` is set, CARTO raster as a keyless fallback,
+and a plain background if tiles cannot be fetched at all so the data stays
+usable. Google is retained for the Solar API and static report images only.
 
-The brief's position is the safer one, and matches an independent constraint:
-Google's terms forbid tracing or digitising **utility posts or electrical lines**
-from satellite imagery, and forbid showing Google content with or near a
-non-Google map. A MapLibre base with OS/OGL tiles avoids both, and keeps Google
-for the visual-inspection and Solar API roles where it genuinely earns its place.
+This also removes the terms problem: Google bars digitising electrical
+infrastructure from satellite imagery, and bars showing Google content alongside
+a non-Google map — both of which a grid overlay would have run into.
 
-**Recommendation: switch the base map to MapLibre, keep Google for Solar API and
-imagery inspection only.** Not done unilaterally — the key was just provisioned
-for Google on request.
+Substations now render as a single GPU-drawn circle layer rather than per-marker
+DOM, which is what makes the full ~400k set viable.
+
+**One trap worth recording.** MapLibre v6 spawns a *module* worker that imports
+a sibling shared chunk, and neither Turbopack nor webpack emits that pair
+resolvably. The failure is silent: the source and layer are created, but the
+worker never starts, GeoJSON never parses, and the map renders empty with no
+error. Fixed by staging both files into `public/maplibre/` via
+`scripts/copy-maplibre-worker.mjs` (wired to `predev`/`prebuild`) and calling
+`setWorkerUrl()`. Downgrading to v4 also works but carries a critical XSS
+advisory in `DOM.sanitize()` — which is the popup path, fed by DNO-sourced
+names — so v6.9.0 plus the worker fix is the correct combination. Re-run
+`npm run maplibre:worker` after any maplibre-gl upgrade.
 
 ### 3.3 Phase-ordering conflict
 
@@ -154,4 +163,6 @@ needs its own adapter. Highest-value next piece of S-03.
 - **Grid caveat wording.** Implemented verbatim from brief §5.4 in
   `src/lib/grid.ts`. Confirm it reads correctly.
 - **Fixture sites.** The brief asks for 8 confirmed sites; none chosen yet.
-- Stack, map library and phase order — §3 above.
+- Stack and phase order — §3 above. Map library resolved (MapLibre).
+- **Base map tile source.** OS Data Hub key needed for production; CARTO
+  fallback has not had its terms checked for commercial use.
