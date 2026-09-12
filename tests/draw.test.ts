@@ -19,6 +19,8 @@ import {
   linesForVertex,
   regularise,
   REGULARISE_DEGREES,
+  collinearOverlaps,
+  OVERLAP_METRES,
   selfCrossings,
   simplify,
   SIMPLIFY_METRES,
@@ -1540,5 +1542,129 @@ describe("a shape that crosses itself", () => {
     const found = selfCrossings(bowtie);
     assert.equal(found.length, 1);
     assert.ok(Math.abs(found[0].at[1] - 53.5005) < 1e-9, `crossed at ${found[0].at}`);
+  });
+});
+
+/* ------------------------------------------------- collinear overlap --- */
+
+describe("a shape that doubles back along itself", () => {
+  const square: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+
+  test("a clean shape has none", () => {
+    assert.deepEqual(collinearOverlaps(square), []);
+  });
+
+  test("THREE CORNERS IN A LINE ARE FINE — that is a redundant vertex", () => {
+    /*
+     * The distinction the whole check turns on. These walls are collinear but
+     * run the same way, so the outline covers no ground twice. Flagging it
+     * would condemn every traced shape, and simplifying is what removes it.
+     */
+    const straightRun: Vertex[] = [
+      [0, 0], [0.0005, 0], [0.001, 0], [0.001, 0.001], [0, 0.001],
+    ];
+    assert.deepEqual(collinearOverlaps(straightRun), []);
+  });
+
+  test("a wall folded back along its neighbour is a spike", () => {
+    // Out to 0.001, back to 0.0005, then up: the stretch between is covered
+    // twice and encloses nothing.
+    const spike: Vertex[] = [
+      [0, 0], [0.001, 0], [0.0005, 0], [0.0005, 0.001], [0, 0.001],
+    ];
+    const found = collinearOverlaps(spike);
+    assert.equal(found.length, 1);
+    // Wall 0 runs out along y = 0 and wall 1 comes straight back down it.
+    assert.deepEqual([found[0].a, found[0].b], [0, 1]);
+  });
+
+  test("it says which stretch is doubled, so the map can draw it", () => {
+    const spike: Vertex[] = [
+      [0, 0], [0.001, 0], [0.0005, 0], [0.0005, 0.001], [0, 0.001],
+    ];
+    const [found] = collinearOverlaps(spike);
+    close(found.from, [0.0005, 0]);
+    close(found.to, [0.001, 0]);
+  });
+
+  test("two distant walls lying along each other are caught too", () => {
+    /*
+     * No shared corner, so nothing about adjacency helps: walls 0 and 2 run
+     * along the same line in opposite directions and share a stretch.
+     */
+    const doubled: Vertex[] = [
+      [0, 0], [0.001, 0], [0.001, 0.0000001], [0.0002, 0.0000001], [0.0002, 0.001], [0, 0.001],
+    ];
+    // Nudged off the line by a ten-thousandth of a degree of latitude, so not
+    // collinear: the test must not fire on walls that merely run close.
+    assert.deepEqual(collinearOverlaps(doubled), []);
+
+    const exact: Vertex[] = [
+      [0, 0], [0.001, 0], [0.0002, 0], [0.0002, 0.001], [0, 0.001],
+    ];
+    assert.ok(collinearOverlaps(exact).length > 0);
+  });
+
+  test("walls that merely meet at a corner overlap by nothing", () => {
+    // Every ring's adjacent walls share an end. The stretch they have in
+    // common is a point, and a point is not a doubled-back stretch.
+    for (const ring of [square, [[0, 0], [0.001, 0], [0, 0.001]] as Vertex[]]) {
+      assert.deepEqual(collinearOverlaps(ring), []);
+    }
+  });
+
+  test("a crossing is not an overlap, and an overlap is not a crossing", () => {
+    // Different faults with different consequences, so they are found by
+    // different tests and reported separately.
+    const bowtie: Vertex[] = [[0, 0], [0.001, 0], [0, 0.001], [0.001, 0.001]];
+    const spike: Vertex[] = [
+      [0, 0], [0.001, 0], [0.0005, 0], [0.0005, 0.001], [0, 0.001],
+    ];
+    assert.equal(selfCrossings(bowtie).length, 1);
+    assert.deepEqual(collinearOverlaps(bowtie), []);
+    assert.deepEqual(selfCrossings(spike), []);
+    assert.equal(collinearOverlaps(spike).length, 1);
+  });
+
+  test("a spike keeps the area honest, unlike a crossing", () => {
+    /*
+     * Worth pinning, because it is why this is a warning about a degenerate
+     * polygon rather than about a wrong number. The spike encloses nothing, so
+     * the shoelace sum is the same as the shape without it.
+     */
+    const shoelace = (r: Vertex[]) => {
+      let a = 0;
+      for (let i = 0; i < r.length; i += 1) {
+        const p = r[i], q = r[(i + 1) % r.length];
+        a += p[0] * q[1] - q[0] * p[1];
+      }
+      return Math.abs(a / 2);
+    };
+    const clean: Vertex[] = [[0, 0], [0.0005, 0], [0.0005, 0.001], [0, 0.001]];
+    const spiked: Vertex[] = [
+      [0, 0], [0.001, 0], [0.0005, 0], [0.0005, 0.001], [0, 0.001],
+    ];
+    assert.ok(Math.abs(shoelace(clean) - shoelace(spiked)) < 1e-18);
+  });
+
+  test("noise below the floor is not a spike", () => {
+    assert.equal(OVERLAP_METRES, 0.01);
+    // A doubled stretch of about 5 mm: coincident-endpoint rounding, not a
+    // shape anyone drew.
+    const tiny = 0.000000045;   // ~5 mm of latitude
+    const hair: Vertex[] = [
+      [0, 0], [0.001, 0], [0.001 - tiny, 0], [0.001 - tiny, 0.001], [0, 0.001],
+    ];
+    assert.deepEqual(collinearOverlaps(hair), []);
+  });
+
+  test("below three corners there is no ring to double back on", () => {
+    assert.deepEqual(collinearOverlaps([[0, 0], [0.001, 0]]), []);
+    assert.deepEqual(collinearOverlaps([]), []);
+  });
+
+  test("a zero-length wall is skipped rather than dividing by nothing", () => {
+    const dup: Vertex[] = [[0, 0], [0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+    assert.ok(Array.isArray(collinearOverlaps(dup)));
   });
 });

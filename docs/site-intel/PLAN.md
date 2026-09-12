@@ -2686,7 +2686,7 @@ this check exists to keep out of the database.
 
 - **Collinear overlap is not caught.** Two walls lying along each other rather
   than crossing is a zero-width spike; the assists refuse to create one, but a
-  user can still draw it by hand and the area is then wrong in a smaller way.
+  user can still draw it by hand and the area is then wrong in a smaller way. *(Done in §2x.)*
 - **A pinch is allowed**, by design: a vertex exactly on a far wall leaves the
   area sound. It is still a shape no surveyor would draw.
 - **The crossing marker can sit under the site pin**, which is drawn above it.
@@ -2694,6 +2694,113 @@ this check exists to keep out of the database.
   the red walls carry the message regardless.
 - **Only the editor is guarded.** A crossed polygon arriving from a source, or
   through the PATCH endpoint directly, is stored without complaint.
+- **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
+  and nothing is touch-tested.
+
+## 2x. S-01 collinear overlap
+
+The other way an outline stops being a simple polygon: not crossing itself, but
+running back along itself. Out along a wall and straight back down it is a spike
+that encloses nothing.
+
+### A milder fault, and saying so honestly
+
+§2w could say flatly that a crossed polygon has no meaningful area. **That is
+not true of a spike.** The spike encloses nothing, so the shoelace sum is the
+same as the shape without it — the area comes out right. A test pins that,
+because the temptation is to reuse the stronger sentence and it would be false.
+
+What a spike does break is simplicity, and that matters for a concrete, citable
+reason: `geo.ts` says of its intersection test, in as many words, that it is
+"exact for simple polygons". The constraint screening is built on that test and
+on point-in-polygon, both of which assume a boundary that does not run along
+itself. Storing one quietly breaks a stated precondition.
+
+So Save is blocked, as for a crossing, but the wording is different — the area
+claim would be wrong, and the panel says instead that the shape is not one a
+building has and that the screening assumes an outline that never doubles back.
+
+### The distinction the whole check turns on
+
+**Three corners in a straight line are fine.** They are collinear, and they are
+a redundant vertex — exactly what §2v exists to remove. Flagging them would
+condemn every traced shape.
+
+What makes a spike is collinear walls running in **opposite** directions, so the
+outline covers ground it has already covered. Same collinearity, opposite
+verdicts.
+
+### One test, and adjacency never has to be reasoned about
+
+Every pair of walls is checked: collinear within the same length-normalised
+epsilon as everywhere else, then projected onto the shared line and their
+extents intersected. The length of that shared stretch decides it.
+
+Walls that merely meet at a corner — which every ring's neighbours do, by
+construction — share a stretch of **zero** length. Walls that fold back share a
+real one. So the adjacent case and the distant case fall out of the same
+arithmetic with no special handling, and the redundant-vertex case is excluded
+for free rather than by a rule that has to be got right.
+
+The floor is 1 cm, a guard against floating-point noise rather than a judgement
+about spikes: a real one is metres long, and two genuinely collinear walls that
+share an end overlap by about 1e-18 of a degree in practice.
+
+### The indicator is not the same shape as a crossing's
+
+A crossing draws both offending walls and the point where they meet. For an
+overlap the two walls lie on top of each other, so drawing both would be one
+line twice over and say nothing. What is drawn is **the doubled stretch itself**,
+with its ends marked: that is the part of the outline covered twice.
+
+### A bug this found, from three slices back
+
+Alt-clicking a corner to remove it, while drawing, silently produced a **bow
+tie**.
+
+The press removed the vertex. The click that follows then appends in draw mode,
+and the guard that normally stops that (§2n: "a click on an existing handle is a
+grab, never a new corner") looks for a vertex under the pointer — and the vertex
+it would have found is the one just removed. So the click went through, and the
+new corner landed at the **end** of the ring rather than where the old one was,
+reordering the outline into a crossing.
+
+It had been there since vertex removal was built, and nothing had caught it
+because nothing had looked at the shape afterwards. A press that has already
+acted now swallows the click it pairs with; the flag is cleared at the start of
+every press, so a stale one cannot survive to eat a click it was never about.
+
+Verified in both modes: 4 points to 3, no faults, in draw and in edit.
+
+### Verified in the browser
+
+- **A spike** — out along a wall and straight back down it: the warning
+  appeared with the area claim correctly absent, **Save was disabled**, and
+  **276 px of red** ran along the doubled stretch.
+- **A straight run of three collinear corners**: **no warning, Save enabled.**
+  The negative case matters more than the positive one here.
+- **Alt-clicking the corner that folds**: one warning to none, Save re-enabled,
+  and cancelling left the stored footprint untouched.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `collinearOverlaps`, `Overlap`, `OVERLAP_METRES`; `DrawState` gains the count |
+| `LandMap.tsx` | overlaps drawn in the red layer as the doubled stretch, `applyBulk` refusing either fault, the click-after-removal fix |
+| `SitePanel.tsx` | the second warning, worded for what a spike actually does |
+
+**11 more tests**, 543 across the suite.
+
+### Not done
+
+- **Nothing removes a spike for you.** The panel says which stretch and
+  suggests removing the corner that folds; it does not offer to do it.
+- **A pinch is still allowed** (§2w): a vertex exactly on a far wall touches
+  without overlapping, and leaves the area sound.
+- **Only the editor is guarded.** A degenerate polygon arriving from a source,
+  or through the PATCH endpoint directly, is still stored without complaint —
+  the same gap §2w recorded.
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
   and nothing is touch-tested.
 

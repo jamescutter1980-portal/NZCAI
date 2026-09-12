@@ -44,6 +44,7 @@ import {
   linesForAppend,
   linesForEdge,
   linesForVertex,
+  collinearOverlaps,
   regularise,
   selfCrossings,
   simplify,
@@ -62,6 +63,7 @@ import {
   type BulkOutcome,
   type Crossing,
   type DrawState,
+  type Overlap,
   type Regularised,
   type Simplified,
   type SnapResult,
@@ -998,6 +1000,9 @@ export default function LandMap({
 
     instance.on("mousedown", (e: MapMouseEvent) => {
       if (!drawActive.current) return;
+      // A press starts a fresh gesture, so any flag left over from the last
+      // one cannot survive to eat a click it was never about.
+      swallowClick.current = false;
       const point = { x: e.point.x, y: e.point.y };
       const target = targetAt(point);
       if (!target) return;
@@ -1009,6 +1014,15 @@ export default function LandMap({
         drawing.current = removeVertex(drawing.current as Vertex[], target.index);
         renderDrawing();
         reportDrawing();
+        /*
+         * A click follows this mouseup, and in draw mode it would APPEND. The
+         * guard that normally stops that looks for a vertex under the pointer
+         * — and the vertex it would have found is the one just removed, so it
+         * waves the click through. The new corner lands at the END of the ring
+         * rather than where the old one was, which reorders the outline into a
+         * bow tie: remove a corner while drawing and the shape crosses itself.
+         */
+        swallowClick.current = true;
         return;
       }
 
@@ -1138,6 +1152,11 @@ export default function LandMap({
      */
     instance.on("click", (e: MapMouseEvent) => {
       if (drawActive.current) {
+        // The press already did the work — see the removal branch above.
+        if (swallowClick.current) {
+          swallowClick.current = false;
+          return;
+        }
         // In EDIT mode a click on open map must not append a vertex: the ring
         // already exists, and tacking a corner onto the end of it is never
         // what a click on the middle of the map meant. Vertices go in through
@@ -1321,6 +1340,16 @@ export default function LandMap({
    * nothing downstream able to tell.
    */
   const crossings = useRef<Crossing[]>([]);
+  /**
+   * Stretches where the outline runs back along itself.
+   *
+   * A milder fault than a crossing — a spike encloses nothing, so the area
+   * survives — but the polygon is no longer simple, and `geo.ts` says of its
+   * intersection test that it is exact "for simple polygons". The constraint
+   * screening is built on that, so a shape like this breaks a stated
+   * precondition rather than merely looking wrong.
+   */
+  const overlaps = useRef<Overlap[]>([]);
 
   const renderDrawing = useCallback(() => {
     const points = drawing.current;
@@ -1328,20 +1357,34 @@ export default function LandMap({
     if (!m) return;
 
     crossings.current = selfCrossings(points as Vertex[]);
+    overlaps.current = collinearOverlaps(points as Vertex[]);
     const cross = m.getSource(DRAW_CROSS) as GeoJSONSource | undefined;
     cross?.setData({
       type: "FeatureCollection",
-      features: crossings.current.flatMap((c) => [
-        // The two walls at fault AND the point where they meet: the point
-        // alone would leave the user hunting for which corner to pull back.
-        wallFeature(points[c.a], points[(c.a + 1) % points.length]),
-        wallFeature(points[c.b], points[(c.b + 1) % points.length]),
-        {
-          type: "Feature" as const,
-          geometry: { type: "Point" as const, coordinates: c.at },
-          properties: {},
-        },
-      ]),
+      features: [
+        ...crossings.current.flatMap((c) => [
+          // The two walls at fault AND the point where they meet: the point
+          // alone would leave the user hunting for which corner to pull back.
+          wallFeature(points[c.a], points[(c.a + 1) % points.length]),
+          wallFeature(points[c.b], points[(c.b + 1) % points.length]),
+          {
+            type: "Feature" as const,
+            geometry: { type: "Point" as const, coordinates: c.at },
+            properties: {},
+          },
+        ]),
+        /*
+         * For a doubled-back stretch the two walls lie on top of each other,
+         * so drawing both would be one line twice over and say nothing. What
+         * is drawn is the stretch itself, with its ends marked, because that
+         * is the part of the outline covered twice.
+         */
+        ...overlaps.current.flatMap((o) => [
+          wallFeature(o.from, o.to),
+          { type: "Feature" as const, geometry: { type: "Point" as const, coordinates: o.from }, properties: {} },
+          { type: "Feature" as const, geometry: { type: "Point" as const, coordinates: o.to }, properties: {} },
+        ]),
+      ],
     });
 
     const line = m.getSource(DRAW_LINE) as GeoJSONSource | undefined;
@@ -1399,6 +1442,7 @@ export default function LandMap({
     onDrawChange.current?.({
       points: drawing.current.length,
       crossings: crossings.current.length,
+      overlaps: overlaps.current.length,
     });
   }, []);
 
@@ -1616,10 +1660,10 @@ export default function LandMap({
   ): BulkOutcome<T> => {
     if (!done) return { ok: false, reason: "nothing" };
 
-    const wasCrossed = crossings.current.length > 0;
-    if (!wasCrossed && selfCrossings(done.vertices).length > 0) {
-      return { ok: false, reason: "would-cross" };
-    }
+    const wasBroken = crossings.current.length > 0 || overlaps.current.length > 0;
+    const wouldBreak =
+      selfCrossings(done.vertices).length > 0 || collinearOverlaps(done.vertices).length > 0;
+    if (!wasBroken && wouldBreak) return { ok: false, reason: "would-cross" };
 
     beforeBulk.current = drawing.current as Vertex[];
     drawing.current = done.vertices;
@@ -1996,6 +2040,8 @@ export default function LandMap({
   } | null>(null);
   /** True in edit mode, where a click on open map must NOT append a vertex. */
   const appendOnClick = useRef(true);
+  /** Set when a press has already acted, so the click it pairs with does not. */
+  const swallowClick = useRef(false);
 
   const picking = useRef(false);
   const onPick = useRef<((lat: number, lon: number) => void) | null>(null);

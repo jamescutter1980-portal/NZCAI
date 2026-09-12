@@ -759,11 +759,19 @@ export default function SitePanel({ mapApi }: Props) {
    * the database and feed the constraint screen with nothing able to tell.
    */
   const [crossings, setCrossings] = useState(0);
+  /*
+   * Stretches where the outline runs back along itself. A milder fault — a
+   * spike encloses nothing, so the area survives — but the polygon stops being
+   * simple, and the constraint screening's intersection test says in as many
+   * words that it is exact for simple polygons.
+   */
+  const [overlaps, setOverlaps] = useState(0);
 
   /** One handler for both modes, so neither can forget half the state. */
   const onDrawState = useCallback((state: DrawState) => {
     setDrawPoints(state.points);
     setCrossings(state.crossings);
+    setOverlaps(state.overlaps);
   }, []);
   /*
    * Which of the two modes is running. They accept different gestures — a
@@ -806,6 +814,7 @@ export default function SitePanel({ mapApi }: Props) {
     setGrid(null);
     setDrawPoints(null);
     setCrossings(0);
+    setOverlaps(0);
     setEditing(false);
     setBulk(null);
     setPicking(false);
@@ -1297,6 +1306,23 @@ export default function SitePanel({ mapApi }: Props) {
                   saved until the crossing is pulled apart.
                 </p>
               )}
+              {/*
+                * Worded differently on purpose. A spike does NOT wreck the
+                * area — it encloses nothing — so claiming it did would be
+                * false. What it breaks is the assumption that the outline
+                * never runs along itself, which the screening relies on.
+                */}
+              {overlaps > 0 && (
+                <p className="site-crossed">
+                  {overlaps > 1
+                    ? `${overlaps} stretches of this outline run`
+                    : "A stretch of this outline runs"}{" "}
+                  back along {overlaps > 1 ? "themselves" : "itself"} — shown in red on the
+                  map. The area still comes out right, but the shape is not one a
+                  building has, and the constraint screening assumes an outline that
+                  never doubles back. Remove the corner that folds, or pull it aside.
+                </p>
+              )}
               <p>
                 {drawPoints} point{drawPoints === 1 ? "" : "s"}.{" "}
                 {editing
@@ -1427,7 +1453,7 @@ export default function SitePanel({ mapApi }: Props) {
                    * constraint screen with nothing able to tell. The warning
                    * says which walls, and Cancel is still there.
                    */
-                  disabled={busy || drawPoints < 3 || crossings > 0}
+                  disabled={busy || drawPoints < 3 || crossings > 0 || overlaps > 0}
                   onClick={() => {
                     const polygon = mapApi.finishDraw();
                     setDrawPoints(null);

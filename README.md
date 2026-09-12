@@ -745,6 +745,34 @@ applied and left to be noticed; where the shape was already crossed it goes
 ahead, since it did not cause the fault and refusing would leave no way to tidy
 up.
 
+### An outline that doubles back
+
+The other way a shape stops being a simple polygon: not crossing itself, but
+running back along itself. Out along a wall and straight back down it is a spike
+that encloses nothing.
+
+**A milder fault than a crossing, and the panel says so honestly.** The area
+comes out *right* — the spike encloses nothing, so the shoelace sum is the same
+as the shape without it. What breaks is simplicity, and that matters for a
+concrete reason: `geo.ts` says of its intersection test that it is exact "for
+simple polygons", and the constraint screening is built on that test and on
+point-in-polygon. Both assume a boundary that never runs along itself.
+
+**Three corners in a straight line are fine** — that is a redundant vertex, and
+what simplifying removes. A spike is collinear walls running in *opposite*
+directions, so the outline covers ground it has already covered. Same
+collinearity, opposite verdicts.
+
+One test covers both the adjacent case and two distant walls lying along each
+other, with no reasoning about adjacency: every pair is projected onto its shared
+line and the extents intersected, and walls that merely meet at a corner — which
+every ring's neighbours do — share a stretch of zero length. The floor is 1 cm, a
+guard against floating-point noise rather than a judgement about spikes.
+
+What is drawn is **the doubled stretch itself** with its ends marked, not the two
+walls: they lie on top of each other, so drawing both would be one line twice
+over.
+
 ### Reproject first — the loader will stop you
 
 OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.

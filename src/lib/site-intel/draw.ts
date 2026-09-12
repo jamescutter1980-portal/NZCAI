@@ -1309,13 +1309,17 @@ export interface Crossing {
 /**
  * How a drawing stands, as reported to whatever is showing the controls.
  *
- * The crossing count travels with the point count because they are read
- * together: a shape is finishable when it has three points AND none of them
- * cross, and a caller given only the first would offer to save a bow tie.
+ * The fault counts travel with the point count because they are read together:
+ * a shape is finishable when it has three points AND neither crosses itself nor
+ * doubles back along itself, and a caller given only the first would offer to
+ * save a bow tie. The two faults are counted apart because they are different
+ * complaints with different explanations — see `selfCrossings` and
+ * `collinearOverlaps`.
  */
 export interface DrawState {
   points: number;
   crossings: number;
+  overlaps: number;
 }
 
 /**
@@ -1416,6 +1420,99 @@ export function selfCrossings(vertices: Vertex[]): Crossing[] {
         b: j,
         at: [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])],
       });
+    }
+  }
+  return out;
+}
+
+/**
+ * Two walls of the same shape that lie along each other, and the stretch they
+ * share.
+ */
+export interface Overlap {
+  a: number;
+  b: number;
+  from: Vertex;
+  to: Vertex;
+}
+
+/**
+ * Shortest doubled-back stretch worth reporting, in metres.
+ *
+ * A guard against floating-point noise rather than a judgement about spikes: a
+ * real one is metres long. Two walls that are genuinely collinear and merely
+ * share an end overlap by exactly nothing in exact arithmetic, and by about
+ * 1e-18 of a degree in practice.
+ */
+export const OVERLAP_METRES = 0.01;
+
+/**
+ * Walls of a ring that double back along each other.
+ *
+ * NOT the same fault as a crossing, and not as severe. A crossed polygon has no
+ * meaningful area at all (§2w); a shape with a spike usually has the right area
+ * — the spike encloses none — but it is not a SIMPLE polygon, and `geo.ts` says
+ * of its intersection test in as many words that it is "exact for simple
+ * polygons". The constraint screening is built on that test and on
+ * point-in-polygon, both of which assume a boundary that does not run along
+ * itself. Storing one quietly breaks a documented precondition, which is reason
+ * enough not to.
+ *
+ * THE DISTINCTION THAT MATTERS. Three corners in a straight line are collinear
+ * too, and are perfectly fine — a redundant vertex, which is exactly what
+ * simplifying removes. What makes a spike is collinear walls running in
+ * OPPOSITE directions, so the outline retraces ground it has already covered.
+ *
+ * One test covers both that case and the rarer one of two distant walls lying
+ * along each other, with no special handling for adjacency: walls that merely
+ * meet at a shared corner overlap along a stretch of zero length, and walls
+ * that fold back overlap along a real one. Adjacency never has to be reasoned
+ * about, because the geometry answers it.
+ */
+export function collinearOverlaps(
+  vertices: Vertex[],
+  minLengthM: number = OVERLAP_METRES,
+): Overlap[] {
+  const n = vertices.length;
+  if (n < 3) return [];
+
+  const lat0 = vertices.reduce((sum, v) => sum + v[1], 0) / n;
+  const k = Math.cos((lat0 * Math.PI) / 180);
+  if (k === 0) return [];
+  const minLength = minLengthM / 111_320;
+
+  const out: Overlap[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const p1 = vertices[i];
+    const p2 = vertices[(i + 1) % n];
+    const dx = (p2[0] - p1[0]) * k;
+    const dy = p2[1] - p1[1];
+    const length = Math.hypot(dx, dy);
+    if (length === 0) continue;
+    const ux = dx / length;
+    const uy = dy / length;
+
+    for (let j = i + 1; j < n; j += 1) {
+      const p3 = vertices[j];
+      const p4 = vertices[(j + 1) % n];
+
+      // Both ends of the other wall on this wall's line, or they are not
+      // collinear and cannot overlap however close they run.
+      if (
+        Math.abs(side(p1, p2, p3, k)) > COLLINEAR_EPSILON ||
+        Math.abs(side(p1, p2, p4, k)) > COLLINEAR_EPSILON
+      ) continue;
+
+      // How far along this wall's line each end of the other one falls.
+      const along = (v: Vertex) => ((v[0] - p1[0]) * k) * ux + (v[1] - p1[1]) * uy;
+      const c = along(p3);
+      const d = along(p4);
+      const lo = Math.max(0, Math.min(c, d));
+      const hi = Math.min(length, Math.max(c, d));
+      if (hi - lo <= minLength) continue;
+
+      const at = (t: number): Vertex => [p1[0] + (t * ux) / k, p1[1] + t * uy];
+      out.push({ a: i, b: j, from: at(lo), to: at(hi) });
     }
   }
   return out;
