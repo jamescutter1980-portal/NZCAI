@@ -18,7 +18,8 @@
     "site:verify": "tsx src/ingest/site.ts verify",
     "site:load-uprn": "tsx src/ingest/site.ts load-uprn",
     "site:postcodes": "tsx src/ingest/site.ts postcodes",
-    "site:load-ccod": "tsx src/ingest/site.ts load-ccod"
+    "site:load-ccod": "tsx src/ingest/site.ts load-ccod",
+    "site:load-voa": "tsx src/ingest/voa-load.ts"
   },
   "dependencies": {
     "maplibre-gl": "^6.9.0",

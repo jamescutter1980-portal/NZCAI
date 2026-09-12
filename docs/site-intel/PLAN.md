@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **S-01 resolve · S-02 constraints · S-03 grid · S-04 ownership.** Updated 12 September 2026.
+Status: **S-01 resolve · S-02 constraints · S-03 grid · S-04 ownership · S-06 VOA.** Updated 12 September 2026.
 
 ---
 
@@ -250,6 +250,78 @@ HMLR's own licence, which carries conditions on redistribution. The terms have
 not been read — this build could not reach the pages — and `sources.yaml` marks
 them accordingly. **Check before any commercial use or any client deliverable.**
 
+## 2e. S-06 — VOA floor area and use class
+
+**Built without a specification**, like S-04: the brief lists S-06 under section
+10 in one line. Three facts about VOA data decided the design, and each is a
+place a careless build would produce a confident wrong answer.
+
+### 1. Asterisk-delimited, despite the .csv extension
+
+The compiled rating list and summary valuation files are ASCII with fields
+separated by `*`. Parsing them as CSV yields one enormous field per row. The
+loader splits on `*`, prints the first parsed record for eyeballing, and takes
+a position override from `VOA_LIST_MAP` / `VOA_SMV_MAP` as JSON — positions
+follow the published data specification but have **not** been checked against a
+real file.
+
+### 2. A floor area is meaningless without its basis
+
+Survey lines are measured on GIA, NIA, GEA or EFA depending on the class of
+property, and these are not interchangeable — NIA excludes circulation and
+plant, GEA includes external wall thickness. `totalAreaByBasis` sums **within**
+a basis and never across, because adding a GIA line to an NIA line is arithmetic
+on incompatible quantities. An unstated basis stays `unknown`; the loader never
+defaults it to GIA.
+
+This matters directly for the rest of NZC AI: energy intensity, CRREM pathways
+and NZCBS targets are all per m², so the denominator changes the answer.
+
+### 3. The VOA description is not a planning Use Class
+
+"WAREHOUSE AND PREMISES" is a valuation description under VOA's own primary
+description and SCat scheme. Planning Use Classes come from the Use Classes
+Order and the site's planning history. `inferUseClass` maps only unambiguous
+descriptions, returns null rather than guessing on anything else, and every
+result carries `inferred: true` plus a note saying it is not a determination.
+
+### Floor area reconciliation — the actual product value
+
+The brief (section 7) asks for a `floor_area_check` when footprint × storeys
+differs from the EPC floor area by more than 25%. VOA supplies a third figure,
+so `compareAreas` generalises it: **every estimate is kept, with its basis and
+tier, and divergence is reported rather than resolved.** Picking one silently
+would be the wrong move — choosing the denominator is the assessor's judgement,
+and it should be made visibly.
+
+Flags: `floor_area_check` above 25% spread, `mixed_basis` where estimates sit on
+different measurement standards, `no_floor_area` where none exists.
+
+### No free UPRN linkage, again
+
+The published list carries VOA's UARN, not a UPRN. The cross reference is in **OS
+AddressBase Premium**, a paid product — the same shape of gap as the National
+Polygon Service in S-04. So matching is by address, every result is tier T3, and
+until Task 0 supplies a street address every match is `postcode_only`.
+
+That is now the third place Task 0 is the unlock: S-01 confidence, S-04
+ownership, S-06 assessment matching.
+
+### Reuse
+
+The address matcher was extracted to `address-match.ts` and is now shared by S-04
+and S-06, which face the identical problem for the identical reason.
+
+### One bug worth recording
+
+Importing the area-basis label map into the client component pulled `voa.ts`,
+and therefore `sources.ts` and `node:fs`, into the browser bundle — Turbopack
+correctly refused to build. The constants moved to `area-basis.ts`, a leaf
+module with no imports. Worth watching: every other site-intel import in the
+client is `import type`, which erases; this was the first value import.
+
+**30 further tests**, 145 across the suite.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -370,5 +442,12 @@ needs its own adapter. Highest-value next piece of S-03.
 - **Whether the £20,000 National Polygon Service is worth buying.** Without it
   ownership stays inferred. With it, building → title → owner becomes
   definitive, and S-04 becomes a product rather than a lead generator.
+- **Whether OS AddressBase Premium is worth buying.** Same shape of decision for
+  S-06: it holds the UPRN-to-VOA cross reference, which would turn every
+  assessment match from inferred to definitive.
+- **VOA column positions.** Follow the published specification, never checked
+  against a real file. First load will show whether they are right.
+- **The use-class mapping table** in `voa.ts` — needs sign-off, and it
+  deliberately covers only unambiguous descriptions.
 - **Base map tile source.** OS Data Hub key needed for production; CARTO
   fallback has not had its terms checked for commercial use.

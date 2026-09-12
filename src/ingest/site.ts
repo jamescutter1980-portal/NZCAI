@@ -21,7 +21,7 @@ import { checkSlugs } from "@/lib/site-intel/planning-data";
 import { DATASETS } from "@/lib/site-intel/profile";
 import { loadSources, unverifiedAttributions } from "@/lib/site-intel/sources";
 import { ruleDatasets, unapprovedRules } from "@/lib/site-intel/rules";
-import { referenceDataCounts, titleCounts } from "@/lib/site-intel/stores";
+import { referenceDataCounts, titleCounts, voaCounts } from "@/lib/site-intel/stores";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 
 const GREEN = "\x1b[32m", RED = "\x1b[31m", YELLOW = "\x1b[33m", DIM = "\x1b[2m", OFF = "\x1b[0m";
@@ -278,6 +278,12 @@ async function verify(): Promise<void> {
   console.log(`  corporate_title    ${mark(titles.ccod + titles.ocod)} rows ${DIM}(CCOD ${titles.ccod}, OCOD ${titles.ocod})${OFF}`);
   if (titles.ccod + titles.ocod === 0) {
     console.log(`  ${YELLOW}-> load ownership: npm run site:load-ccod <file.csv>${OFF}`);
+  }
+
+  const voa = await voaCounts();
+  console.log(`  voa_assessment     ${mark(voa.assessments)} rows ${DIM}(${voa.surveyLines} survey lines)${OFF}`);
+  if (voa.assessments === 0) {
+    console.log(`  ${YELLOW}-> load VOA: npm run site:load-voa -- list <file.csv>${OFF}`);
   }
   if (counts.uprns === 0) {
     console.log(`  ${YELLOW}-> load OS Open UPRN: npm run site:load-uprn <file.csv>${OFF}`);

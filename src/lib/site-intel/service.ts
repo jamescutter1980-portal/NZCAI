@@ -298,3 +298,73 @@ export async function portfolioFor(companyNumber: string) {
   ]);
   return { companyNumber: number, titles, company };
 }
+
+/* -------------------------------------------------------------- S-06 VOA --- */
+
+import {
+  buildVoaResult,
+  compareAreas,
+  inferUseClass,
+  voaAreaEstimates,
+  type AreaComparison,
+  type AreaEstimate,
+  type UseClassInference,
+  type VoaResult,
+} from "./voa";
+import { assessmentsInPostcode } from "./stores";
+
+export interface VoaReport {
+  voa: VoaResult;
+  /** Use class inferred from the best candidate's valuation description. */
+  useClass: UseClassInference | null;
+  /** Every floor area available, with its basis, and how far they diverge. */
+  areas: AreaComparison;
+}
+
+/**
+ * VOA assessment, floor area and inferred use class for a resolved site.
+ *
+ * `storeys` lets the caller add the footprint x storeys estimate to the
+ * comparison; without it that estimate is simply absent rather than assumed.
+ * The EPC floor area would be a third input and arrives with Task 0.
+ */
+export async function voaFor(
+  profile: SiteProfile,
+  options: { storeys?: number; epcFloorAreaM2?: number } = {},
+): Promise<VoaReport> {
+  const assessments = profile.postcode
+    ? await assessmentsInPostcode(profile.postcode)
+    : [];
+
+  // As with ownership: pass a null address rather than the postcode, so a
+  // postcode-only match reports itself honestly instead of claiming a 0%
+  // address comparison it never made.
+  const voa = buildVoaResult({ address: null, postcode: profile.postcode }, assessments);
+
+  const estimates: AreaEstimate[] = [...voaAreaEstimates(voa)];
+
+  if (profile.footprint.areaM2 && options.storeys && options.storeys > 0) {
+    estimates.push({
+      areaM2: Math.round(profile.footprint.areaM2 * options.storeys),
+      basis: "GEA",
+      source: `Footprint ${profile.footprint.areaM2} m² × ${options.storeys} storeys`,
+      // Inherits the footprint's own tier: a drawn footprint is an override.
+      tier: profile.footprint.method === "user_drawn" ? "T4" : "T3",
+    });
+  }
+
+  if (options.epcFloorAreaM2 && options.epcFloorAreaM2 > 0) {
+    estimates.push({
+      areaM2: options.epcFloorAreaM2,
+      basis: "GIA",
+      source: "EPC total floor area",
+      tier: "T1",
+    });
+  }
+
+  return {
+    voa,
+    useClass: inferUseClass(voa.candidates[0]?.assessment.primaryDescription),
+    areas: compareAreas(estimates),
+  };
+}

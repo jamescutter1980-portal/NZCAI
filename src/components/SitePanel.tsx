@@ -5,6 +5,8 @@ import type { Candidate, SiteProfile } from "@/lib/site-intel/types";
 import type { ConstraintScreening } from "@/lib/site-intel/constraints";
 import type { OwnershipResult } from "@/lib/site-intel/ownership";
 import type { CompanyRecord } from "@/lib/site-intel/companies-house";
+import type { AreaComparison, UseClassInference, VoaResult } from "@/lib/site-intel/voa";
+import { AREA_BASIS_LABEL } from "@/lib/site-intel/area-basis";
 import { TIER_LABEL } from "@/lib/site-intel/types";
 
 /**
@@ -45,6 +47,94 @@ const STATE_COPY: Record<string, string> = {
   not_supported: "not supported here",
   source_error: "source unavailable",
 };
+
+interface VoaReport {
+  voa: VoaResult;
+  useClass: UseClassInference | null;
+  areas: AreaComparison;
+}
+
+/**
+ * VOA assessment, floor area and inferred use class.
+ *
+ * Floor areas are shown per measurement basis and never combined: an energy
+ * intensity in kWh/m² means something different depending on whether the
+ * denominator is GIA, NIA or GEA, so the choice is the assessor's to make.
+ */
+function VoaPanel({ report }: { report: VoaReport }) {
+  const { voa, useClass, areas } = report;
+  const best = voa.candidates[0];
+
+  return (
+    <section className="voa">
+      <p className="eyebrow">Floor area and use</p>
+
+      {!best ? (
+        <p className="voa-note">
+          {voa.searchedPostcode
+            ? `No VOA assessment matched ${voa.searchedPostcode} in the loaded rating list.`
+            : "No postcode resolved for this site, so the rating list could not be searched."}
+        </p>
+      ) : (
+        <>
+          <div className={`voa-assessment ${best.quality}`}>
+            <p className="voa-head">
+              <span className="voa-uarn">UARN {best.assessment.uarn}</span>
+              <span className="voa-quality">
+                {best.quality === "postcode_and_address" ? "address match" : "postcode only"}
+              </span>
+            </p>
+            {best.assessment.propertyAddress && (
+              <p className="voa-addr">{best.assessment.propertyAddress}</p>
+            )}
+            <p className="voa-meta">
+              {best.assessment.primaryDescription ?? "no description"}
+              {best.assessment.rateableValue
+                ? ` · RV £${best.assessment.rateableValue.toLocaleString()}`
+                : ""}
+            </p>
+          </div>
+
+          {useClass && (
+            <div className="voa-useclass">
+              <p className="voa-uc-head">
+                Use class
+                <span className="voa-uc-value">{useClass.useClass ?? "not determined"}</span>
+              </p>
+              {useClass.label && <p className="voa-uc-label">{useClass.label}</p>}
+              <p className="voa-note">{useClass.note}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {areas.estimates.length > 0 && (
+        <div className="voa-areas">
+          <p className="voa-areas-head">Floor area</p>
+          <ul>
+            {areas.estimates.map((estimate) => (
+              <li key={`${estimate.source}-${estimate.basis}`}>
+                <span className="voa-area-value">
+                  {estimate.areaM2.toLocaleString()} m²
+                </span>
+                <span className="voa-area-basis">{AREA_BASIS_LABEL[estimate.basis]}</span>
+                <span className="voa-area-source">{estimate.source}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {areas.note && (
+        <p className={areas.flags.includes("floor_area_check") ? "voa-diverge" : "voa-note"}>
+          {areas.note}
+        </p>
+      )}
+
+      {best && <p className="voa-caveat">{voa.note}</p>}
+    </section>
+  );
+}
 
 interface OwnershipReport {
   ownership: OwnershipResult;
@@ -225,6 +315,7 @@ export default function SitePanel({ mapApi }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const [screening, setScreening] = useState<ConstraintScreening | null>(null);
   const [ownership, setOwnership] = useState<OwnershipReport | null>(null);
+  const [voa, setVoa] = useState<VoaReport | null>(null);
 
   const reset = useCallback(() => {
     setCandidates([]);
@@ -233,6 +324,7 @@ export default function SitePanel({ mapApi }: Props) {
     setConfirmed(false);
     setScreening(null);
     setOwnership(null);
+    setVoa(null);
     setStep(null);
     mapApi.clearSite();
   }, [mapApi]);
@@ -286,6 +378,7 @@ export default function SitePanel({ mapApi }: Props) {
       setConfirmed(false);
       setScreening(null);
       setOwnership(null);
+      setVoa(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -313,6 +406,13 @@ export default function SitePanel({ mapApi }: Props) {
             .then((r) => r.json())
             .then((own: OwnershipReport & { error?: string }) => {
               if (!own.error) setOwnership(own);
+            })
+            .catch(() => undefined);
+
+          void fetch(`/api/site-intel/voa?uprn=${encodeURIComponent(candidate.uprn)}`)
+            .then((r) => r.json())
+            .then((report: VoaReport & { error?: string }) => {
+              if (!report.error) setVoa(report);
             })
             .catch(() => undefined);
         } else if (data.error) {
@@ -451,6 +551,8 @@ export default function SitePanel({ mapApi }: Props) {
           )}
 
           {screening && <ConstraintList screening={screening} />}
+
+          {voa && <VoaPanel report={voa} />}
 
           {ownership && <OwnershipList report={ownership} />}
 

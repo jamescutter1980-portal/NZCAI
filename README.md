@@ -4,7 +4,8 @@ NZC and ESG AI App.
 
 The **Land** module resolves a building from an address (S-01), screens it for
 planning and environmental constraints (S-02), checks nearby DNO grid capacity
-for solar PV (S-03), and identifies likely corporate owners (S-04). See
+for solar PV (S-03), identifies likely corporate owners (S-04), and pulls floor
+area and use from the VOA rating list (S-06). See
 [`docs/site-intel/BRIEF.md`](docs/site-intel/BRIEF.md) for the full spec and
 [`docs/site-intel/PLAN.md`](docs/site-intel/PLAN.md) for current status, open
 decisions and what is not yet verified.
@@ -138,6 +139,40 @@ postcode, with no way to choose between them.
 acceptance of HMLR's own terms, which carry conditions on redistribution. Those
 terms have not been read. Check before any commercial use.
 
+## Floor area and use class (S-06)
+
+```bash
+npm run site:load-voa -- list uk-vo-list.csv   # assessments, descriptions, RV
+npm run site:load-voa -- smv  uk-vo-smv.csv    # survey lines with floor areas
+```
+
+Both from [voaratinglists.blob.core.windows.net](https://voaratinglists.blob.core.windows.net/html/rlidata.htm).
+Load the list first — survey lines without an assessment are counted and
+dropped.
+
+Three things that will bite otherwise:
+
+- **The files are asterisk-delimited despite the `.csv` extension.** Parsing
+  them as CSV gives one giant field per row. The loader prints the first parsed
+  record so a mismatch is obvious; override positions with `VOA_LIST_MAP` /
+  `VOA_SMV_MAP` as JSON. They follow the published spec but have not been
+  checked against a real file.
+- **A floor area is meaningless without its basis.** Lines are GIA, NIA, GEA or
+  EFA and are never summed across bases. An unstated basis stays `unknown`,
+  never silently treated as GIA. This matters: kWh/m², CRREM and NZCBS all
+  depend on the denominator.
+- **The VOA description is not a planning Use Class.** "WAREHOUSE AND PREMISES"
+  is a valuation description. The use class is inferred, only from unambiguous
+  descriptions, and labelled as an inference every time.
+
+Floor areas from VOA, from footprint × storeys (`?storeys=`) and from an EPC
+(`?epc_area=`) are shown **side by side with their bases** and flagged
+`floor_area_check` when they diverge by more than 25%. None is chosen for you —
+that's the assessor's call.
+
+Matching is by address, so every result is tier T3. The list carries VOA's UARN,
+not a UPRN; the cross reference is in OS AddressBase Premium, a paid product.
+
 ## Loading real grid data
 
 `npm run db:seed` loads **invented sample rows**, tagged `fixture:sample`, so
@@ -212,6 +247,7 @@ src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      resolution chain, profile builder, stores, service
                      S-02: constraint_rules.yaml, constraints, flood
                      S-04: ownership matching, Companies House
+                     S-06: VOA assessments, floor area, use class
 tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health
@@ -237,6 +273,7 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run site:load-uprn -- <csv>` | Load OS Open UPRN or ONSUD |
 | `npm run site:postcodes` | Derive postcode centroids from loaded UPRNs |
 | `npm run site:load-ccod -- <csv>` | Load HMLR CCOD or OCOD ownership data |
+| `npm run site:load-voa -- list\|smv <csv>` | Load VOA rating list or summary valuations |
 
 ## Caveat
 

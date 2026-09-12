@@ -230,3 +230,42 @@ sources:
       Without a key, ownership screening still runs and reports company details
       as unavailable.
 
+  voa-rating-list:
+    name: VOA compiled rating list and summary valuations
+    publisher: Valuation Office Agency
+    dataset: non-domestic-rating-list
+    kind: bulk
+    url: https://voaratinglists.blob.core.windows.net/html/rlidata.htm
+    licence: OGL-UK-3.0
+    licence_url: https://www.gov.uk/government/organisations/valuation-office-agency
+    attribution: >-
+      Contains public sector information from the Valuation Office Agency
+      licensed under the Open Government Licence v3.0.
+    attribution_verified: false
+    refresh: quarterly
+    coverage: England and Wales
+    notes: >
+      ASTERISK-DELIMITED despite the .csv extension. Two files: the compiled list
+      (assessments, rateable values, primary descriptions) and the summary
+      valuations (survey lines carrying floor areas and their measurement basis).
+      Carries VOA's UARN, NOT a UPRN, so matching to a site is by address and
+      always inferred. Column positions in the loader follow the published data
+      specification but have NOT been checked against a real file.
+
+  os-addressbase-premium:
+    name: OS AddressBase Premium
+    publisher: Ordnance Survey
+    dataset: AddressBasePremium
+    kind: bulk
+    url: https://www.ordnancesurvey.co.uk/products/os-addressbase-premium
+    licence: os-commercial
+    licence_url: https://www.ordnancesurvey.co.uk/licensing
+    attribution: "Contains OS data © Crown copyright and database right {year}"
+    attribution_verified: false
+    refresh: quarterly
+    notes: >
+      NOT LICENSED, NOT IN USE. Paid OS product. It is the only source of the
+      UPRN-to-VOA cross reference, so holding it would turn every S-06 address
+      match into a definitive link. Listed so the gap is explicit, alongside the
+      National Polygon Service gap in S-04.
+

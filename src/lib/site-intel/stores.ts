@@ -3,6 +3,7 @@ import { boxAround, bounds, distanceM, type LatLon } from "./geo";
 import type { PostcodeStore, UprnPoint, UprnStore } from "./resolve";
 import type { FootprintStore } from "./profile";
 import type { CorporateTitle, Proprietor } from "./ownership";
+import type { SurveyLine, VoaAssessment } from "./voa";
 
 /**
  * Postgres-backed stores for the resolution chain.
@@ -206,4 +207,64 @@ export async function titleCounts(): Promise<{ ccod: number; ocod: number }> {
        FROM corporate_title`,
   );
   return { ccod: Number(row.ccod), ocod: Number(row.ocod) };
+}
+
+/* ------------------------------------------------------ S-06 VOA records --- */
+
+/** Assessments in a postcode, with their survey lines. Matching is in voa.ts. */
+export async function assessmentsInPostcode(postcode: string): Promise<VoaAssessment[]> {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT a.uarn, a.billing_authority_code, a.billing_authority_reference,
+            a.primary_description, a.scat_code, a.property_address, a.postcode,
+            a.rateable_value, a.effective_date, a.list_year,
+            COALESCE(
+              json_agg(
+                json_build_object(
+                  'description', l.description,
+                  'areaM2', l.area_m2,
+                  'basis', l.basis,
+                  'pricePerM2', l.price_per_m2,
+                  'value', l.value
+                ) ORDER BY l.line_no
+              ) FILTER (WHERE l.id IS NOT NULL),
+              '[]'
+            ) AS survey_lines
+       FROM voa_assessment a
+       LEFT JOIN voa_survey_line l ON l.uarn = a.uarn
+      WHERE a.postcode = $1
+      GROUP BY a.uarn
+      ORDER BY a.uarn
+      LIMIT 100`,
+    [postcode.toUpperCase()],
+  );
+
+  return rows.map((r) => ({
+    uarn: String(r.uarn),
+    billingAuthorityCode: (r.billing_authority_code as string) ?? null,
+    billingAuthorityReference: (r.billing_authority_reference as string) ?? null,
+    primaryDescription: (r.primary_description as string) ?? null,
+    scatCode: (r.scat_code as string) ?? null,
+    propertyAddress: (r.property_address as string) ?? null,
+    postcode: (r.postcode as string) ?? null,
+    rateableValue: r.rateable_value === null ? null : Number(r.rateable_value),
+    effectiveDate: r.effective_date
+      ? new Date(r.effective_date as string).toISOString().slice(0, 10)
+      : null,
+    listYear: r.list_year === null ? null : Number(r.list_year),
+    surveyLines: (r.survey_lines as SurveyLine[]).map((l) => ({
+      description: l.description ?? null,
+      areaM2: l.areaM2 === null ? null : Number(l.areaM2),
+      basis: l.basis ?? "unknown",
+      pricePerM2: l.pricePerM2 === null ? null : Number(l.pricePerM2),
+      value: l.value === null ? null : Number(l.value),
+    })),
+  }));
+}
+
+export async function voaCounts(): Promise<{ assessments: number; surveyLines: number }> {
+  const [row] = await query<{ assessments: string; lines: string }>(
+    `SELECT (SELECT count(*) FROM voa_assessment)::text AS assessments,
+            (SELECT count(*) FROM voa_survey_line)::text AS lines`,
+  );
+  return { assessments: Number(row.assessments), surveyLines: Number(row.lines) };
 }
