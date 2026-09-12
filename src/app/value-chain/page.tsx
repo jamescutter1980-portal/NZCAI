@@ -114,6 +114,12 @@ export default function ValueChainPage() {
         <Link href="/emissions">refrigerants, water and waste</Link>. Open a counterparty to record contact, figures and documents. Requests that come <em>to</em> us are answered from the portal&apos;s own figures in{" "}
         <Link href="/value-chain/inbox">Requests in</Link>.
       </p>
+      <p style={{ color: "#555" }}>
+        <Link href="/value-chain/hotspots">Where the emissions are</Link> ranks counterparties so engagement goes where it counts.{" "}
+        <Link href="/value-chain/trend">Over time</Link> separates real movement from the register changing.{" "}
+        <Link href="/value-chain/completeness">Category completeness</Link> answers all fifteen Scope 3 categories.{" "}
+        <Link href="/value-chain/targets">Targets and reduction</Link> holds the targets and the initiatives meant to meet them.
+      </p>
       <div style={{ marginBottom: 12 }}><PeriodPicker value={selection} onChange={(s) => { setSelection(s); load(s); }} disabled={busy !== null} /></div>
       {error && <p style={box("#f8d7da", "#f1aeb5")}>{error}</p>}
 

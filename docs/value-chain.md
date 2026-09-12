@@ -7,7 +7,10 @@ part of Scope 3 that a ledger cannot do: who holds the data, whether we have
 asked, what they sent, and what to do next.
 
 Routes: `/value-chain` (register, coverage, ranked plan), `/value-chain/[id]`
-(one counterparty's dossier), `/api/value-chain/...`, `/api/exports/value-chain`.
+(one counterparty's dossier), `/value-chain/inbox` (requests in),
+`/value-chain/trend`, `/value-chain/completeness`, `/value-chain/hotspots`,
+`/value-chain/targets`, `/value-chain/submit/[token]` (the counterparty's own
+page), `/api/value-chain/...`, `/api/exports/value-chain`.
 
 ## The register
 
@@ -188,6 +191,118 @@ every active counterparty has been asked and none is overdue, and whether
 every one has returned data. Both name the counterparties concerned, most
 valuable first.
 
+## Year on year: what actually changed
+
+`/value-chain/trend`, `/api/value-chain/trend`, `src/lib/value-chain/trend.ts`.
+
+A fall in reported Scope 3 is usually not abatement. Counterparties join and
+leave the register, a tier D spend estimate gets replaced by a supplier's own
+report, a period is restated. The trend engine therefore reports two numbers
+for every pair of years:
+
+- **Headline change** – this year's total against last year's, as filed.
+- **Like-for-like change** – the same, counting only counterparties present in
+  both years whose measurement basis did not change.
+
+Every counterparty in a pair lands in exactly one bucket: `moved` (same basis,
+so the movement is real), `rebased` (the data source or the tier changed, so
+the movement is measurement, not abatement), `joined`, or `left`. A total that
+is null in either year makes that year's change null, with the reason, rather
+than an invented zero.
+
+A **baseline** year can be set and **restatements** recorded against it, each
+with a reason (`register_change`, `method_change`, `error_correction`,
+`boundary_change`, `factor_update`) and a note. A trend with no baseline is
+still reported, with a warning that no baseline is set.
+
+## Category completeness: the fifteen categories
+
+`/value-chain/completeness`, `/api/value-chain/completeness`,
+`src/lib/value-chain/completeness.ts`.
+
+GHG Protocol asks for all fifteen Scope 3 categories to be addressed, not all
+fifteen to be reported. Each category, per reporting year, is assessed as
+`relevant`, `not_relevant` or `unknown`, and separately as included or
+excluded, with a justification.
+
+The rules the schema enforces:
+
+- A category judged `not_relevant` must be excluded — you cannot half-hold it.
+- A category judged `relevant` cannot be excluded without a justification.
+- A justification shorter than twenty characters is flagged as thin; "n/a" is
+  not an exclusion.
+- A category excluded while counterparties are registered against it is
+  flagged: the register contradicts the assessment.
+
+Assessments roll forward to the next year so only what changed is re-entered.
+The readiness suite gained a third value-chain check,
+`scope.s3_category_completeness`, which names the categories still unassessed
+or excluded without a reason.
+
+## Hotspots: where to spend the engagement effort
+
+`/value-chain/hotspots`, `/api/value-chain/hotspots`,
+`src/lib/value-chain/hotspots.ts`.
+
+A register of two hundred counterparties cannot be chased evenly. The screen
+ranks every counterparty on returned data where it exists and on a **screening
+estimate** from spend where it does not, and marks the ones inside a cumulative
+share threshold (80 % by default) as priority.
+
+The screening estimate is for prioritisation only. It never enters a reported
+total: the report engine remains the only source of filed figures, and the
+screen says for each row which of the two it ranked on. A counterparty that can
+be placed on neither — no returned data and no annual value — is not silently
+dropped to the bottom; it goes to `unscreenable` with the reason, because an
+unranked counterparty is a gap in the screen, not a small one.
+
+## Targets and abatement pipeline
+
+`/value-chain/targets`, `/api/value-chain/targets`,
+`/api/value-chain/initiatives`, `src/lib/value-chain/targets.ts`.
+
+A target is a baseline year and value, a target year and value, and a kind:
+absolute tCO2e, intensity per £m of value, supplier engagement (share of spend
+covered by counterparties with their own targets) or primary-data share. The
+engine puts the latest year against a **straight-line trajectory** from the
+baseline to the target and says whether it is on track, by how much, and what
+remains.
+
+Against the remaining gap sits the **abatement pipeline**: initiatives with a
+lever (supplier switch, specification change, volume reduction, logistics,
+circularity, supplier decarbonisation), an expected annual saving, a status,
+and — once delivered — an achieved saving, which is required before an
+initiative may be marked delivered.
+
+The pipeline is never netted off measured emissions. It is reported beside the
+gap, with the shortfall stated plainly: a pipeline of 120 tCO2e against a
+250 tCO2e gap leaves 130 tCO2e with nothing behind it. Expected and achieved
+savings are kept apart, so a pipeline that has never delivered cannot read as
+progress.
+
+## Supplier submissions: letting them send it themselves
+
+`/value-chain/submit/[token]`, `/api/value-chain/submit/[token]`,
+`/api/value-chain/submissions`, `src/lib/value-chain/submissions.ts`.
+
+Chasing a counterparty by mail and re-keying the reply is the slowest part of
+the cycle. The dossier can issue a **one-time link** for a counterparty and
+year: 32 random bytes, stored only as a SHA-256 hash with a short hint for the
+consultant to recognise, compared in constant time, with an expiry.
+
+The link opens a single page showing who is asking, for what year and what is
+needed; the counterparty fills in the annual report fields and submits. It is
+the only unauthenticated path in the portal — `src/proxy.ts` opens exactly the
+two submission paths, only when a token segment of at least sixteen characters
+is present, so `/value-chain/submit` on its own stays behind the password — and
+it reveals nothing without a valid token. An unknown token is a 404; an
+expired, revoked or already-spent one is a 410.
+
+What arrives is **held for review**. A submission is a submission, not a
+figure: the consultant sees it on the dossier and accepts or rejects it, and
+accepting is the only path that writes an emissions report. Rejection keeps the
+submission and its reason. Accepting spends the link.
+
 ## House rules
 
 - Numbers come from the engine in `src/lib/value-chain/report.ts`; nothing
@@ -200,7 +315,7 @@ valuable first.
 
 ## Not yet built
 
-Public-report harvesting and pre-filled requests, sending mail, and PACT or
-VSME machine exchange. The brief in the product
-docs covers each; this module is the graph, lifecycle and evidence layer they
-attach to.
+Public-report harvesting and pre-filled requests, sending the links and chasers
+by mail from the portal, and PACT or VSME machine exchange. The brief in the
+product docs covers each; this module is the graph, lifecycle, evidence and
+analysis layer they attach to.

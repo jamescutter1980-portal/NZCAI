@@ -25,6 +25,18 @@ export default function Home() {
           <Link href="/value-chain/inbox">Requests in</Link> – data requests from franchisors, customers, parents and lenders, answered from the portal&apos;s own figures with a consistency guard
         </li>
         <li>
+          <Link href="/value-chain/hotspots">Scope 3 hotspots</Link> – which counterparties carry the emissions, so engagement effort goes where it counts
+        </li>
+        <li>
+          <Link href="/value-chain/completeness">Scope 3 completeness</Link> – all fifteen categories assessed, each exclusion justified
+        </li>
+        <li>
+          <Link href="/value-chain/trend">Scope 3 year on year</Link> – headline change against like-for-like, so a change of register does not read as abatement
+        </li>
+        <li>
+          <Link href="/value-chain/targets">Scope 3 targets</Link> – progress against a straight-line trajectory and the abatement pipeline behind the gap
+        </li>
+        <li>
           <Link href="/portfolio">Portfolio</Link> – energy, carbon and data quality across every asset for any reporting period
         </li>
         <li>

@@ -424,3 +424,77 @@ export interface ActivityRecord extends ActivityCreate {
   createdAt: string;
   updatedAt: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* analysis vocabularies                                               */
+/*                                                                     */
+/* Kept here with the other shared vocabularies because the pages need */
+/* the labels and the engines need the values, and this module is the  */
+/* one both sides can import: it touches nothing but zod.              */
+/* ------------------------------------------------------------------ */
+
+/** Why a figure already published has changed. */
+export const RESTATEMENT_REASONS = ["method_change", "boundary_change", "error_correction", "better_data", "structural_change"] as const;
+export type RestatementReason = (typeof RESTATEMENT_REASONS)[number];
+export const RESTATEMENT_REASON_LABELS: Record<RestatementReason, string> = {
+  method_change: "Method changed",
+  boundary_change: "Boundary changed",
+  error_correction: "Error corrected",
+  better_data: "Better data obtained",
+  structural_change: "Structural change (acquisition, disposal, outsourcing)",
+};
+
+/** Whether a Scope 3 category applies to this organisation. */
+export const RELEVANCE = ["relevant", "not_relevant", "not_yet_assessed"] as const;
+export type Relevance = (typeof RELEVANCE)[number];
+export const RELEVANCE_LABELS: Record<Relevance, string> = {
+  relevant: "Relevant",
+  not_relevant: "Not relevant",
+  not_yet_assessed: "Not yet assessed",
+};
+
+/** How far a category has got. */
+export const CATEGORY_STATUS = ["calculated", "estimated", "excluded", "not_started"] as const;
+export type CategoryStatus = (typeof CATEGORY_STATUS)[number];
+export const CATEGORY_STATUS_LABELS: Record<CategoryStatus, string> = {
+  calculated: "Calculated from data",
+  estimated: "Estimated",
+  excluded: "Excluded",
+  not_started: "Not started",
+};
+
+/** What a target is measured on, and where that measure comes from. */
+export const TARGET_KINDS = ["absolute_tco2e", "intensity_tco2e_per_gbp_m", "primary_share_pct", "data_coverage_pct"] as const;
+export type TargetKind = (typeof TARGET_KINDS)[number];
+export const TARGET_KIND_META: Record<TargetKind, { label: string; unit: string; direction: "down" | "up"; source: string }> = {
+  absolute_tco2e: { label: "Absolute value chain emissions", unit: "tCO2e", direction: "down", source: "Attributable tCO2e from the value chain report, returned data plus disclosed spend estimates." },
+  intensity_tco2e_per_gbp_m: { label: "Emissions intensity", unit: "tCO2e per £m of annual value", direction: "down", source: "Attributable tCO2e divided by the annual value of active counterparties." },
+  primary_share_pct: { label: "Primary data share", unit: "%", direction: "up", source: "Share of attributable emissions at tiers A and B." },
+  data_coverage_pct: { label: "Value covered by returned data", unit: "%", direction: "up", source: "Share of counterparty annual value backed by a returned report or ledger." },
+};
+export const TARGET_STATUS = ["draft", "active", "met", "missed", "retired"] as const;
+export type TargetStatus = (typeof TARGET_STATUS)[number];
+
+/** How an abatement initiative actually reduces emissions. */
+export const LEVERS = ["supplier_switch", "supplier_decarbonisation", "specification_change", "volume_reduction", "material_substitution", "logistics", "circularity", "contractual", "other"] as const;
+export type Lever = (typeof LEVERS)[number];
+export const LEVER_LABELS: Record<Lever, string> = {
+  supplier_switch: "Switch to a lower-carbon supplier",
+  supplier_decarbonisation: "Supplier decarbonises (their own measures)",
+  specification_change: "Change the specification of what is bought",
+  volume_reduction: "Buy less",
+  material_substitution: "Substitute the material",
+  logistics: "Change the logistics",
+  circularity: "Reuse, repair or take-back",
+  contractual: "Contract or procurement clause",
+  other: "Other",
+};
+
+export const INITIATIVE_STATUS = ["proposed", "agreed", "in_progress", "delivered", "stalled", "dropped"] as const;
+export type InitiativeStatus = (typeof INITIATIVE_STATUS)[number];
+/** Statuses whose expected savings are credible enough to count in the pipeline. */
+export const PIPELINE_STATUSES: InitiativeStatus[] = ["agreed", "in_progress", "delivered"];
+
+/** The lifecycle of a one-time supplier submission link. */
+export const SUBMISSION_STATES = ["open", "submitted", "accepted", "rejected", "revoked", "expired"] as const;
+export type SubmissionState = (typeof SUBMISSION_STATES)[number];

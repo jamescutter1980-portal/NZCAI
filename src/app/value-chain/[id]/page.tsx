@@ -69,6 +69,14 @@ export default function CounterpartyPage() {
   const [edit, setEdit] = useState<Partial<Counterparty> | null>(null);
   const [candidates, setCandidates] = useState<{ query: string; items: Candidate[] } | null>(null);
   const [resolution, setResolution] = useState<{ applied: string[]; warnings: string[] } | null>(null);
+  const [links, setLinks] = useState<{ id: string; reportingYear: number; tokenHint: string; expiresOn: string; state: string; submittedAt?: string }[]>([]);
+  const [issued, setIssued] = useState<{ url: string; expiresOn: string } | null>(null);
+
+  const loadLinks = useCallback(async () => {
+    const res = await fetch(`/api/value-chain/submissions?counterpartyId=${id}`);
+    const b = await res.json().catch(() => ({}));
+    if (!b.error) setLinks(b.links ?? []);
+  }, [id]);
 
   const load = useCallback(async (s: PeriodSelection) => {
     const [d, r] = await Promise.all([fetch(`/api/value-chain/counterparties/${id}`).then((x) => x.json()), fetch(`/api/value-chain/report?${periodQuery(s)}`).then((x) => x.json())]);
@@ -79,11 +87,16 @@ export default function CounterpartyPage() {
   useEffect(() => {
     let active = true;
     const s = defaultPeriodSelection();
-    Promise.all([fetch(`/api/value-chain/counterparties/${id}`).then((x) => x.json()), fetch(`/api/value-chain/report?${periodQuery(s)}`).then((x) => x.json())])
-      .then(([d, r]) => {
+    Promise.all([
+      fetch(`/api/value-chain/counterparties/${id}`).then((x) => x.json()),
+      fetch(`/api/value-chain/report?${periodQuery(s)}`).then((x) => x.json()),
+      fetch(`/api/value-chain/submissions?counterpartyId=${id}`).then((x) => x.json()),
+    ])
+      .then(([d, r, l]) => {
         if (!active) return;
         if (d.error) setError(d.error); else setDossier(d);
         if (r.error) setError(r.error); else setEnvelope(r);
+        if (!l.error) setLinks(l.links ?? []);
       })
       .catch((e: Error) => { if (active) setError(e.message); });
     return () => { active = false; };
@@ -331,6 +344,68 @@ export default function CounterpartyPage() {
           )}
           {dossier && dossier.engagements.filter((e) => e.reportingYear !== year).length > 0 && (
             <p style={{ fontSize: 12, color: "#666", marginBottom: 0 }}>Other years: {dossier.engagements.filter((e) => e.reportingYear !== year).map((e) => `${e.reportingYear} ${STATE_LABELS[e.state].toLowerCase()}`).join("; ")}.</p>
+          )}
+        </section>
+      )}
+
+      {dossier && (
+        <section style={card}>
+          <h2 style={h2}>Ask them to send it themselves</h2>
+          <p style={{ fontSize: 13, color: "#555" }}>
+            A one-time link lets this counterparty enter its own figures without a portal account. What comes back waits for review here; it does not become the
+            reported figure until it is accepted. The link is shown once and cannot be recovered afterwards.
+          </p>
+          <div style={{ ...row, alignItems: "flex-end" }}>
+            <button
+              disabled={busy !== null}
+              onClick={async () => {
+                const b = await send("Link", "/api/value-chain/submissions", {
+                  method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ counterpartyId: id, reportingYear: year, ask: dossier.counterparty.ask, validForDays: 30 }),
+                });
+                if (b) {
+                  const token = (b as { token: string }).token;
+                  const link = (b as { link: { expiresOn: string } }).link;
+                  setIssued({ url: `${window.location.origin}/value-chain/submit/${token}`, expiresOn: link.expiresOn });
+                  void loadLinks();
+                }
+              }}
+            >
+              Issue a link for {year}
+            </button>
+          </div>
+          {issued && (
+            <p style={{ ...box("#e7f6e7", "#b9dfb9"), marginTop: 8, wordBreak: "break-all" }}>
+              Send this to them now; it expires on {issued.expiresOn} and is not stored anywhere you can read it back.<br />
+              <code style={{ fontSize: 12 }}>{issued.url}</code>
+            </p>
+          )}
+          {links.length > 0 && (
+            <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 10 }}>
+              <thead><tr><th style={th}>Year</th><th style={th}>Link</th><th style={th}>Expires</th><th style={th}>State</th><th style={th}>Sent</th><th style={th}></th></tr></thead>
+              <tbody>
+                {links.map((l) => (
+                  <tr key={l.id}>
+                    <td style={td}>{l.reportingYear}</td>
+                    <td style={td}>ending {l.tokenHint}</td>
+                    <td style={td}>{l.expiresOn}</td>
+                    <td style={td}>{l.state}</td>
+                    <td style={td}>{l.submittedAt?.slice(0, 10) ?? "—"}</td>
+                    <td style={td}>
+                      {l.state === "submitted" && (
+                        <>
+                          <button style={mini} disabled={busy !== null} onClick={async () => { if (await send("Accept", `/api/value-chain/submissions/${l.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "accept" }) })) void loadLinks(); }}>Accept</button>{" "}
+                          <button style={mini} disabled={busy !== null} onClick={async () => { if (await send("Reject", `/api/value-chain/submissions/${l.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reject" }) })) void loadLinks(); }}>Reject</button>
+                        </>
+                      )}
+                      {l.state === "open" && (
+                        <button style={mini} disabled={busy !== null} onClick={async () => { if (await send("Revoke", `/api/value-chain/submissions/${l.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke" }) })) void loadLinks(); }}>Withdraw</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
       )}

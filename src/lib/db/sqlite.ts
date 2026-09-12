@@ -362,6 +362,117 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       CREATE INDEX inbound_requests_year ON inbound_requests(reporting_year, due_on);
     `,
   },
+  {
+    id: "0013_value_chain_baseline",
+    sql: `
+      CREATE TABLE value_chain_baseline (
+        id TEXT PRIMARY KEY,
+        baseline_year INTEGER NOT NULL,
+        rationale TEXT NOT NULL,
+        set_on TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE value_chain_restatements (
+        id TEXT PRIMARY KEY,
+        reporting_year INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        detail TEXT NOT NULL,
+        previous_tco2e REAL,
+        restated_tco2e REAL,
+        recorded_on TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX value_chain_restatements_year ON value_chain_restatements(reporting_year);
+    `,
+  },
+  {
+    id: "0014_scope3_category_assessment",
+    sql: `
+      CREATE TABLE scope3_category_assessments (
+        id TEXT PRIMARY KEY,
+        reporting_year INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        relevance TEXT NOT NULL,
+        status TEXT NOT NULL,
+        justification TEXT NOT NULL,
+        method TEXT,
+        evidence TEXT,
+        notes TEXT,
+        assessed_on TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (reporting_year, category)
+      );
+    `,
+  },
+  {
+    id: "0015_value_chain_targets",
+    sql: `
+      CREATE TABLE value_chain_targets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        baseline_year INTEGER NOT NULL,
+        baseline_value REAL,
+        target_year INTEGER NOT NULL,
+        target_value REAL NOT NULL,
+        direction TEXT,
+        category TEXT,
+        status TEXT NOT NULL,
+        owner TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE abatement_initiatives (
+        id TEXT PRIMARY KEY,
+        counterparty_id TEXT REFERENCES counterparties(id) ON DELETE SET NULL,
+        name TEXT NOT NULL,
+        lever TEXT NOT NULL,
+        category TEXT,
+        status TEXT NOT NULL,
+        expected_annual_tco2e REAL,
+        expected_from_year INTEGER,
+        actual_annual_tco2e REAL,
+        actual_from_year INTEGER,
+        cost_gbp REAL,
+        owner TEXT,
+        evidence TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX abatement_initiatives_counterparty ON abatement_initiatives(counterparty_id);
+    `,
+  },
+  {
+    id: "0016_supplier_submissions",
+    sql: `
+      CREATE TABLE supplier_submission_links (
+        id TEXT PRIMARY KEY,
+        counterparty_id TEXT NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+        reporting_year INTEGER NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        token_hint TEXT NOT NULL,
+        ask TEXT NOT NULL,
+        expires_on TEXT NOT NULL,
+        state TEXT NOT NULL,
+        submitted_at TEXT,
+        submitted_payload TEXT,
+        submitted_note TEXT,
+        accepted_at TEXT,
+        accepted_report_id TEXT,
+        revoked_at TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX supplier_submission_links_counterparty ON supplier_submission_links(counterparty_id, reporting_year);
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;
