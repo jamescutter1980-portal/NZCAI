@@ -1,0 +1,4 @@
+{
+  "fields": [{ "name": "SPZ", "type": "esriFieldTypeString" }],
+  "features": [{ "attributes": { "OBJECTID": 9, "SPZ": "Zone II - Outer Protection Zone", "SPZ_Type": "Zone 2" } }]
+}

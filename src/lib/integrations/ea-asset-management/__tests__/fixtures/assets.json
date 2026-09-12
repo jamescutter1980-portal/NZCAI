@@ -1,0 +1,37 @@
+{
+  "meta": { "@id": "http://environment.data.gov.uk/asset-management/id/asset.json?lat=51.44&long=-2.56&dist=1", "comment": "Asset Management API, alpha", "license": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/", "licenseName": "OGL 3", "limit": 100, "publisher": "Environment Agency", "version": "0.1" },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/asset-management/id/asset/224221",
+      "actualCondition": { "@id": "http://environment.data.gov.uk/asset-management/def/core/condition/level_2", "prefLabel": "Good" },
+      "area": [{ "@id": "http://environment.data.gov.uk/registry/def/ea-organization/ea_areas/6-28", "label": "Wessex" }],
+      "assetStartDate": "2007-06-01",
+      "assetSubType": { "@id": "http://environment.data.gov.uk/asset-management/id/drl/DebrisScreen", "prefLabel": "Debris Screen" },
+      "assetType": { "@id": "http://environment.data.gov.uk/asset-management/id/drl/Structure", "prefLabel": "Structure" },
+      "label": "Not Available",
+      "lastInspectionDate": "2024-08-09",
+      "maintenanceTask": [{ "@id": "http://environment.data.gov.uk/asset-management/id/maintenance-task/164426-224221", "activitySubType": { "@id": "http://environment.data.gov.uk/asset-management/def/maintenance/activity-type/operational-check" }, "activityType": { "@id": "http://environment.data.gov.uk/asset-management/def/maintenance/activity-type/maintain-structures" } }],
+      "notation": "224221",
+      "primaryPurpose": { "@id": "http://environment.data.gov.uk/asset-management/def/core/purpose/flood-risk-management", "prefLabel": "flood risk management" },
+      "protectionType": { "@id": "http://environment.data.gov.uk/asset-management/def/core/protection-type/fluvial", "label": "fluvial" },
+      "targetCondition": { "@id": "http://environment.data.gov.uk/asset-management/def/core/condition/level_3", "prefLabel": "Fair" },
+      "waterCourseName": "Brislington Brook"
+    },
+    {
+      "@id": "http://environment.data.gov.uk/asset-management/id/asset/24285",
+      "actualCondition": { "@id": "http://environment.data.gov.uk/asset-management/def/core/condition/level_4", "prefLabel": "Poor" },
+      "area": [{ "@id": "http://environment.data.gov.uk/registry/def/ea-organization/ea_areas/2-30", "label": "Derbyshire Nottinghamshire and Leicestershire" }],
+      "assetLength": 365.78,
+      "assetStartDate": "1945-01-06",
+      "assetSubType": { "@id": "http://environment.data.gov.uk/asset-management/id/drl/Embankment", "prefLabel": "Embankment" },
+      "assetType": { "@id": "http://environment.data.gov.uk/asset-management/id/drl/Defence", "prefLabel": "Defence" },
+      "bank": { "@id": "http://environment.data.gov.uk/asset-management/def/core/bank/left" },
+      "label": "Not Available",
+      "lastInspectionDate": "2025-05-19",
+      "notation": "24285",
+      "primaryPurpose": { "@id": "http://environment.data.gov.uk/asset-management/def/core/purpose/flood-risk-management", "prefLabel": "flood risk management" },
+      "protectionType": { "@id": "http://environment.data.gov.uk/asset-management/def/core/protection-type/fluvial", "label": "fluvial" },
+      "targetCondition": { "@id": "http://environment.data.gov.uk/asset-management/def/core/condition/level_3", "prefLabel": "Fair" }
+    }
+  ]
+}

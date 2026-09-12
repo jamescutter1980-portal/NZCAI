@@ -1,0 +1,14 @@
+{
+  "offset": 0,
+  "limit": 100,
+  "endOfRecords": true,
+  "count": 2,
+  "results": [
+    { "key": 4001, "datasetKey": "aaaa", "datasetName": "Bat Conservation Trust records", "kingdom": "Animalia", "phylum": "Chordata", "class": "Mammalia", "order": "Chiroptera", "family": "Rhinolophidae", "species": "Rhinolophus hipposideros", "taxonKey": 2432437, "scientificName": "Rhinolophus hipposideros (Bechstein, 1800)", "decimalLatitude": 51.5, "decimalLongitude": -0.14, "coordinateUncertaintyInMeters": 707, "eventDate": "2024-06-01", "year": 2024, "basisOfRecord": "HUMAN_OBSERVATION", "license": "CC_BY_NC_4_0", "iucnRedListCategory": "LC" },
+    { "key": 4002, "datasetKey": "bbbb", "datasetName": "ARC records", "kingdom": "Animalia", "phylum": "Chordata", "class": "Amphibia", "order": "Caudata", "family": "Salamandridae", "species": "Triturus cristatus", "taxonKey": 2431885, "scientificName": "Triturus cristatus (Laurenti, 1768)", "decimalLatitude": 51.503, "decimalLongitude": -0.141, "eventDate": "2021-04-02", "year": 2021, "basisOfRecord": "HUMAN_OBSERVATION", "license": "CC_BY_4_0", "iucnRedListCategory": "LC" }
+  ],
+  "facets": [
+    { "field": "SPECIES_KEY", "counts": [{ "name": "2432437", "count": 1 }, { "name": "2431885", "count": 1 }] },
+    { "field": "LICENSE", "counts": [{ "name": "CC_BY_NC_4_0", "count": 1 }, { "name": "CC_BY_4_0", "count": 1 }] }
+  ]
+}

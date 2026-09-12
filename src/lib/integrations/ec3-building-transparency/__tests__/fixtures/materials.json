@@ -1,0 +1,28 @@
+[
+  {
+    "_comment": "EC3 materials response shape from public client code (bare array; string quantities). Synthetic values.",
+    "id": "ec3syn001",
+    "open_xpd_uuid": "ec3syn001",
+    "name": "Synthetic ReadyMix C32/40",
+    "description": "Synthetic fixture",
+    "gwp": "1.111 kgCO2e",
+    "declared_unit": "1 m3",
+    "gwp_per_kg": "0.000463 kgCO2e",
+    "mass_per_declared_unit": "2400 kg",
+    "density": "2400 kg / m3",
+    "manufacturer": { "name": "Synthetic Concrete Ltd", "country": "GB", "original_ec3_link": "https://buildingtransparency.org/ec3/epds/ec3syn001" },
+    "plant_or_group": { "name": "Synthetic Plant", "country": "GB" },
+    "category": { "id": "cat1", "name": "ReadyMix", "display_name": "Ready Mix", "description": "" },
+    "date_validity_ends": "2028-12-31",
+    "jurisdiction": "GB"
+  },
+  {
+    "id": "ec3syn002",
+    "name": "Synthetic mix without GWP",
+    "gwp": null,
+    "declared_unit": "1 m3",
+    "manufacturer": { "name": "Other Ltd", "country": "IE" },
+    "plant_or_group": { "name": "Other plant" },
+    "category": { "id": "cat1", "name": "ReadyMix", "display_name": "Ready Mix" }
+  }
+]

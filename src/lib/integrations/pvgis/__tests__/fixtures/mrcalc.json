@@ -1,0 +1,12 @@
+{
+  "inputs": { "location": { "latitude": 51.501, "longitude": -0.142, "elevation": 20 }, "meteo_data": { "radiation_db": "PVGIS-SARAH3", "year_min": 2022, "year_max": 2023, "use_horizon": true } },
+  "outputs": {
+    "monthly": [
+      { "year": 2022, "month": 1, "H(h)_m": 24.1, "H(i_opt)_m": 38.0, "T2m": 4.9 },
+      { "year": 2022, "month": 2, "H(h)_m": 42.0, "H(i_opt)_m": 60.5, "T2m": 7.2 },
+      { "year": 2023, "month": 1, "H(h)_m": 22.9, "H(i_opt)_m": 34.0, "T2m": 5.5 },
+      { "year": 2023, "month": 2, "H(h)_m": 44.2, "H(i_opt)_m": 63.5, "T2m": 7.4 }
+    ]
+  },
+  "meta": {}
+}

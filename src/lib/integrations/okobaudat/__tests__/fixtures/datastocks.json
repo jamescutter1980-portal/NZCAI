@@ -1,0 +1,7 @@
+{
+  "_comment": "soda4LCA datastocks shape ({dataStock:[{uuid, shortName, name[], description[], root}]}) as read by public ÖKOBAUDAT clients; synthetic entries.",
+  "dataStock": [
+    { "uuid": "aaaaaaaa-0000-4000-8000-000000000001", "shortName": "OBD_TEST_I", "name": [ { "value": "ÖKOBAUDAT TEST release I", "lang": "de" } ], "description": [ { "value": "Synthetic stock", "lang": "en" } ], "root": false },
+    { "uuid": "aaaaaaaa-0000-4000-8000-000000000002", "shortName": "default", "name": [ { "value": "Root", "lang": "en" } ], "root": true }
+  ]
+}

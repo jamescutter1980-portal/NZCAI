@@ -1,0 +1,4 @@
+[
+  { "survey_id": "BIO-2025-0001", "site_id": 43378, "survey_date": "2025-05-14", "survey_type": "Macroinvertebrate", "survey_method": "3-minute kick sample", "purpose": "WFD classification", "observation_count": 34 },
+  { "survey_id": "BIO-2024-0007", "site_id": 43378, "survey_date": "2024-10-02", "survey_type": "Macroinvertebrate", "survey_method": "3-minute kick sample", "purpose": "WFD classification", "observation_count": 29 }
+]

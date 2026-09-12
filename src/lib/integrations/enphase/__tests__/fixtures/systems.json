@@ -1,0 +1,21 @@
+{
+  "total": 1,
+  "current_page": 1,
+  "size": 100,
+  "count": 1,
+  "systems": [
+    {
+      "system_id": 2345678,
+      "name": "Depot roof",
+      "public_name": "Depot roof",
+      "timezone": "Europe/London",
+      "address": { "city": "Leeds", "state": "", "postal_code": "LS1 4AP", "country": "GB" },
+      "connection_type": "ethernet",
+      "status": "normal",
+      "last_report_at": 1757404800,
+      "last_energy_at": 1757404800,
+      "operational_at": 1680000000,
+      "system_size": 24500
+    }
+  ]
+}

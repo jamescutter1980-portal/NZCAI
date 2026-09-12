@@ -1,0 +1,42 @@
+{
+  "status": 200,
+  "result": {
+    "postcode": "SW1A 1AA",
+    "quality": 1,
+    "eastings": 529090,
+    "northings": 179645,
+    "country": "England",
+    "nhs_ha": "London",
+    "longitude": -0.141588,
+    "latitude": 51.501009,
+    "european_electoral_region": "London",
+    "primary_care_trust": "Westminster",
+    "region": "London",
+    "lsoa": "Westminster 018C",
+    "msoa": "Westminster 018",
+    "incode": "1AA",
+    "outcode": "SW1A",
+    "parliamentary_constituency": "Cities of London and Westminster",
+    "admin_district": "Westminster",
+    "parish": "Westminster, unparished area",
+    "admin_county": null,
+    "admin_ward": "St James's",
+    "ccg": "NHS North West London",
+    "nuts": "Westminster",
+    "codes": {
+      "admin_district": "E09000033",
+      "admin_county": "E99999999",
+      "admin_ward": "E05013806",
+      "parish": "E43000236",
+      "parliamentary_constituency": "E14001172",
+      "ccg": "E38000256",
+      "ccg_id": "W2U3Z",
+      "ced": "E99999999",
+      "nuts": "TLI32",
+      "lsoa": "E01004736",
+      "msoa": "E02000977",
+      "lau2": "E09000033",
+      "pfa": "E23000001"
+    }
+  }
+}

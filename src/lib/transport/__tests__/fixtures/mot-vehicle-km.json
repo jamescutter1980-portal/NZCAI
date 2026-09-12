@@ -1,0 +1,10 @@
+{
+  "registration": "EF56GHJ",
+  "make": "PEUGEOT",
+  "model": "308",
+  "fuelType": "Petrol",
+  "motTests": [
+    { "completedDate": "2024-04-01T09:00:00.000Z", "testResult": "PASSED", "odometerValue": "80000", "odometerUnit": "KM", "odometerResultType": "READ", "motTestNumber": "333300001" },
+    { "completedDate": "2025-04-01T09:00:00.000Z", "testResult": "PASSED", "odometerValue": "96000", "odometerUnit": "KM", "odometerResultType": "READ", "motTestNumber": "333300002" }
+  ]
+}

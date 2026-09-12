@@ -1,0 +1,15 @@
+{
+  "resource": "/1234567890123/electricity/consumption/1",
+  "responseTimestamp": "2026-09-09T10:00:00Z",
+  "start": "202609010000",
+  "end": "202609012359",
+  "granularity": "halfhour",
+  "unit": "kWh",
+  "values": [
+    { "timestamp": "2026-09-01 00:30", "value": 0.125 },
+    { "timestamp": "2026-09-01 01:00", "value": 0.131 },
+    { "timestamp": "2026-09-01 01:30", "value": 0.118, "status": "E" },
+    { "timestamp": "2026-09-02 00:00", "value": 0.2 }
+  ],
+  "availableCacheRange": { "start": "202508010000", "end": "202609090930" }
+}

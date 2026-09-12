@@ -1,0 +1,9 @@
+{
+  "sites": {
+    "count": 2,
+    "site": [
+      { "id": 1234567, "name": "Unit 4 Warehouse", "accountId": 1000, "status": "Active", "peakPower": 49.5, "lastUpdateTime": "2026-09-08", "installationDate": "2022-03-15", "type": "Optimizers & Inverters", "location": { "country": "United Kingdom", "city": "Reading", "address": "Unit 4", "zip": "RG2 0AA", "timeZone": "Europe/London" } },
+      { "id": 7654321, "name": "Head Office", "accountId": 1000, "status": "Active", "peakPower": 12.0, "lastUpdateTime": "2026-09-08", "installationDate": "2023-07-01", "type": "Optimizers & Inverters", "location": { "country": "United Kingdom", "city": "Bristol", "address": "1 Quay St", "zip": "BS1 4AA", "timeZone": "Europe/London" } }
+    ]
+  }
+}

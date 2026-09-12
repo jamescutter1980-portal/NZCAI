@@ -1,0 +1,26 @@
+{
+  "QueryResponse": {
+    "Bill": [
+      {
+        "Id": "145",
+        "DocNumber": "AC-9921",
+        "TxnDate": "2025-05-14",
+        "DueDate": "2025-06-13",
+        "VendorRef": { "value": "56", "name": "Acme Facilities Ltd" },
+        "CurrencyRef": { "value": "GBP", "name": "British Pound Sterling" },
+        "GlobalTaxCalculation": "TaxExcluded",
+        "TotalAmt": 600,
+        "Balance": 0,
+        "TxnTaxDetail": { "TotalTax": 100 },
+        "Line": [
+          { "Id": "1", "LineNum": 1, "Description": "Cleaning contract May", "Amount": 300, "DetailType": "AccountBasedExpenseLineDetail", "AccountBasedExpenseLineDetail": { "AccountRef": { "value": "62", "name": "Cleaning" }, "TaxCodeRef": { "value": "3" } } },
+          { "Id": "2", "LineNum": 2, "Description": "Window cleaning", "Amount": 200, "DetailType": "AccountBasedExpenseLineDetail", "AccountBasedExpenseLineDetail": { "AccountRef": { "value": "62", "name": "Cleaning" }, "TaxCodeRef": { "value": "3" } } }
+        ],
+        "MetaData": { "CreateTime": "2025-05-14T09:12:00+01:00", "LastUpdatedTime": "2025-06-13T10:00:00+01:00" }
+      }
+    ],
+    "startPosition": 1,
+    "maxResults": 1
+  },
+  "time": "2026-09-09T12:00:00.000+01:00"
+}

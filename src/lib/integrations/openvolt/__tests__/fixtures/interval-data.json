@@ -1,0 +1,10 @@
+{
+  "startInterval": "2026-08-01T00:00:00.000Z",
+  "endInterval": "2026-08-02T00:00:00.000Z",
+  "granularity": "hh",
+  "data": [
+    { "start_interval": "2026-08-01T00:00:00.000Z", "meter_id": "6514167223e3d1424bf82742", "meter_number": "1200012345678", "customer_id": "6514151f23e3d1424bf82722", "consumption": "12.5", "consumption_units": "kWh" },
+    { "start_interval": "2026-08-01T00:30:00.000Z", "meter_id": "6514167223e3d1424bf82742", "meter_number": "1200012345678", "customer_id": "6514151f23e3d1424bf82722", "consumption": "15.25", "consumption_units": "kWh" },
+    { "start_interval": "2026-08-01T01:00:00.000Z", "meter_id": "6514167223e3d1424bf82742", "meter_number": "1200012345678", "customer_id": "6514151f23e3d1424bf82722", "consumption": null, "consumption_units": "kWh" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "count": 2, "next": null, "previous": null,
+  "results": [
+    { "code": "AGILE-24-10-01", "direction": "IMPORT", "full_name": "Agile Octopus October 2024 v1", "display_name": "Agile Octopus", "description": "Half-hourly pricing.", "is_variable": true, "is_green": true, "is_tracker": false, "is_prepay": false, "is_business": false, "is_restricted": false, "term": null, "available_from": "2024-10-01T00:00:00+01:00", "available_to": null, "brand": "OCTOPUS_ENERGY" },
+    { "code": "VAR-22-11-01", "direction": "IMPORT", "full_name": "Flexible Octopus", "display_name": "Flexible Octopus", "is_variable": true, "is_green": false, "is_tracker": false, "is_prepay": false, "is_business": false, "term": null, "available_from": "2022-11-01T00:00:00Z", "available_to": null, "brand": "OCTOPUS_ENERGY" }
+  ]
+}

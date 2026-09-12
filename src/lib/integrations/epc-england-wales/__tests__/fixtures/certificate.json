@@ -1,0 +1,25 @@
+{
+  "data": {
+    "certificateNumber": "0000-0000-0000-0000-0001",
+    "typeOfAssessment": "RdSAP",
+    "address": { "addressLine1": "1 Some Street", "addressLine2": null, "town": "Whitbury", "postcode": "SW10 0AA" },
+    "uprn": 100121241798,
+    "currentEnergyEfficiencyBand": "B",
+    "currentEnergyEfficiencyRating": 84,
+    "potentialEnergyEfficiencyBand": "A",
+    "potentialEnergyEfficiencyRating": 92,
+    "totalFloorArea": 96,
+    "lodgementDate": "2020-05-04",
+    "inspectionDate": "2020-05-01",
+    "expiryDate": "2030-05-03",
+    "propertyType": "House",
+    "builtForm": "Mid-Terrace",
+    "mainFuel": "mains gas (not community)",
+    "mainHeatingDescription": "Boiler and radiators, mains gas",
+    "localAuthorityLabel": "Hammersmith and Fulham",
+    "recommendations": [
+      { "sequence": 1, "improvementSummaryText": "Floor insulation (solid floor)", "indicativeCost": "£4,000 - £6,000", "typicalSaving": 45, "energyPerformanceRating": 86 },
+      { "sequence": 2, "improvementSummaryText": "Solar photovoltaic panels, 2.5 kWp", "indicativeCost": "£3,500 - £5,500", "typicalSaving": 300, "energyPerformanceRating": 92 }
+    ]
+  }
+}

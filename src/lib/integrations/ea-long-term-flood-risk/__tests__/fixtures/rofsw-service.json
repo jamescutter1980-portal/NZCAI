@@ -1,0 +1,10 @@
+{
+  "currentVersion": 11.1,
+  "serviceDescription": "Risk of Flooding from Surface Water",
+  "layers": [
+    { "id": 0, "name": "Risk of Flooding from Surface Water", "parentLayerId": -1, "defaultVisibility": true, "subLayerIds": [1, 2, 3], "type": "Group Layer" },
+    { "id": 1, "name": "3.3 percent annual chance (High)", "parentLayerId": 0, "subLayerIds": null, "type": "Feature Layer" },
+    { "id": 2, "name": "1 percent annual chance (Medium)", "parentLayerId": 0, "subLayerIds": null, "type": "Feature Layer" },
+    { "id": 3, "name": "0.1 percent annual chance (Low)", "parentLayerId": 0, "subLayerIds": null, "type": "Feature Layer" }
+  ]
+}

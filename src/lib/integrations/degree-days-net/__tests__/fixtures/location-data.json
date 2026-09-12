@@ -1,0 +1,27 @@
+{
+  "metadata": { "rateLimit": { "requestUnitsAvailable": 940, "minutesToReset": 1425 } },
+  "response": {
+    "type": "LocationDataResponse",
+    "stationId": "EGLC",
+    "targetLongLat": { "longitude": -0.142, "latitude": 51.501 },
+    "sources": [{ "station": { "id": "EGLC", "longLat": { "longitude": 0.055, "latitude": 51.505 }, "displayName": "London City Airport" }, "metresFromTarget": 13700 }],
+    "dataSets": {
+      "hdd": {
+        "type": "DatedDataSet",
+        "percentageEstimated": 0.3,
+        "values": [
+          { "d": "2025-01-01", "ld": "2025-01-31", "v": 310.2, "pe": 0.9 },
+          { "d": "2025-02-01", "ld": "2025-02-28", "v": 250.7 }
+        ]
+      },
+      "cdd": {
+        "type": "DatedDataSet",
+        "percentageEstimated": 0,
+        "values": [
+          { "d": "2025-01-01", "ld": "2025-01-31", "v": 0 },
+          { "d": "2025-02-01", "ld": "2025-02-28", "v": 0 }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0"><Service><Name>WMS</Name><Title>Coal Authority specific risk data</Title></Service>
+<Capability><Layer><Title>coalauthority_specific_risk</Title>
+<Layer queryable="1"><Name>0</Name><Title>Development High Risk Area</Title></Layer>
+<Layer queryable="1"><Name>1</Name><Title>Surface Mining (Past and Current)</Title></Layer>
+<Layer queryable="1"><Name>2</Name><Title>Mine Gas Sites</Title></Layer>
+</Layer></Capability></WMS_Capabilities>

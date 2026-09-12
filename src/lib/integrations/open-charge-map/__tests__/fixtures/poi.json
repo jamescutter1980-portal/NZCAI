@@ -1,0 +1,25 @@
+[
+  {
+    "ID": 123456,
+    "UUID": "3A2B1C00-0000-4000-8000-000000000001",
+    "DataProvider": { "Title": "Open Charge Map Contributors" },
+    "OperatorInfo": { "Title": "Example Charging Ltd" },
+    "UsageType": { "Title": "Public - Pay At Location", "IsPayAtLocation": true },
+    "StatusType": { "Title": "Operational", "IsOperational": true },
+    "AddressInfo": { "Title": "Example Car Park", "AddressLine1": "1 Example Street", "Town": "London", "Postcode": "SW1A 1AA", "Latitude": 51.5012, "Longitude": -0.1425, "Distance": 0.62, "DistanceUnit": 2 },
+    "Connections": [
+      { "ConnectionType": { "Title": "CCS (Type 2)" }, "PowerKW": 150, "Quantity": 2, "CurrentType": { "Title": "DC" } },
+      { "ConnectionType": { "Title": "Type 2 (Socket Only)" }, "PowerKW": 22, "Quantity": 4, "CurrentType": { "Title": "AC (Three-Phase)" } }
+    ],
+    "NumberOfPoints": 6,
+    "DateLastVerified": "2026-05-02T10:00:00Z"
+  },
+  {
+    "ID": 123457,
+    "OperatorInfo": { "Title": "Council" },
+    "UsageType": { "Title": "Public" },
+    "StatusType": { "Title": "Not Operational", "IsOperational": false },
+    "AddressInfo": { "Title": "Lamp post charger", "AddressLine1": "Side Road", "Postcode": "SW1A 2AA", "Latitude": 51.4990, "Longitude": -0.1400, "Distance": 0.31 },
+    "Connections": [{ "ConnectionType": { "Title": "Type 2 (Socket Only)" }, "PowerKW": 7, "Quantity": 1 }]
+  }
+]

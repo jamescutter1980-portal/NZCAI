@@ -1,0 +1,8 @@
+Last Updated:,05/09/2026
+Last Updated,Unique ID,OFSI Group ID,Title,Name 1,Name 2,Name 3,Name 4,Name 5,Name 6,Name type,Non-Latin script name,Regime Name,Designation Type,Date Designated,Country,Address,Sanctions Imposed,UK Statement of Reasons
+05/09/2026,RUS0001,12345,,,,,,,Example Trading Company LLC,Primary Name,,The Russia (Sanctions) (EU Exit) Regulations 2019,Entity,15/03/2022,Russia,"Moscow, Russia",Asset freeze,Involved in obtaining a benefit from the Government of Russia.
+05/09/2026,RUS0001,12345,,,,,,,OOO Example Trading,Alias,,The Russia (Sanctions) (EU Exit) Regulations 2019,Entity,15/03/2022,Russia,"Moscow, Russia",Asset freeze,Involved in obtaining a benefit from the Government of Russia.
+01/02/2026,RUS0001,12345,,,,,,,Example Trading Company LLC,Primary Name,,The Global Human Rights Sanctions Regulations 2020,Entity,15/03/2022,Russia,"Moscow, Russia",Asset freeze,Involved in obtaining a benefit from the Government of Russia.
+12/01/2024,SYR0337,67890,,Ahmad,Sami,,,,Al-Example,Primary Name,,The Syria (Sanctions) (EU Exit) Regulations 2019,Individual,08/06/2013,Syria,,"Asset freeze, Travel ban",Senior official.
+12/01/2024,SYR0337,67890,,Ahmed,Samy,,,,Alexample,Primary Name Variation,,The Syria (Sanctions) (EU Exit) Regulations 2019,Individual,08/06/2013,Syria,,"Asset freeze, Travel ban",Senior official.
+20/05/2025,SHP0009,,,,,,,,Ocean Carrier 7,Primary Name,,The Russia (Sanctions) (EU Exit) Regulations 2019,Ship,20/05/2025,,,"Ship specification",Vessel used to transport oil.

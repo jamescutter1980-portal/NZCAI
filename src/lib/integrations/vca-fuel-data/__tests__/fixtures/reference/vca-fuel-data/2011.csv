@@ -1,0 +1,3 @@
+Manufacturer,Model,Description,Transmission,Engine Capacity,Fuel Type,Metric Urban (Cold),Metric Extra-Urban,Metric Combined,Imperial Urban (Cold),Imperial Extra-Urban,Imperial Combined,CO2 g/km,Fuel Cost 12000 Miles,Euro Standard,Noise Level dB(A),Emissions CO [mg/km],THC Emissions [mg/km],Emissions NOx [mg/km],THC + NOx Emissions [mg/km],Particulates [No.] [mg/km]
+ZETAMOTORS,"Zeta 300, Model Year 2011","1.6 Petrol with 16"" wheels",M5,1598,Petrol,8.1,5.2,6.3,34.9,54.3,44.8,146,1500,5,71.0,400,,30,,
+ZETAMOTORS,Zeta 300,1.6 Diesel,M6,1560,Diesel,5.1,3.9,4.3,55.4,72.4,65.7,114,1100,5,72.0,200,,150,170,0.5

@@ -1,0 +1,7 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { "type": "Feature", "properties": { "id": "GB108044009890", "name": "Devils Brook", "uri": "http://environment.data.gov.uk/catchment-planning/so/WaterBody/GB108044009890", "water-body-type": "River" }, "geometry": { "type": "MultiPolygon", "coordinates": [] } },
+    { "type": "Feature", "properties": { "id": "GB108044009890", "name": "Devils Brook", "uri": "http://environment.data.gov.uk/catchment-planning/so/WaterBody/GB108044009890", "water-body-type": "River" }, "geometry": { "type": "MultiLineString", "coordinates": [] } }
+  ]
+}

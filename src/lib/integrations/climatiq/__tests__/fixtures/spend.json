@@ -1,0 +1,28 @@
+{
+  "_comment": "Shape from public TypeScript clients of /procurement/v1/spend (not a live capture). Values are synthetic.",
+  "estimate": {
+    "co2e": 2.222,
+    "co2e_unit": "kg",
+    "co2e_calculation_method": "ar5",
+    "co2e_calculation_origin": "climatiq",
+    "emission_factor": {
+      "name": "Construction work",
+      "activity_id": "construction-type_construction_work",
+      "id": "55555555-6666-7777-8888-999999999999",
+      "access_type": "public",
+      "source": "EXIOBASE",
+      "source_dataset": "EXIOBASE 3.8.2",
+      "year": 2019,
+      "region": "GB",
+      "category": "Construction",
+      "source_lca_activity": "cradle_to_shelf",
+      "data_quality_flags": ["notable_methodological_variance"]
+    },
+    "constituent_gases": { "co2e_total": 2.222, "co2e_other": null, "co2": null, "ch4": null, "n2o": null },
+    "activity_data": { "activity_value": 8.5, "activity_unit": "eur" },
+    "audit_trail": "selector"
+  },
+  "calculation_details": { "tax_margin": 0.2, "trade_margin": 0.0, "transport_margin": 0.0, "inflation_applied": 1.05 },
+  "notices": [],
+  "source_trail": []
+}

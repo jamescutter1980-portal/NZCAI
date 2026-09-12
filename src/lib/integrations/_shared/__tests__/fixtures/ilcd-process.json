@@ -1,0 +1,79 @@
+{
+  "_comment": "SYNTHETIC ILCD+EPD process dataset in soda4LCA JSON shape. Every number is invented (1.111, 2.222 ...) for tests only. Shape mirrors ECO Portal / OEKOBAUDAT JSON as read by open-source clients; not a real EPD.",
+  "version": "1.1",
+  "processInformation": {
+    "dataSetInformation": {
+      "UUID": "00000000-0000-4000-8000-000000000001",
+      "name": { "baseName": [ { "value": "Synthetisches Testprodukt", "lang": "de" }, { "value": "Synthetic test product", "lang": "en" } ] },
+      "classificationInformation": {
+        "classification": [ { "name": "OEKOBAU.DAT", "class": [ { "level": 0, "classId": "1", "value": "Mineral building products" }, { "level": 1, "classId": "1.3", "value": "Concrete" } ] } ]
+      },
+      "generalComment": [ { "value": "Synthetic fixture", "lang": "en" } ]
+    },
+    "quantitativeReference": { "type": "Reference flow(s)", "referenceToReferenceFlow": [ 0 ] },
+    "time": { "referenceYear": 2024, "dataSetValidUntil": 2029 },
+    "geography": { "locationOfOperationSupplyOrProduction": { "location": "DE" } }
+  },
+  "modellingAndValidation": {
+    "LCIMethodAndAllocation": {
+      "typeOfDataSet": "EPD",
+      "other": { "anies": [ { "name": "subType", "value": "generic dataset" } ] }
+    },
+    "complianceDeclarations": { "compliance": [ { "referenceToComplianceSystem": { "shortDescription": [ { "value": "EN 15804+A2", "lang": "en" } ], "type": "source data set" } } ] }
+  },
+  "administrativeInformation": {
+    "publicationAndOwnership": { "dataSetVersion": "00.01.000" }
+  },
+  "exchanges": {
+    "exchange": [
+      {
+        "dataSetInternalID": 0,
+        "referenceToFlowDataSet": { "shortDescription": [ { "value": "Synthetic test product", "lang": "en" } ], "type": "flow data set" },
+        "meanAmount": 1.0,
+        "resultingAmount": 1.0,
+        "resultingflowAmount": 1.0,
+        "referenceFlow": true,
+        "flowProperties": [
+          { "name": [ { "value": "Volume", "lang": "en" } ], "uuid": "93a60a57-a4c8-11da-a746-0800200c9a66", "meanValue": 1.0, "referenceFlowProperty": true, "referenceUnit": "m3" },
+          { "name": [ { "value": "Mass", "lang": "en" } ], "uuid": "93a60a56-a3c8-11da-a746-0800200c9a66", "meanValue": 2400.0, "referenceUnit": "kg" }
+        ],
+        "exchange direction": "Output"
+      }
+    ]
+  },
+  "LCIAResults": {
+    "LCIAResult": [
+      {
+        "referenceToLCIAMethodDataSet": {
+          "shortDescription": [ { "value": "Global Warming Potential - total (GWP-total)", "lang": "en" } ],
+          "type": "LCIA method data set",
+          "refObjectId": "77e416eb-a363-4258-a04e-171d843a6460"
+        },
+        "other": {
+          "anies": [
+            { "module": "A1-A3", "value": "1.111" },
+            { "module": "A4", "value": "0.222" },
+            { "module": "A5", "value": "ND" },
+            { "module": "C1", "value": "0" },
+            { "module": "C2", "value": "0.033" },
+            { "module": "C3", "value": "0.044" },
+            { "module": "C4", "value": "MNA" },
+            { "module": "D", "value": "-0.555" },
+            { "name": "referenceToUnitGroupDataSet", "value": { "shortDescription": [ { "value": "kg CO2 eq.", "lang": "en" } ], "type": "unit group data set" } }
+          ]
+        }
+      },
+      {
+        "referenceToLCIAMethodDataSet": {
+          "shortDescription": [ { "value": "Global Warming Potential - fossil fuels (GWP-fossil)", "lang": "en" } ],
+          "type": "LCIA method data set"
+        },
+        "other": { "anies": [ { "module": "A1-A3", "value": "1.100" }, { "module": "A4", "value": "0.222" }, { "name": "referenceToUnitGroupDataSet", "value": { "shortDescription": [ { "value": "kg CO2 eq.", "lang": "en" } ] } } ] }
+      },
+      {
+        "referenceToLCIAMethodDataSet": { "shortDescription": [ { "value": "Acidification potential, Accumulated Exceedance (AP)", "lang": "en" } ], "type": "LCIA method data set" },
+        "other": { "anies": [ { "module": "A1-A3", "value": "0.009" }, { "name": "referenceToUnitGroupDataSet", "value": { "shortDescription": [ { "value": "mol H+ eq.", "lang": "en" } ] } } ] }
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "count": 2, "next": "https://api.octopus.energy/v1/electricity-meter-points/1200012345678/meters/Z16N389556/consumption/?page=2", "previous": null,
+  "results": [
+    { "consumption": 0.063, "interval_start": "2026-08-01T00:00:00+01:00", "interval_end": "2026-08-01T00:30:00+01:00" },
+    { "consumption": 0.071, "interval_start": "2026-08-01T00:30:00+01:00", "interval_end": "2026-08-01T01:00:00+01:00" }
+  ]
+}

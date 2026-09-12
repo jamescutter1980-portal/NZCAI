@@ -1,0 +1,19 @@
+{
+  "registration": "AB12CDE",
+  "make": "FORD",
+  "model": "TRANSIT CUSTOM",
+  "firstUsedDate": "2019-06-14",
+  "fuelType": "Diesel",
+  "primaryColour": "White",
+  "registrationDate": "2019-06-14",
+  "manufactureDate": "2019-05-01",
+  "engineSize": "1995",
+  "hasOutstandingRecall": "No",
+  "motTests": [
+    { "completedDate": "2022-06-10T10:15:00.000Z", "testResult": "PASSED", "expiryDate": "2023-06-13", "odometerValue": "48210", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "100000000001", "dataSource": "DVSA", "defects": [] },
+    { "completedDate": "2023-06-12T09:00:00.000Z", "testResult": "FAILED", "expiryDate": null, "odometerValue": "66500", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "100000000002", "dataSource": "DVSA", "defects": [{ "text": "Nearside Front Tyre tread depth below requirements", "type": "DANGEROUS", "dangerous": true }] },
+    { "completedDate": "2023-06-13T14:00:00.000Z", "testResult": "PASSED", "expiryDate": "2024-06-12", "odometerValue": "66510", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "100000000003", "dataSource": "DVSA", "defects": [] },
+    { "completedDate": "2024-06-11T11:30:00.000Z", "testResult": "PASSED", "expiryDate": "2025-06-10", "odometerValue": "0", "odometerUnit": null, "odometerResultType": "NO_ODOMETER", "motTestNumber": "100000000004", "dataSource": "DVSA", "defects": [] },
+    { "completedDate": "2025-06-09T08:45:00.000Z", "testResult": "PASSED", "expiryDate": "2026-06-08", "odometerValue": "101200", "odometerUnit": "MI", "odometerResultType": "READ", "motTestNumber": "100000000005", "dataSource": "DVSA", "defects": [{ "text": "Windscreen wiper blade deteriorated", "type": "ADVISORY", "dangerous": false }] }
+  ]
+}

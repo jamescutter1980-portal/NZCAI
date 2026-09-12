@@ -1,0 +1,8 @@
+{
+  "type": "FeatureCollection",
+  "numberReturned": 1,
+  "numberMatched": 1,
+  "features": [
+    { "type": "Feature", "id": 3125, "properties": { "LEX_D": "CLAY, SILT, SAND AND GRAVEL (THAMES GROUP)", "RCS_D": "CLAY, SILT, SAND AND GRAVEL", "MAX_AGE": "EOCENE", "MIN_AGE": "EOCENE", "MAP_THEME": "Bedrock" }, "geometry": { "type": "Polygon", "coordinates": [] } }
+  ]
+}

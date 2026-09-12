@@ -1,0 +1,10 @@
+{
+  "count": 3,
+  "next": null,
+  "previous": null,
+  "results": [
+    { "theme": "extreme_event", "sub_theme": "weather_alert", "topic": "Heat-alert", "geography_type": "Government Office Region", "geography": "London", "geography_code": "E12000007", "metric": "heat-alert_headline_matrixNumber", "metric_group": "headline", "stratum": "default", "sex": "all", "age": "all", "year": 2026, "month": 7, "epiweek": 28, "date": "2026-07-10", "metric_value": 12, "in_reporting_delay_period": false },
+    { "theme": "extreme_event", "sub_theme": "weather_alert", "topic": "Heat-alert", "geography_type": "Government Office Region", "geography": "London", "geography_code": "E12000007", "metric": "heat-alert_headline_matrixNumber", "metric_group": "headline", "stratum": "default", "sex": "all", "age": "all", "year": 2026, "month": 7, "epiweek": 28, "date": "2026-07-11", "metric_value": 7, "in_reporting_delay_period": false },
+    { "theme": "extreme_event", "sub_theme": "weather_alert", "topic": "Heat-alert", "geography_type": "Government Office Region", "geography": "London", "geography_code": "E12000007", "metric": "heat-alert_headline_matrixNumber", "metric_group": "headline", "stratum": "default", "sex": "all", "age": "all", "year": 2026, "month": 7, "epiweek": 28, "date": "2026-07-09", "metric_value": 1, "in_reporting_delay_period": false }
+  ]
+}

@@ -1,0 +1,3 @@
+OrganisationName,CompanyNumber,StatementYear,StatementStartDate,StatementEndDate,Turnover,SectorType,OrganisationSectors,OtherOrganisationSector,GroupSubmission,StatementURL,StatementSummaryURL
+EXAMPLE FACILITIES LIMITED,12345678,2025,01/04/2024,31/03/2025,£36 million to £60 million,Private sector,"Administrative and support services",,No,https://example.test/msa-2025.pdf,https://modern-slavery-statement-registry.service.gov.uk/statement-summary/abc123/2025
+NORTHERN WIDGETS PLC,00000006,2025,01/01/2024,31/12/2024,£60 million to £100 million,Private sector,Manufacturing,,Yes,https://example.test/nw-msa.pdf,https://modern-slavery-statement-registry.service.gov.uk/statement-summary/def456/2025

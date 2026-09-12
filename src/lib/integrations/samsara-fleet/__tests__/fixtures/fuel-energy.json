@@ -1,0 +1,24 @@
+{
+  "data": {
+    "vehicleReports": [
+      {
+        "vehicle": { "id": "281474976710655", "name": "Van 12", "energyType": "fuel", "externalIds": { "samsara.vin": "1HGBH41JXMN109186" } },
+        "distanceTraveledMeters": 1384000,
+        "efficiencyMpge": 21.4,
+        "engineIdleTimeDurationMs": 4320000,
+        "engineRunTimeDurationMs": 57600000,
+        "estCarbonEmissionsKg": 422.7,
+        "estFuelEnergyCost": { "amount": 245.5, "currencyCode": "gbp" },
+        "fuelConsumedMl": 162773
+      },
+      {
+        "vehicle": { "id": "281474976710656", "name": "EV 3", "energyType": "electric" },
+        "distanceTraveledMeters": 512000,
+        "efficiencyMpge": 98.2,
+        "energyUsedKwh": 73.2,
+        "estFuelEnergyCost": { "amount": 21.9, "currencyCode": "gbp" }
+      }
+    ]
+  },
+  "pagination": { "endCursor": "", "hasNextPage": false }
+}

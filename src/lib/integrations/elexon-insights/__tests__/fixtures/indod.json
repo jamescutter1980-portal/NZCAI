@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "publishTime": "2026-08-02T23:15:00Z", "settlementDate": "2026-08-02", "demand": 510000 },
+    { "publishTime": "2026-08-01T23:15:00Z", "settlementDate": "2026-08-01", "demand": 494802 }
+  ]
+}

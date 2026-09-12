@@ -1,0 +1,4 @@
+Report Id,Start date,End date,Filing date,Company,Company number,Payment terms,Average time to pay,% Invoices paid within 30 days,% Invoices paid between 31 and 60 days,% Invoices paid later than 60 days,% Invoices not paid within agreed terms,Shortest (or only) standard payment period,Longest standard payment period,E-Invoicing offered,URL
+98472,01/01/2025,30/06/2025,25/07/2025,EXAMPLE FACILITIES LIMITED,12345678,"Standard 30 days",34,58,32,10,21,30,60,True,https://check-payment-practices.service.gov.uk/report/98472/
+77001,01/07/2024,31/12/2024,28/01/2025,EXAMPLE FACILITIES LIMITED,12345678,"Standard 30 days",39,51,38,11,27,30,60,True,https://check-payment-practices.service.gov.uk/report/77001/
+77002,01/07/2024,31/12/2024,30/01/2025,NORTHERN WIDGETS PLC,00000006,"Standard 45 days",44,40,50,10,,45,45,False,https://check-payment-practices.service.gov.uk/report/77002/

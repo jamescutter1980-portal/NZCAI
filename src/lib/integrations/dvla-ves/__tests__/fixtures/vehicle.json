@@ -1,0 +1,20 @@
+{
+  "registrationNumber": "AB12CDE",
+  "taxStatus": "Taxed",
+  "taxDueDate": "2027-03-01",
+  "motStatus": "Valid",
+  "make": "FORD",
+  "yearOfManufacture": 2019,
+  "engineCapacity": 1995,
+  "co2Emissions": 133,
+  "fuelType": "DIESEL",
+  "markedForExport": false,
+  "colour": "WHITE",
+  "typeApproval": "N1",
+  "revenueWeight": 3200,
+  "euroStatus": "EURO6",
+  "dateOfLastV5CIssued": "2023-05-12",
+  "motExpiryDate": "2027-02-14",
+  "wheelplan": "2 AXLE RIGID BODY",
+  "monthOfFirstRegistration": "2019-06"
+}

@@ -1,0 +1,24 @@
+{
+  "_comment": "Shape from the Climatiq API reference (not a live capture). Values are synthetic.",
+  "co2e": 1111.0,
+  "co2e_unit": "kg",
+  "co2e_calculation_method": "ar5",
+  "co2e_calculation_origin": "source",
+  "emission_factor": {
+    "name": "Electricity supplied from grid - residual mix",
+    "activity_id": "electricity-supply_grid-source_residual_mix",
+    "id": "00000000-1111-2222-3333-444444444444",
+    "access_type": "public",
+    "source": "AIB",
+    "source_dataset": "European Residual Mixes",
+    "year": 2025,
+    "region": "GB",
+    "category": "Electricity",
+    "source_lca_activity": "electricity_generation",
+    "data_quality_flags": []
+  },
+  "constituent_gases": { "co2e_total": 1111.0, "co2e_other": null, "co2": 1100.0, "ch4": 1.0, "n2o": 0.1 },
+  "activity_data": { "activity_value": 1000.0, "activity_unit": "kWh" },
+  "audit_trail": "selector",
+  "notices": [ { "severity": "info", "message": "Synthetic notice", "code": "synthetic" } ]
+}

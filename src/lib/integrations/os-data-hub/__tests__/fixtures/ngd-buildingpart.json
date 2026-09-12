@@ -1,0 +1,28 @@
+{
+  "type": "FeatureCollection",
+  "numberReturned": 2,
+  "numberMatched": 2,
+  "timeStamp": "2026-09-01T10:00:00Z",
+  "features": [
+    {
+      "id": "0a1b2c3d-0000-4000-8000-000000000001",
+      "type": "Feature",
+      "geometry": { "type": "Polygon", "coordinates": [[[-1.4710, 50.9379], [-1.4706, 50.9379], [-1.4706, 50.9382], [-1.4710, 50.9382], [-1.4710, 50.9379]]] },
+      "properties": {
+        "osid": "0a1b2c3d-0000-4000-8000-000000000001", "toid": "osgb1000002682081995", "versiondate": "2025-11-03", "changetype": "Modified Attributes", "theme": "Buildings", "description": "Building",
+        "physicallevel": "Surface Level", "oslandusetiera": "Offices", "oslandusetierb": "Commercial Offices", "address_primarydescription": "Office / Work Studio", "address_classificationcode": "CO01",
+        "geometry_area_m2": 4820.5, "height_absolutemin_m": 21.4, "height_absolutemax_m": 38.9, "height_relativemax_m": 17.5, "height_relativeroofbase_m": 14.1, "height_confidencelevel": 95
+      }
+    },
+    {
+      "id": "0a1b2c3d-0000-4000-8000-000000000002",
+      "type": "Feature",
+      "geometry": { "type": "Polygon", "coordinates": [[[-1.4712, 50.9382], [-1.4710, 50.9382], [-1.4710, 50.9384], [-1.4712, 50.9384], [-1.4712, 50.9382]]] },
+      "properties": {
+        "osid": "0a1b2c3d-0000-4000-8000-000000000002", "toid": "osgb1000002682081996", "versiondate": "2024-02-19", "theme": "Buildings", "description": "Building",
+        "physicallevel": "Surface Level", "oslandusetiera": "Offices", "geometry_area_m2": 310.0, "height_absolutemax_m": 26.2, "height_relativemax_m": 4.8
+      }
+    }
+  ],
+  "links": [{ "href": "https://api.os.uk/features/ngd/ofa/v1/collections/bld-fts-buildingpart/items?bbox=-1.471124,50.937775,-1.470476,50.938225&limit=20", "rel": "self", "type": "application/geo+json" }]
+}

@@ -1,0 +1,55 @@
+{
+  "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+  "meta": { "publisher": "Environment Agency", "version": "0.9" },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/flood-monitoring/id/stations/1029TH",
+      "RLOIid": "7041",
+      "catchmentName": "Cotswolds",
+      "dateOpened": "1994-01-01",
+      "easting": 417990,
+      "northing": 206380,
+      "label": "Bourton Dickler",
+      "lat": 51.874767,
+      "long": -1.740083,
+      "measures": [
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/measures/1029TH-level-downstage-i-15_min-mASD",
+          "datumType": "http://environment.data.gov.uk/flood-monitoring/def/core/datumASD",
+          "label": "THAMES AREA TELEMETRY - level-downstage-i-15_min-mASD",
+          "latestReading": { "@id": "http://environment.data.gov.uk/flood-monitoring/data/readings/1029TH-level-downstage-i-15_min-mASD/2026-09-09T11-15-00Z", "date": "2026-09-09", "dateTime": "2026-09-09T11:15:00Z", "measure": "http://environment.data.gov.uk/flood-monitoring/id/measures/1029TH-level-downstage-i-15_min-mASD", "value": 0.112 },
+          "notation": "1029TH-level-downstage-i-15_min-mASD",
+          "parameter": "level",
+          "parameterName": "Water Level",
+          "period": 900,
+          "qualifier": "Downstream Stage",
+          "station": "http://environment.data.gov.uk/flood-monitoring/id/stations/1029TH",
+          "stationReference": "1029TH",
+          "unit": "http://qudt.org/1.1/vocab/unit#Meter",
+          "unitName": "mASD",
+          "valueType": "instantaneous"
+        },
+        {
+          "@id": "http://environment.data.gov.uk/flood-monitoring/id/measures/1029TH-rainfall-tipping_bucket_raingauge-t-15_min-mm",
+          "label": "THAMES AREA TELEMETRY - rainfall-tipping_bucket_raingauge-t-15_min-mm",
+          "latestReading": { "@id": "http://environment.data.gov.uk/flood-monitoring/data/readings/1029TH-rainfall-tipping_bucket_raingauge-t-15_min-mm/2026-09-09T11-15-00Z", "date": "2026-09-09", "dateTime": "2026-09-09T11:15:00Z", "measure": "http://environment.data.gov.uk/flood-monitoring/id/measures/1029TH-rainfall-tipping_bucket_raingauge-t-15_min-mm", "value": 0.2 },
+          "notation": "1029TH-rainfall-tipping_bucket_raingauge-t-15_min-mm",
+          "parameter": "rainfall",
+          "parameterName": "Rainfall",
+          "period": 900,
+          "qualifier": "Tipping Bucket Raingauge",
+          "stationReference": "1029TH",
+          "unitName": "mm",
+          "valueType": "total"
+        }
+      ],
+      "notation": "1029TH",
+      "riverName": "River Dikler",
+      "stageScale": { "@id": "http://environment.data.gov.uk/flood-monitoring/id/stations/1029TH/stageScale", "datum": 0, "highestRecent": { "dateTime": "2024-11-25T09:30:00Z", "value": 1.66 }, "maxOnRecord": { "dateTime": "2007-07-20T15:30:00Z", "value": 2.15 }, "minOnRecord": { "dateTime": "2011-10-22T05:45:00Z", "value": 0.021 }, "scaleMax": 3, "typicalRangeHigh": 0.6, "typicalRangeLow": 0.1 },
+      "stationReference": "1029TH",
+      "status": "http://environment.data.gov.uk/flood-monitoring/def/core/statusActive",
+      "town": "Little Rissington",
+      "type": ["http://environment.data.gov.uk/flood-monitoring/def/core/SingleLevel", "http://environment.data.gov.uk/flood-monitoring/def/core/Station"]
+    }
+  ]
+}

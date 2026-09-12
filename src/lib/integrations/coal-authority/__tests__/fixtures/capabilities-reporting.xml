@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0"><Service><Name>WMS</Name><Title>Coal Authority coal mining reporting areas</Title></Service>
+<Capability><Layer><Title>coalauthority_coal_mining_reporting_areas</Title>
+<Layer queryable="1"><Name>0</Name><Title>Coal Mining Reporting Area</Title></Layer>
+</Layer></Capability></WMS_Capabilities>

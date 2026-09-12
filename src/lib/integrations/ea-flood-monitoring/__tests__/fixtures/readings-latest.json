@@ -1,0 +1,8 @@
+{
+  "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+  "meta": { "publisher": "Environment Agency", "version": "0.9" },
+  "items": [
+    { "@id": "http://environment.data.gov.uk/flood-monitoring/data/readings/1029TH-level-downstage-i-15_min-mASD/2026-09-09T11-15-00Z", "dateTime": "2026-09-09T11:15:00Z", "measure": "http://environment.data.gov.uk/flood-monitoring/id/measures/1029TH-level-downstage-i-15_min-mASD", "value": 0.112 },
+    { "@id": "http://environment.data.gov.uk/flood-monitoring/data/readings/1029TH-level-stage-i-15_min-mASD/2026-09-09T11-15-00Z", "dateTime": "2026-09-09T11:15:00Z", "measure": "http://environment.data.gov.uk/flood-monitoring/id/measures/1029TH-level-stage-i-15_min-mASD", "value": 0.331 }
+  ]
+}
