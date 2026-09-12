@@ -1,0 +1,22 @@
+{
+  "provenance": {
+    "source": "PLACEHOLDER — illustrative values only",
+    "published": null,
+    "verified": false,
+    "notes": [
+      "Replace with the DESNZ/DEFRA UK Government GHG Conversion Factors for the reporting year.",
+      "Use the kWh (gross CV) fuel factors and the current UK grid electricity factor.",
+      "Set verified=true and fill in source/published only once the values have been checked",
+      "against the published dataset. Tools surface verified=false as a warning on every result."
+    ],
+    "units": "kgCO2e per kWh"
+  },
+  "values": {
+    "electricity": 0.2,
+    "natural_gas": 0.18,
+    "gas_oil": 0.25,
+    "lpg": 0.21,
+    "district_heating": 0.17,
+    "biomass_wood_pellets": 0.04
+  }
+}
