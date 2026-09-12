@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **S-03 grid layer, first cut.** Written 12 September 2026.
+Status: **S-01 building resolution + S-03 grid layer.** Updated 12 September 2026.
 
 ---
 
@@ -23,7 +23,7 @@ currently unanswerable from this repository:
 
 | Brief item | Status |
 |---|---|
-| Task 0 — EPC register endpoint check | **Cannot do.** No register retrieval module exists. Carried into §5 below. |
+| Task 0 — EPC register endpoint check | **Cannot do.** No register retrieval module exists. Carried into §5 below, and it has a live consequence — see §2b. |
 | Reuse the map component (MapLibre default) | **Cannot do.** None exists. See the conflict in §3. |
 | Reuse W-03 tiers / W-23 lineage | **Cannot do.** Minimal compatible shapes added instead, per the brief's fallback. |
 | Supabase PostGIS + storage check | **Cannot do.** No Supabase project reachable from here. |
@@ -63,6 +63,62 @@ without waiting on a PostGIS decision, while leaving the spatial upgrade a
 one-command migration when S-01's bulk loads arrive and genuinely need it.
 Revisit when OS OpenMap Local and title-boundary polygons land — those do need
 PostGIS, and at that point the local container becomes the right call.
+
+## 2b. S-01 — building resolution
+
+Built in `src/lib/site-intel/`:
+
+| Module | Does |
+|---|---|
+| `types.ts` | `SourceRecord`, `Tier`, `SiteProfile`, `ResultState` — the minimal W-03/W-23-compatible shapes the brief's fallback allows |
+| `sources.yaml` + `sources.ts` | Dataset registry with licence, attribution and refresh cadence. Attribution lives in YAML, never in code |
+| `geo.ts` | Distance, spherical area, point-in-polygon, WKT, postcode normalisation — dependency-free and deterministic |
+| `planning-data.ts` | planning.data.gov.uk client with injectable fetch, plus `checkSlugs` |
+| `resolve.ts` | The a–e resolution chain |
+| `profile.ts` | Title extents, footprint, LPA, country, per-dataset states, overrides |
+| `stores.ts` | Postgres-backed UPRN/postcode stores; PostGIS-backed footprints when available |
+| `service.ts` | `getProfile`, `saveProfile`, `overrideProfile` |
+
+API: `GET/POST/PATCH /api/site-intel/profile`. UI: address/postcode/UPRN search with
+the "Is this the building?" confirm step, title extent outlined and footprint
+filled on the map.
+
+**53 unit tests pass** (`npm test`) covering the whole chain, state logic, tier
+mapping, staleness, attribution rendering and the Google-coordinates guard.
+
+### What is NOT resolvable, and why it matters
+
+**Nothing resolves at `exact` right now.** Step (a) needs the EPC address
+register, which does not exist in this repo (Task 0). Without it every address
+falls through to the geocode or postcode branch, so it resolves at `probable` or
+`approximate` — and both require a human to confirm. That is correct behaviour,
+not a bug, but it means the confirm step is mandatory in practice for every
+address. Wiring up the register is the single highest-value S-01 follow-up.
+
+### Deviations from the brief, deliberate
+
+1. **Postcode centroids are derived from loaded UPRNs, not Code-Point Open.**
+   Code-Point publishes eastings/northings on OSGB36, which needs a full Helmert
+   transform to reach WGS84. Averaging OS Open UPRN points already in the
+   database avoids that dependency, uses authoritative OS coordinates, and
+   centres on actual buildings. Swap to Code-Point if the transform lands.
+2. **Postcode linkage needs a second file.** OS Open UPRN carries UPRN and
+   coordinates but no postcode. `site:load-uprn` therefore accepts ONSUD too —
+   run it once per file and the second pass fills postcodes in without clearing
+   coordinates.
+3. **`sources.yaml` attribution strings are transcribed from memory**, because
+   this build could not reach the licence pages. Every entry is
+   `attribution_verified: false`, `site:verify` lists them, and the API returns
+   the unverified list on every profile. **Nothing should go to a client until
+   each has been checked character for character.**
+
+### Country derivation
+
+From the GSS code's leading letter (E/W/S/N) where planning.data returns a local
+authority — authoritative. Otherwise inferred from postcode area, but only for
+areas that sit wholly within one country; `CH`, `SY`, `NP`, `TD` and `DG`
+straddle the border and are deliberately left unanswered rather than guessed.
+Inferred answers carry the `country_inferred_from_postcode` flag.
 
 ## 3. Blockers and conflicts — need James's decision
 
@@ -131,6 +187,11 @@ and suggests catalogue alternatives when a slug 404s.
 | Electricity North West | ODS | `enwl-gsp-heatmap` | ✗ |
 | SP Energy Networks | ODS | `ltds-capacity-heatmap` | ✗ |
 
+S-01 sources are in the same position. `planning.data.gov.uk`, `api.os.uk`,
+`api.postcodes.io` and both EPC hosts all return `403` through this network's
+egress proxy, so no S-01 dataset slug has been confirmed either. `npm run
+site:verify` checks them and reports what is missing.
+
 **Datasets left out on licence grounds: none yet** — because no licence has been
 confirmed yet. Anything that turns out to bar commercial reuse gets removed from
 `registry.ts` and listed here, per the brief.
@@ -164,5 +225,9 @@ needs its own adapter. Highest-value next piece of S-03.
   `src/lib/grid.ts`. Confirm it reads correctly.
 - **Fixture sites.** The brief asks for 8 confirmed sites; none chosen yet.
 - Stack and phase order — §3 above. Map library resolved (MapLibre).
+- **All seven attribution strings in `sources.yaml`** — transcribed from memory,
+  none verified against a licence page.
+- **Fixture sites.** The brief asks for 8 confirmed sites (§9). None chosen.
+  Needed before the golden-file and contract tests can be meaningful.
 - **Base map tile source.** OS Data Hub key needed for production; CARTO
   fallback has not had its terms checked for commercial use.

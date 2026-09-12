@@ -2,8 +2,9 @@
 
 NZC and ESG AI App.
 
-The **Land** module screens sites against DNO grid capacity for solar PV — the
-S-03 slice of the Site Intelligence layer. See
+The **Land** module resolves a building from an address (S-01) and screens sites
+against DNO grid capacity for solar PV (S-03) — two slices of the Site
+Intelligence layer. See
 [`docs/site-intel/BRIEF.md`](docs/site-intel/BRIEF.md) for the full spec and
 [`docs/site-intel/PLAN.md`](docs/site-intel/PLAN.md) for current status, open
 decisions and what is not yet verified.
@@ -28,6 +29,42 @@ docker compose up -d          # PostGIS on :5432, matches the default DATABASE_U
 optional** — migration `002` adds geography columns where the extension exists
 and no-ops where it doesn't, so plain Postgres (Neon, Supabase, RDS) works
 unchanged. See PLAN.md §2 for why.
+
+## Site intelligence (S-01)
+
+Resolve a building from an address, postcode or UPRN, see its title extent,
+footprint and planning authority, and confirm it is the right one.
+
+```bash
+npm run site:verify                       # readiness: data, slugs, attributions
+npm run site:load-uprn -- osopenuprn.csv  # OS Open UPRN (coordinates)
+npm run site:load-uprn -- onsud.csv       # ONSUD (fills in postcodes)
+npm run site:postcodes                    # derive postcode centroids
+```
+
+OS Open UPRN is ~40M rows, distributed as a zipped CSV from
+[osdatahub.os.uk](https://osdatahub.os.uk) — download `OpenUPRN`, unzip, and
+point the loader at the CSV. It carries coordinates but **no postcode**, so run
+the loader a second time against ONSUD to fill those in; the second pass updates
+in place and never clears coordinates. Set `SITE_INGEST_LIMIT` to load a subset
+while testing.
+
+**Nothing resolves at `exact` yet.** That needs the EPC address register, which
+does not exist in this repo (Task 0). Every address currently resolves at
+`probable` or `approximate`, both of which require a human to confirm — which is
+why the "Is this the building?" step is mandatory in practice.
+
+Building footprints need PostGIS and an OS OpenMap Local load; until both are in
+place the profile reports `unavailable` rather than inventing one.
+
+### Attribution
+
+Attribution strings live in `src/lib/site-intel/sources.yaml`, never in code.
+**All seven are currently `attribution_verified: false`** — transcribed from
+memory because this build could not reach the licence pages. `site:verify` lists
+them and the API returns the unverified set with every profile. Check each
+against its `licence_url` before anything reaches a client; they are licence
+conditions, not decoration.
 
 ## Loading real grid data
 
@@ -99,6 +136,9 @@ src/ingest/          registry (slugs, licences, attribution), ODS client,
                      field normaliser, verify/ingest CLI
 src/lib/             db pool, types, headroom RAG bands, fixed grid wording,
                      base map config
+src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
+                     resolution chain, profile builder, stores, service
+tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health
 src/components/      LandMap
@@ -118,6 +158,10 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run grid:verify` | Probe DNO datasets, report real schemas |
 | `npm run grid:ingest` | Pull and load capacity heatmap + ECR |
 | `npm run maplibre:worker` | Re-stage the MapLibre worker into `public/` |
+| `npm test` | Unit tests (no network required) |
+| `npm run site:verify` | S-01 readiness: reference data, slugs, attributions |
+| `npm run site:load-uprn -- <csv>` | Load OS Open UPRN or ONSUD |
+| `npm run site:postcodes` | Derive postcode centroids from loaded UPRNs |
 
 ## Caveat
 

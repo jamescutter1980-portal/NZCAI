@@ -1,0 +1,10 @@
+{
+  "datasets": [
+    { "dataset": "title-boundary" },
+    { "dataset": "local-planning-authority" },
+    { "dataset": "local-authority-district" },
+    { "dataset": "conservation-area" },
+    { "dataset": "listed-building-outline" },
+    { "dataset": "flood-risk-zone" }
+  ]
+}

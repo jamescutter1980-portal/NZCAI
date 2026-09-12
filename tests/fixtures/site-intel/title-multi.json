@@ -1,0 +1,33 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-1.1220, 53.5070], [-1.1200, 53.5070],
+          [-1.1200, 53.5085], [-1.1220, 53.5085], [-1.1220, 53.5070]
+        ]]
+      },
+      "properties": {
+        "entity": 4218301, "dataset": "title-boundary",
+        "reference": "SYK123456", "name": null, "entry-date": "2026-04-02"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-1.1215, 53.5074], [-1.1205, 53.5074],
+          [-1.1205, 53.5080], [-1.1215, 53.5080], [-1.1215, 53.5074]
+        ]]
+      },
+      "properties": {
+        "entity": 4218302, "dataset": "title-boundary",
+        "reference": "SYK654321", "name": null, "entry-date": "2026-04-02"
+      }
+    }
+  ]
+}

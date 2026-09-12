@@ -1,4 +1,6 @@
--- Optional spatial upgrade.
+-- Optional spatial upgrade. Numbered last so it runs after every table exists;
+-- the runner applies all migrations in filename order on each invocation and
+-- every statement here is idempotent.
 --
 -- Phase 1 only needs bounding-box filtering, which lat/lng handles. Phase 2
 -- wants real proximity ("parcels within 2 km of a substation with headroom")
@@ -30,6 +32,14 @@ BEGIN
 
   CREATE INDEX IF NOT EXISTS substation_geom_idx ON substation USING GIST (geom);
   CREATE INDEX IF NOT EXISTS ecr_geom_idx ON ecr_record USING GIST (geom);
+
+  -- S-01 reference data, where migration 003 has already created the tables.
+  IF to_regclass('public.os_uprn') IS NOT NULL THEN
+    ALTER TABLE os_uprn ADD COLUMN IF NOT EXISTS geom geography(Point, 4326);
+    UPDATE os_uprn SET geom = ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography
+     WHERE geom IS NULL;
+    CREATE INDEX IF NOT EXISTS os_uprn_geom_idx ON os_uprn USING GIST (geom);
+  END IF;
 
   RAISE NOTICE 'PostGIS spatial columns ready.';
 END $$;

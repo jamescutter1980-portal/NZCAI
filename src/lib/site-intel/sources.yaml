@@ -1,0 +1,123 @@
+# Site Intelligence source registry.
+#
+# Brief section 3.4: "Copy the exact wording from each source's licence page.
+# Store it in sources.yaml, not hard-coded."
+#
+# Attribution strings below are TRANSCRIBED FROM MEMORY OF THE LICENCE PAGES and
+# have NOT been checked against the live pages — this build had no network
+# access to them. Before anything ships to a client, open each `licence_url` and
+# confirm the string character for character. {year} is substituted at render
+# time with the current year.
+#
+# Any dataset whose licence does not permit commercial reuse must be removed
+# from here, logged in docs/site-intel/PLAN.md, and raised with James.
+
+sources:
+  os-open-uprn:
+    name: OS Open UPRN
+    publisher: Ordnance Survey
+    dataset: OpenUPRN
+    kind: bulk
+    url: https://api.os.uk/downloads/v1/products/OpenUPRN
+    licence: OGL-UK-3.0
+    licence_url: https://www.ordnancesurvey.co.uk/licensing/open-data-licence
+    attribution: "Contains OS data © Crown copyright and database right {year}"
+    attribution_verified: false
+    refresh: quarterly
+    notes: >
+      ~40M points. Authoritative source of persisted coordinates. Brief section
+      3.1: stored coordinates must always come from here, never from Google.
+
+  os-code-point-open:
+    name: OS Code-Point Open
+    publisher: Ordnance Survey
+    dataset: CodePointOpen
+    kind: bulk
+    url: https://api.os.uk/downloads/v1/products/CodePointOpen
+    licence: OGL-UK-3.0
+    licence_url: https://www.ordnancesurvey.co.uk/licensing/open-data-licence
+    attribution: "Contains OS data © Crown copyright and database right {year}"
+    attribution_verified: false
+    refresh: quarterly
+    notes: Postcode centroids. Approximate only - the user must pin the building.
+
+  os-openmap-local:
+    name: OS OpenMap Local
+    publisher: Ordnance Survey
+    dataset: OpenMapLocal
+    kind: bulk
+    url: https://api.os.uk/downloads/v1/products/OpenMapLocal
+    licence: OGL-UK-3.0
+    licence_url: https://www.ordnancesurvey.co.uk/licensing/open-data-licence
+    attribution: "Contains OS data © Crown copyright and database right {year}"
+    attribution_verified: false
+    refresh: biannual
+    notes: Building polygons for footprints. Requires PostGIS.
+
+  planning-data-title-boundary:
+    name: Title boundary (HM Land Registry index polygons)
+    publisher: Ministry of Housing, Communities and Local Government
+    dataset: title-boundary
+    kind: api
+    url: https://www.planning.data.gov.uk/entity.json
+    licence: OGL-UK-3.0
+    licence_url: https://www.planning.data.gov.uk/dataset/title-boundary
+    # Title polygons need BOTH statements - brief section 3.4.
+    attribution: >-
+      © Crown copyright and database right {year}. This data is licensed under
+      the Open Government Licence v3.0. The polygons (including the associated
+      geometry, namely x, y co-ordinates) are subject to Crown copyright and
+      database rights {year} Ordnance Survey AC0000851063.
+    attribution_verified: false
+    refresh: 7d
+    coverage: England
+    notes: >
+      ~22.7M entities, marked incomplete by the publisher. A point returning no
+      polygon therefore means not_found_coverage_unknown, never "no title".
+
+  planning-data-lpa:
+    name: Local planning authority
+    publisher: Ministry of Housing, Communities and Local Government
+    dataset: local-planning-authority
+    kind: api
+    url: https://www.planning.data.gov.uk/entity.json
+    licence: OGL-UK-3.0
+    licence_url: https://www.planning.data.gov.uk/dataset/local-planning-authority
+    attribution: "Contains public sector information licensed under the Open Government Licence v3.0"
+    attribution_verified: false
+    refresh: 7d
+    coverage: England
+
+  epc-register:
+    name: Energy Performance of Buildings register
+    publisher: Ministry of Housing, Communities and Local Government
+    dataset: epc-non-domestic
+    kind: api
+    url: https://get-energy-performance-data.communities.gov.uk
+    licence: custom-epc
+    licence_url: https://epc.opendatacommunities.org/docs/copyright
+    attribution: "Contains public sector information licensed under the Open Government Licence v3.0"
+    attribution_verified: false
+    refresh: 30d
+    notes: >
+      Address -> UPRN, the only step that yields an `exact` match. Registration
+      required for an API key. The legacy epc.opendatacommunities.org endpoint
+      has no published retirement date; this is the current host. NOT YET
+      IMPLEMENTED - no register retrieval module exists in this repo (Task 0).
+
+  google-geocoding:
+    name: Google Geocoding API
+    publisher: Google
+    dataset: geocoding
+    kind: api
+    url: https://maps.googleapis.com/maps/api/geocode/json
+    licence: google-maps-platform-tos
+    licence_url: https://cloud.google.com/maps-platform/terms
+    attribution: "Geocoding by Google"
+    attribution_verified: false
+    refresh: none
+    persist_coordinates: false
+    notes: >
+      Fallback only, and its coordinates are NEVER persisted. Used solely to
+      find candidate OS Open UPRN points within 25 m, which are what gets
+      stored. Brief section 3.1.

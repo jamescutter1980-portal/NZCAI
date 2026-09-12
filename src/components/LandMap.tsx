@@ -21,11 +21,16 @@ import {
   osTransformRequest,
 } from "@/lib/basemap";
 import type { Rag, Substation } from "@/lib/types";
+import type { SiteProfile } from "@/lib/site-intel/types";
+import SitePanel, { type SiteMapApi } from "./SitePanel";
 
 const GB_CENTRE: [number, number] = [-2.0, 53.2];
 const GB_ZOOM = 5.2;
 const SOURCE_ID = "substations";
 const LAYER_ID = "substation-circles";
+const SITE_PIN = "site-pin";
+const SITE_TITLE = "site-title";
+const SITE_FOOTPRINT = "site-footprint";
 
 interface ApiResponse {
   substations: Substation[];
@@ -62,6 +67,16 @@ function toGeoJson(rows: Substation[]): GeoJSON.FeatureCollection<GeoJSON.Point>
         properties: { id: s.id, rag: ragClass(s.generationRag) },
       })),
   };
+}
+
+function emptyCollection(): GeoJSON.FeatureCollection {
+  return { type: "FeatureCollection", features: [] };
+}
+
+function featureOf(geometry: GeoJSON.Geometry | null): GeoJSON.FeatureCollection {
+  return geometry
+    ? { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: {} }] }
+    : emptyCollection();
 }
 
 function prefersDark(): boolean {
@@ -257,6 +272,36 @@ export default function LandMap({
           "circle-stroke-color": "#ffffff",
         },
       });
+
+      // S-01 layers: title extent outlined, footprint filled, resolved pin on top.
+      m.addSource(SITE_TITLE, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: SITE_TITLE,
+        type: "line",
+        source: SITE_TITLE,
+        paint: { "line-color": "#1B4DD1", "line-width": 2, "line-dasharray": [3, 2] },
+      });
+
+      m.addSource(SITE_FOOTPRINT, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: SITE_FOOTPRINT,
+        type: "fill",
+        source: SITE_FOOTPRINT,
+        paint: { "fill-color": "#1B4DD1", "fill-opacity": 0.28, "fill-outline-color": "#1B4DD1" },
+      });
+
+      m.addSource(SITE_PIN, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: SITE_PIN,
+        type: "circle",
+        source: SITE_PIN,
+        paint: {
+          "circle-radius": 9,
+          "circle-color": "#1B4DD1",
+          "circle-stroke-width": 3,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
     };
 
     instance.on("load", () => {
@@ -310,6 +355,42 @@ export default function LandMap({
     [openPopup],
   );
 
+  const setSiteData = useCallback((id: string, data: GeoJSON.FeatureCollection) => {
+    const source = map.current?.getSource(id) as GeoJSONSource | undefined;
+    source?.setData(data);
+  }, []);
+
+  const mapApi: SiteMapApi = useMemo(
+    () => ({
+      showSite(lat, lon) {
+        setSiteData(SITE_PIN, {
+          type: "FeatureCollection",
+          features: [
+            { type: "Feature", geometry: { type: "Point", coordinates: [lon, lat] }, properties: {} },
+          ],
+        });
+        map.current?.flyTo({ center: [lon, lat], zoom: 18, duration: 700 });
+      },
+      showGeometry(profile: SiteProfile | null) {
+        setSiteData(SITE_FOOTPRINT, featureOf(profile?.footprint.geometry ?? null));
+        setSiteData(SITE_TITLE, {
+          type: "FeatureCollection",
+          features: (profile?.titleExtents ?? []).map((t) => ({
+            type: "Feature",
+            geometry: t.geometry,
+            properties: {},
+          })),
+        });
+      },
+      clearSite() {
+        for (const id of [SITE_PIN, SITE_TITLE, SITE_FOOTPRINT]) {
+          setSiteData(id, emptyCollection());
+        }
+      },
+    }),
+    [setSiteData],
+  );
+
   const withHeadroom = useMemo(
     () => substations.filter((s) => s.generationHeadroomMva !== null).length,
     [substations],
@@ -348,6 +429,8 @@ export default function LandMap({
 
       <div className="body">
         <aside className="panel">
+          <SitePanel mapApi={mapApi} />
+
           <div className="filters">
             <div className="field">
               <label htmlFor="headroom">

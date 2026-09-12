@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "entity": 192001,
+        "dataset": "local-planning-authority",
+        "reference": "E60000118",
+        "name": "Doncaster Metropolitan Borough Council",
+        "entry-date": "2026-01-15"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "entity": 192002,
+        "dataset": "local-authority-district",
+        "reference": "E08000017",
+        "name": "Doncaster",
+        "entry-date": "2026-01-15"
+      }
+    }
+  ]
+}

@@ -258,3 +258,90 @@ body {
   font-size: 11px;
 }
 .maplibregl-ctrl-attrib a { color: var(--ink-2); }
+
+/* ---- S-01 site resolution panel ------------------------------------------ */
+
+.site { border-bottom: 1px solid var(--rule); }
+
+.site-search { padding: 14px 18px 12px; display: flex; flex-direction: column; gap: 7px; }
+.site-row { display: flex; gap: 7px; }
+.site-row input {
+  flex: 1; min-width: 0;
+  font-family: var(--f-body); font-size: 14px; padding: 7px 9px;
+  border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface); color: var(--ink);
+}
+.site-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.site-row button {
+  flex: none; padding: 7px 13px; border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface-2); color: var(--ink);
+  font-family: var(--f-body); font-size: 13.5px; font-weight: 500; cursor: pointer;
+}
+.site-row button:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+.site-row button:disabled { opacity: 0.5; cursor: default; }
+
+.site-error {
+  margin: 0 18px 12px; padding: 8px 10px;
+  background: var(--risk-soft); color: var(--risk);
+  font-size: 12.5px; line-height: 1.45; border-radius: 3px;
+}
+
+.site-card {
+  margin: 0 14px 14px; padding: 13px 14px;
+  background: var(--surface-2); border: 1px solid var(--rule); border-radius: 3px;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.site-q { margin: 0; font-family: var(--f-display); font-size: 16px; font-weight: 600; }
+.site-help { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+
+.site-candidates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.site-candidates button {
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 7px 9px; border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface); color: inherit; font: inherit;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.site-candidates button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.site-candidates .uprn { font-family: var(--f-mono); font-size: 12.5px; font-weight: 500; }
+.site-candidates .dist { font-size: 11.5px; color: var(--ink-3); }
+
+.site-facts {
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 12px;
+  margin: 0; font-size: 12.5px;
+}
+.site-facts dt { color: var(--ink-3); }
+.site-facts dd {
+  margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.site-states { list-style: none; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 3px; }
+.site-states li { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--ink-3); }
+.site-states li span:first-child { font-family: var(--f-mono); }
+.site-states li.warn { color: var(--warn); }
+
+.site-flags {
+  margin: 0; font-family: var(--f-mono); font-size: 11px;
+  letter-spacing: 0.04em; color: var(--warn);
+}
+
+.site-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.site-actions button {
+  padding: 7px 13px; border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--surface); color: var(--ink);
+  font-family: var(--f-body); font-size: 13.5px; cursor: pointer;
+}
+.site-actions button:hover:not(:disabled) { border-color: var(--accent); }
+.site-actions button.primary {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500;
+}
+.site-actions button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.site-actions button:disabled { opacity: 0.5; cursor: default; }
+
+.site-lineage { font-size: 11.5px; color: var(--ink-3); }
+.site-lineage summary { cursor: pointer; font-family: var(--f-mono); letter-spacing: 0.05em; }
+.site-lineage ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.site-lineage li { line-height: 1.45; padding-left: 9px; border-left: 2px solid var(--rule); }
+.site-lineage strong { color: var(--ink-2); font-family: var(--f-mono); }
+.site-lineage .attrib { color: var(--ink-3); font-style: italic; }
+.site-method { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
