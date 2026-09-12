@@ -91,13 +91,12 @@ subprocess for local use, or a long-lived Streamable HTTP service for the portal
 src/nzcai_mcp/
   config.py        environment -> Config, the only place env vars are read
   reference.py     the DESNZ flat file loader (the portal's file, same rules)
-  datasets.py      versioned pathway datasets + provenance
+  pathways.py      the CRREM pathway loader (likewise)
   auth.py          bearer token middleware for the HTTP transport
   server.py        the only module that imports the MCP SDK
   tools/           pure calculations: no MCP, no I/O, unit tested directly
 data/
   reference/       published tables, supplied per deployment (gitignored)
-  pathways/        decarbonisation pathways
 ```
 
 The split matters: `tools/` holds arithmetic the web app or a batch job can import
@@ -143,8 +142,8 @@ configuration. See `.env.example` for the full set of variables.
 | --- | --- |
 | `calculate_carbon_intensity` | EUI (kWh/m²), emissions by fuel, and dual location-based / market-based Scope 2 intensities, from the DESNZ factors for the reporting year |
 | `search_emission_factors` | Rows of the loaded DESNZ flat file with their ids, so a fuel or activity can point at a published row |
-| `crrem_misalignment_year` | First year an asset exceeds a decarbonisation pathway, the year-by-year projection, and cumulative excess emissions |
-| `list_reference_datasets` | Which DESNZ years are loaded, and which pathways are available |
+| `crrem_misalignment_year` | First year an asset exceeds a CRREM pathway, the year-by-year projection, cumulative excess, and the caveats that apply |
+| `list_reference_datasets` | Which DESNZ years and CRREM pathway versions are loaded, and what each covers |
 
 ### Emission factors
 
@@ -193,14 +192,32 @@ Every result names the rows behind it:
 }
 ```
 
-### Decarbonisation pathways
+### CRREM pathways
 
-Still a placeholder: `data/pathways/example-office-eu.json` is a synthetic straight
-line, explicitly **not** a CRREM pathway, flagged `verified: false` so every result
-derived from it carries a warning. The repo already documents a
-`data/reference/crrem-pathways/<version>.csv` convention
-(`docs/integrations/reference-data.md`); moving pathways onto it, as factors now are,
-is the obvious next step.
+Pathways load from `data/reference/crrem-pathways/<version>.csv` — the same files
+the portal's `crrem-pathways` integration reads, with the same columns, the same
+accepted scenario spellings (`1.5C`, `1.5`, `1,5C`, `1.5 °C`) and the same
+treatment of a blank value. Export the pathway tables from the CRREM tool for the
+release you use; the newest loaded version is the default.
+
+**These are licensed, not open data.** Confirm software-use rights with CRREM
+before pathway values reach a commercial tool or a client deliverable. Every result
+carries CRREM's attribution and a `modelled` basis — these are science-based
+targets, not measurements.
+
+Three behaviours worth knowing, all inherited from the portal's method:
+
+- **A single asset value is held constant** across the pathway years. That is a
+  static projection — it ignores grid decarbonisation and planned measures — so it
+  comes back with a warning saying so. For a CRREM-consistent answer, pass the
+  projected series: `{"2025": 65, "2026": 63, ...}`.
+- **A pathway year published without a value is skipped**, never read as zero, and
+  reported as `no_pathway_value`.
+- **Asset years outside the pathway are ignored** and named in the warnings.
+
+Results always carry a reminder to check that the floor-area basis, scope and grid
+factor assumptions match the pathway's, because a misalignment year computed on a
+different basis is worse than none.
 
 ### Authentication
 

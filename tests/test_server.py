@@ -8,6 +8,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from nzcai_mcp.config import Config
 from nzcai_mcp.server import build_server
 
+from fixtures.crrem import write_pathways
 from fixtures.desnz import write_flat_file
 
 REPO_DATA = Path(__file__).resolve().parent.parent / "data"
@@ -16,6 +17,7 @@ REPO_DATA = Path(__file__).resolve().parent.parent / "data"
 @pytest.fixture
 def server(tmp_path):
     write_flat_file(tmp_path)
+    write_pathways(tmp_path)
     return build_server(
         Config(
             transport="stdio", host="127.0.0.1", port=8080,
@@ -88,19 +90,41 @@ async def test_list_reports_which_flat_file_years_are_loaded(server):
 
 
 @pytest.mark.anyio
-async def test_crrem_tool_returns_projection(server):
+async def test_crrem_tool_cites_the_pathway_version_and_licence(server):
     result = await server.call_tool(
         "crrem_misalignment_year",
         {
-            "baseline_intensity_kgco2e_per_m2": 60.0,
-            "baseline_year": 2025,
+            "country_code": "GB",
+            "property_type": "Office",
+            "asset_series": {"2025": 6.0},
             "floor_area_m2": 2_000,
         },
     )
     payload = result.structured_content
     assert payload["misalignment_year"] == 2025
-    assert payload["cumulative_excess_tco2e"] > 0
-    assert payload["provenance"]["verified"] is False
+    assert payload["unit"] == "kgCO2e/m2"
+    assert payload["provenance"]["version"] == "vTEST"
+    assert payload["provenance"]["basis"] == "modelled"
+    assert "CRREM" in payload["provenance"]["attribution"]
+    assert "software-use rights" in payload["provenance"]["licence"]
+
+
+@pytest.mark.anyio
+async def test_crrem_tool_reports_an_unknown_property_type(server):
+    with pytest.raises(ToolError, match="Loaded property types"):
+        await server.call_tool(
+            "crrem_misalignment_year",
+            {"country_code": "GB", "property_type": "Datacentre",
+             "asset_series": {"2025": 6.0}},
+        )
+
+
+@pytest.mark.anyio
+async def test_list_reports_both_reference_sets(server):
+    payload = (await server.call_tool("list_reference_datasets", {})).structured_content
+    assert payload["desnz_conversion_factors"]["years_loaded"] == [2025]
+    assert payload["crrem_pathways"]["versions_loaded"] == ["vTEST"]
+    assert payload["crrem_pathways"]["newest"]["property_types"] == ["Office", "Retail, High Street"]
 
 
 @pytest.fixture
