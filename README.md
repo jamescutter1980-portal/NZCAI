@@ -418,6 +418,24 @@ Reverting restores `footprint_inferred` if the original carried it: that flag
 described the source polygon's provenance, and losing it would make the restored
 polygon look better sourced than it is.
 
+### Move pin
+
+Beside Confirm and Redraw. Click the building on the map and the pin moves to
+the **nearest OS Open UPRN within 25 m** (resolution step (e)).
+
+The click is a **pointer, not a coordinate**. What gets stored comes from OS
+Open UPRN, so the profile's lat/lon always agrees with its UPRN. Beyond 25 m
+nothing changes and the reason says so — silently keeping the old pin would
+leave you believing the move worked. Where more than one UPRN is within range,
+both are offered nearest-first with distances rather than one being picked.
+
+A different UPRN is a **different building**, so everything hanging off the old
+one — constraints, EPC, ownership, VOA, grid — is cleared rather than carried
+across.
+
+The mode is one-shot, and Move pin and Redraw disarm each other: one click
+cannot mean both "place a corner" and "pick a building".
+
 ### Reproject first — the loader will stop you
 
 OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.

@@ -674,7 +674,7 @@ export default function LandMap({
     ];
 
     instance.on("click", (e: MapMouseEvent) => {
-      if (drawActive.current) return;
+      if (drawActive.current || picking.current) return;
       const layers = CONSTRAINT_FILL_LAYERS.filter((id) => instance.getLayer(id));
       if (!layers.length) return;
 
@@ -744,10 +744,30 @@ export default function LandMap({
      * the shape being drawn.
      */
     instance.on("click", (e: MapMouseEvent) => {
-      if (!drawActive.current) return;
-      drawing.current = [...drawing.current, [e.lngLat.lng, e.lngLat.lat]];
-      renderDrawing();
-      onDrawChange.current?.(drawing.current.length);
+      if (drawActive.current) {
+        drawing.current = [...drawing.current, [e.lngLat.lng, e.lngLat.lat]];
+        renderDrawing();
+        onDrawChange.current?.(drawing.current.length);
+        return;
+      }
+
+      /*
+       * A pick is a POINTER, not a coordinate to store.
+       *
+       * Brief §3.1 step (e): a map click resolves to the nearest OS Open UPRN
+       * within 25 m. The click itself is never persisted - the coordinate that
+       * ends up on the profile comes from OS Open UPRN, so the stored lat/lon
+       * always agrees with the stored UPRN. The panel does that resolution;
+       * this just hands over where the user pointed.
+       */
+      if (picking.current) {
+        const handler = onPick.current;
+        picking.current = false;
+        onPick.current = null;
+        const canvas = instance.getCanvas();
+        canvas.style.cursor = "";
+        handler?.(e.lngLat.lat, e.lngLat.lng);
+      }
     });
 
     /*
@@ -755,7 +775,7 @@ export default function LandMap({
      * are the part of this map most likely to be misread as available capacity.
      */
     instance.on("click", GRID_ECR, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
-      if (drawActive.current) return;
+      if (drawActive.current || picking.current) return;
       const props = e.features?.[0]?.properties as Record<string, string> | undefined;
       if (!props) return;
 
@@ -777,7 +797,7 @@ export default function LandMap({
     });
 
     instance.on("click", GRID_SITE_SUBS, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
-      if (drawActive.current) return;
+      if (drawActive.current || picking.current) return;
       const props = e.features?.[0]?.properties as Record<string, string> | undefined;
       if (!props) return;
 
@@ -815,7 +835,7 @@ export default function LandMap({
     }
 
     instance.on("click", LAYER_ID, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
-        if (drawActive.current) return;
+        if (drawActive.current || picking.current) return;
         const id = e.features?.[0]?.properties?.id as number | undefined;
         if (id === undefined) return;
         const s = byId.current.get(Number(id));
@@ -1019,7 +1039,37 @@ export default function LandMap({
             : null,
         );
       },
+      /**
+       * Next map click reports where the user pointed.
+       *
+       * Deliberately one-shot: a mode that stays on invites a second click
+       * that silently re-resolves the site after the user thought they were
+       * done.
+       */
+      startPick(handler: (lat: number, lon: number) => void) {
+        // Drawing and picking cannot both own the next click.
+        drawing.current = [];
+        drawActive.current = false;
+        onDrawChange.current = null;
+        renderDrawing();
+
+        picking.current = true;
+        onPick.current = handler;
+        const canvas = map.current?.getCanvas();
+        if (canvas) canvas.style.cursor = "crosshair";
+      },
+
+      cancelPick() {
+        picking.current = false;
+        onPick.current = null;
+        const canvas = map.current?.getCanvas();
+        if (canvas) canvas.style.cursor = "";
+      },
+
       startDraw(onChange: (count: number) => void) {
+        // Same rule the other way round.
+        picking.current = false;
+        onPick.current = null;
         drawing.current = [];
         drawActive.current = true;
         onDrawChange.current = onChange;
@@ -1104,6 +1154,13 @@ export default function LandMap({
   const drawing = useRef<[number, number][]>([]);
   const drawActive = useRef(false);
   const onDrawChange = useRef<((count: number) => void) | null>(null);
+
+  /*
+   * Move-pin mode. Separate from draw mode and mutually exclusive with it: one
+   * click cannot mean both "place a corner" and "pick a building".
+   */
+  const picking = useRef(false);
+  const onPick = useRef<((lat: number, lon: number) => void) | null>(null);
   const [hiddenCategories, setHiddenCategories] = useState<Set<ConstraintCategory>>(
     () => new Set(),
   );

@@ -1406,6 +1406,46 @@ item refuses to shrink below its content and `overflow-y` never engages.
 This had been broken for several slices and no screenshot caught it, because
 every previous browser check drove the panel from the top.
 
+### Move pin
+
+Brief §3.4 lists it beside Confirm and Redraw, and §3.1 step (e) says what it
+means: a map click resolves to the **nearest OS Open UPRN within 25 m**.
+
+That distinction decided the implementation. `applyOverride` already accepts a
+`point` and stores it directly at T4 — and the UI deliberately **does not use
+it**. Storing a raw click would put a coordinate on the profile that no register
+published, and leave the stored lat/lon disagreeing with the stored UPRN. So
+Move pin re-runs the resolution chain instead: the click is a *pointer*, and
+what gets stored comes from OS Open UPRN.
+
+Three consequences, all visible:
+
+- **Beyond 25 m nothing changes**, and the reason says so: "No OS Open UPRN
+  within 25 m of that point." Silently keeping the old pin would leave the user
+  believing the move worked.
+- **A different UPRN is a different building.** Everything hanging off the old
+  one — constraints, EPC, ownership, VOA, grid — is cleared, because `choose`
+  already resets it. Leaving a constraint screening from the previous building
+  attached to a new one would be the S-02 stale-footprint problem again, worse.
+- **More than one UPRN within 25 m offers both**, nearest first with distances,
+  rather than picking. On the sample data a click between two registered
+  addresses returns 4.2 m and 8.8 m and waits.
+
+The mode is **one-shot**: a mode that stays armed invites a second click that
+silently re-resolves the site after the user thought they were done. Move pin
+and Redraw are mutually exclusive — one click cannot mean both "place a corner"
+and "pick a building" — and each disarms the other.
+
+The PATCH endpoint still accepts `lat`/`lon` for a raw-point override. It is a
+legitimate T4 capability and it is tested; it simply is not what the button
+does. If a "nudge the pin within this building" control is ever wanted, that is
+the path, and it needs its own wording because the coordinate would then be the
+user's, not OS's.
+
+Verified in the browser: armed hint and crosshair, Redraw blocked while armed,
+cancel restores the cursor, a click 180 m out refused with the radius named and
+the UPRN unchanged, a click between two addresses offering both.
+
 ### What was built
 
 | file | role |
@@ -1413,20 +1453,17 @@ every previous browser check drove the panel from the top.
 | `types.ts` | `FootprintOriginal` on the profile |
 | `profile.ts` | capture-once, revert, flag handling in `applyOverride` |
 | `service.ts` | the original round-trips through `site_profile` |
-| `LandMap.tsx` | draw layers, `startDraw` / `undoDrawPoint` / `cancelDraw` / `finishDraw` |
-| `SitePanel.tsx` | the controls, the override note, the stale-screening warning |
+| `LandMap.tsx` | draw layers, `startDraw` / `undoDrawPoint` / `cancelDraw` / `finishDraw`, `startPick` / `cancelPick` |
+| `SitePanel.tsx` | the controls, the override note, the stale-screening warning, Move pin |
 | `globals.css` | the panel scroll fix |
 
-**13 tests**, 380 across the suite.
+**14 tests**, 381 across the suite.
 
 ### Not done
 
 - **No vertex editing.** Points are placed and undone in order; an existing
   shape cannot be nudged. Redrawing from scratch is the only edit.
 - **No snapping** to the source polygon or to other buildings.
-- **No "Move pin".** Brief §3.4 lists it beside Confirm and Redraw.
-  `applyOverride` already handles `point` at T4 and the resolution chain has the
-  map-click step; only the control is missing.
 - **The override is not re-screened automatically**, by design (above) — but
   nothing forces the user to press the button, so a stale screening can be left
   on screen. It is labelled the whole time it is stale.

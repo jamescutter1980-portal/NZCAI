@@ -34,6 +34,14 @@ export interface SiteMapApi {
   /** S-03 layers: supply area, the substations screened against, ECR points. */
   showGrid(grid: GridProfile | null): void;
 
+  /**
+   * Move pin (brief §3.4, resolution step (e)). One-shot: the next map click
+   * reports where the user pointed, and the panel resolves that to the nearest
+   * OS Open UPRN. The click itself is never stored.
+   */
+  startPick(handler: (lat: number, lon: number) => void): void;
+  cancelPick(): void;
+
   /* Redraw (brief §3.2, §3.4). */
   startDraw(onChange: (count: number) => void): void;
   undoDrawPoint(): void;
@@ -683,6 +691,8 @@ export default function SitePanel({ mapApi }: Props) {
   const [grid, setGrid] = useState<GridProfile | null>(null);
   /* Redraw. `drawPoints` is null when not drawing, a count when drawing. */
   const [drawPoints, setDrawPoints] = useState<number | null>(null);
+  /* True between pressing Move pin and the next map click. */
+  const [picking, setPicking] = useState(false);
   /*
    * Set when the footprint changed after the constraints were screened. The
    * screening ran against the OLD shape, so the panel must say so rather than
@@ -705,6 +715,7 @@ export default function SitePanel({ mapApi }: Props) {
     setPerformance(null);
     setGrid(null);
     setDrawPoints(null);
+    setPicking(false);
     setConstraintsStale(false);
     setStep(null);
     mapApi.clearSite();
@@ -837,6 +848,54 @@ export default function SitePanel({ mapApi }: Props) {
       }
     },
     [mapApi],
+  );
+
+  /**
+   * Resolves a map click to a building, per resolution step (e).
+   *
+   * The click is a POINTER. What gets stored is the nearest OS Open UPRN
+   * within 25 m, so the profile's coordinate always agrees with its UPRN.
+   * Beyond that radius nothing is changed and the reason is shown — silently
+   * keeping the old pin would leave the user thinking the move worked, and
+   * storing the raw click would put a coordinate on the profile that no
+   * register published.
+   */
+  const pickAt = useCallback(
+    async (lat: number, lon: number) => {
+      setPicking(false);
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/site-intel/profile?lat=${lat}&lon=${lon}&candidates=1`,
+        );
+        const data = (await res.json()) as {
+          candidates?: Candidate[];
+          step?: string;
+          reason?: string | null;
+          error?: string;
+        };
+
+        if (data.error) {
+          setError(data.error);
+        } else if (!data.candidates?.length) {
+          setError(data.reason ?? "No building matched that point");
+        } else {
+          // A different UPRN is a DIFFERENT BUILDING, so everything hanging off
+          // the old one - constraints, EPC, ownership, VOA, grid - has to go.
+          // `choose` already resets all of it.
+          reset();
+          setCandidates(data.candidates);
+          setStep(data.step ?? null);
+          if (data.candidates.length === 1) void choose(data.candidates[0]);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not resolve that point");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [choose, reset],
   );
 
   /** PATCHes a footprint override, or reverts one, then refreshes the profile. */
@@ -1096,6 +1155,21 @@ export default function SitePanel({ mapApi }: Props) {
 
           {ownership && <OwnershipList report={ownership} />}
 
+          {picking && (
+            <p className="site-hint">
+              Click the building on the map. The pin moves to the nearest OS Open
+              UPRN within 25 m — the click itself is not stored, and beyond 25 m
+              nothing changes.
+            </p>
+          )}
+
+          {drawPoints !== null && (
+            <p className="site-hint">
+              Click to place each corner. {drawPoints} placed
+              {drawPoints < 3 ? " — three is the minimum for an area." : "."}
+            </p>
+          )}
+
           <div className="site-actions">
             {!confirmed && selected.uprn && drawPoints === null && (
               <button type="button" className="primary" onClick={() => void confirm()} disabled={busy}>
@@ -1103,12 +1177,31 @@ export default function SitePanel({ mapApi }: Props) {
               </button>
             )}
 
-            {/* Brief §3.4 asks for a Redraw control beside Confirm. */}
+            {/* Brief §3.4 asks for Move pin and Redraw beside Confirm. */}
+            {drawPoints === null && (
+              picking ? (
+                <button
+                  type="button"
+                  onClick={() => { mapApi.cancelPick(); setPicking(false); }}
+                >
+                  Cancel move
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => { setPicking(true); mapApi.startPick(pickAt); }}
+                >
+                  Move pin
+                </button>
+              )
+            )}
+
             {drawPoints === null ? (
               <button
                 type="button"
-                onClick={() => mapApi.startDraw(setDrawPoints)}
-                disabled={busy || !selected.uprn}
+                onClick={() => { setPicking(false); mapApi.startDraw(setDrawPoints); }}
+                disabled={busy || !selected.uprn || picking}
                 title={selected.uprn ? undefined : "A drawing needs a UPRN to be saved against"}
               >
                 Redraw footprint
@@ -1155,7 +1248,9 @@ export default function SitePanel({ mapApi }: Props) {
 
             <button type="button" onClick={() => {
               mapApi.cancelDraw();
+              mapApi.cancelPick();
               setDrawPoints(null);
+              setPicking(false);
               setSelected(null);
               setProfile(null);
               mapApi.clearSite();

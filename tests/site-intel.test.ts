@@ -305,6 +305,17 @@ describe("resolution chain", () => {
     assert.ok(!r.candidates.some((c) => c.uprn === FAR.uprn));
   });
 
+  test("step e: a click with nothing within 25 m refuses and names the radius", async () => {
+    // This is the message the Move pin control surfaces. A click beyond the
+    // radius must change nothing: silently keeping the old pin would leave the
+    // user believing the move worked, and storing the click itself would put a
+    // coordinate on the profile that no register published.
+    const r = await resolve({ point: { lat: 53.6000, lon: -1.3000 } }, deps());
+    assert.equal(r.candidates.length, 0);
+    assert.equal(r.step, "none");
+    assert.match(r.reason ?? "", /No OS Open UPRN within 25 m/);
+  });
+
   test("step e: candidates are ordered nearest first", async () => {
     const r = await resolve({ point: { lat: 53.50775, lon: -1.12105 } }, deps());
     const distances = r.candidates.map((c) => c.distanceM ?? 0);
