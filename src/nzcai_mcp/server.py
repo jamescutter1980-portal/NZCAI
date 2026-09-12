@@ -20,6 +20,7 @@ from pydantic import Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from .auth import BearerTokenMiddleware, validate_auth_config
 from .config import Config, load_config
 from .datasets import DatasetError, get_dataset, list_datasets
 from .tools import carbon, crrem
@@ -166,8 +167,27 @@ def build_server(config: Config | None = None) -> MCPServer:
     return server
 
 
+def build_http_app(config: Config):
+    """The ASGI app for the HTTP transport, with auth wrapped around it.
+
+    Separated from ``run`` so tests can drive the fully wired app -- auth included
+    -- without binding a port.
+    """
+    app = build_server(config).streamable_http_app(
+        transport_security=_transport_security(config),
+        host=config.host,
+    )
+    if config.auth_token is None:
+        return app
+    return BearerTokenMiddleware(app, config.auth_token)
+
+
 def run(config: Config | None = None) -> None:
     config = config or load_config()
+
+    # Checked before anything binds, so a misconfiguration fails at startup rather
+    # than quietly serving an open endpoint.
+    validate_auth_config(config.transport, config.auth_token, config.allow_anonymous)
 
     if config.transport == "stdio":
         # stdout is the transport, so logs must go to stderr.
@@ -175,27 +195,31 @@ def run(config: Config | None = None) -> None:
         build_server(config).run(transport="stdio")
         return
 
+    import uvicorn
+
     logging.basicConfig(level=logging.INFO)
-    security = _transport_security(config)
-    build_server(config).run(
-        transport="streamable-http",
-        host=config.host,
-        port=config.port,
-        transport_security=security,
-    )
+    uvicorn.run(build_http_app(config), host=config.host, port=config.port, log_level="info")
 
 
 def _transport_security(config: Config) -> TransportSecuritySettings | None:
     """DNS-rebinding protection for the HTTP transport.
 
-    Passing None disables it, which is only safe while the port is confined to the
-    compose network. Set NZCAI_MCP_ALLOWED_HOSTS before exposing it any wider.
+    Returning None hands the decision to the SDK, which auto-protects only a
+    loopback bind (127.0.0.1, localhost, ::1) and leaves any other bind address
+    unguarded. The container binds 0.0.0.0, so an explicit allowlist is the only
+    thing standing between it and a rebinding attack -- hence the warning.
     """
     if not config.allowed_hosts and not config.allowed_origins:
-        logger.warning(
-            "NZCAI_MCP_ALLOWED_HOSTS is unset: DNS rebinding protection is OFF. "
-            "Set it before exposing this port outside the container network."
-        )
+        if config.host in ("127.0.0.1", "localhost", "::1"):
+            logger.info(
+                "NZCAI_MCP_ALLOWED_HOSTS is unset; the SDK's loopback default applies."
+            )
+        else:
+            logger.warning(
+                "NZCAI_MCP_ALLOWED_HOSTS is unset and the bind address is %s, so DNS "
+                "rebinding protection is OFF. Set it before exposing this port.",
+                config.host,
+            )
         return None
     return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
