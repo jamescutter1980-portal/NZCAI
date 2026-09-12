@@ -24,6 +24,13 @@ class Config:
     allowed_origins: tuple[str, ...] = ()
     auth_token: str | None = None
     allow_anonymous: bool = False
+    reference_data_dir: Path | None = None
+
+    @property
+    def reference_dir(self) -> Path:
+        """Where the DESNZ flat file and other reference tables live. Defaults
+        under the data directory, so the container's existing mount covers it."""
+        return self.reference_data_dir or self.data_dir / "reference"
 
     @property
     def mcp_transport(self) -> str:
@@ -55,6 +62,9 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         allowed_origins=_split(env.get("NZCAI_MCP_ALLOWED_ORIGINS", "")),
         auth_token=_optional(env.get("NZCAI_MCP_AUTH_TOKEN")),
         allow_anonymous=_flag(env.get("NZCAI_MCP_ALLOW_ANONYMOUS")),
+        # Same variable name the portal uses, so one deployment configures both
+        # layers to read the same reference files.
+        reference_data_dir=_path(env.get("REFERENCE_DATA_DIR")),
     )
 
 
@@ -74,3 +84,8 @@ def _optional(raw: str | None) -> str | None:
 
 def _flag(raw: str | None) -> bool:
     return (raw or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _path(raw: str | None) -> Path | None:
+    stripped = (raw or "").strip()
+    return Path(stripped) if stripped else None
