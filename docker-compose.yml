@@ -27,8 +27,8 @@ services:
       # since a bearer token on plain HTTP is readable in transit.
       - "127.0.0.1:8080:8080"
     volumes:
-      # data/reference (the DESNZ flat file and CRREM pathways), read-only: the
-      # server never writes reference data.
+      # data/reference (DESNZ factors, CRREM pathways, NZCBS limits), read-only:
+      # the server never writes reference data.
       - ./data:/data:ro
     read_only: true
     tmpfs:

@@ -92,6 +92,7 @@ src/nzcai_mcp/
   config.py        environment -> Config, the only place env vars are read
   reference.py     the DESNZ flat file loader (the portal's file, same rules)
   pathways.py      the CRREM pathway loader (likewise)
+  uk_nzcbs.py      the UK NZCBS limit table loader (likewise)
   auth.py          bearer token middleware for the HTTP transport
   server.py        the only module that imports the MCP SDK
   tools/           pure calculations: no MCP, no I/O, unit tested directly
@@ -143,7 +144,9 @@ configuration. See `.env.example` for the full set of variables.
 | `calculate_carbon_intensity` | EUI (kWh/m²), emissions by fuel, and dual location-based / market-based Scope 2 intensities, from the DESNZ factors for the reporting year |
 | `search_emission_factors` | Rows of the loaded DESNZ flat file with their ids, so a fuel or activity can point at a published row |
 | `crrem_misalignment_year` | First year an asset exceeds a CRREM pathway, the year-by-year projection, cumulative excess, and the caveats that apply |
-| `list_reference_datasets` | Which DESNZ years and CRREM pathway versions are loaded, and what each covers |
+| `nzcbs_limits` | UK NZCBS limits for a sector, optionally by year and metric, with rows the Standard sets no limit for flagged as unavailable |
+| `nzcbs_check` | Indicative comparison of supplied building values against those limits — pass, fail, or not_assessable |
+| `list_reference_datasets` | Which DESNZ years, CRREM versions and NZCBS versions are loaded, and what each covers |
 
 ### Emission factors
 
@@ -218,6 +221,31 @@ Three behaviours worth knowing, all inherited from the portal's method:
 Results always carry a reminder to check that the floor-area basis, scope and grid
 factor assumptions match the pathway's, because a misalignment year computed on a
 different basis is worse than none.
+
+### UK NZCBS limits
+
+Limits load from `data/reference/uk-nzcbs/<version>.csv`, transcribed from the
+published Standard into the same files the portal's `uk-nzcbs` integration reads.
+Like CRREM, the Standard is licensed material: results carry its attribution and
+the reminder to verify against the current publication.
+
+**`nzcbs_check` is indicative, not a compliance determination.** The Standard has
+its own metering, verification and reporting method, and certification needs an
+approved verifier. The tool says so on every result.
+
+The rule that makes it worth having, inherited from the portal's assessment:
+
+> No limit, benchmark or asset value is invented.
+
+So a metric is reported `not_assessable`, **never a pass**, when either the file
+sets no limit for it — a blank cell is the Standard setting none, not a limit of
+zero — or you supplied no value for it. The portal computes operational energy
+intensity from meter readings; this layer has no meters, so you pass the values you
+have and everything else comes back not assessable with the reason.
+
+Sector names match exactly first, then on a single unambiguous partial. Two
+candidates is no match, because guessing which sector's limits apply is worse than
+saying it cannot be determined.
 
 ### Authentication
 
