@@ -21,6 +21,7 @@ import { checkSlugs } from "@/lib/site-intel/planning-data";
 import { DATASETS } from "@/lib/site-intel/profile";
 import { loadSources, unverifiedAttributions } from "@/lib/site-intel/sources";
 import { ruleDatasets, unapprovedRules } from "@/lib/site-intel/rules";
+import { loadMeesRules, unapprovedMeesRules } from "@/lib/site-intel/mees";
 import { epcCounts, referenceDataCounts, titleCounts, voaCounts } from "@/lib/site-intel/stores";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 
@@ -310,6 +311,29 @@ async function verify(): Promise<void> {
   } else {
     console.log(`  ${YELLOW}${unapproved.length}/${ruleDatasets().length} awaiting James's sign-off${OFF}`);
     console.log(`  ${DIM}Set approved: true in constraint_rules.yaml once signed off.${OFF}`);
+  }
+
+  console.log("\nMEES wording and thresholds (S-05)");
+  try {
+    const mees = loadMeesRules();
+    const unapprovedMees = unapprovedMeesRules();
+    const meesTotal = Object.keys({ ...mees.states, ...mees.flags }).length + 1; // +1 for meta
+    if (unapprovedMees.length === 0) {
+      console.log(`  ${GREEN}all ${meesTotal} approved${OFF}`);
+    } else {
+      console.log(`  ${YELLOW}${unapprovedMees.length}/${meesTotal} awaiting James's sign-off${OFF}`);
+      console.log(`  ${DIM}This wording concerns a legal duty. Set approved: true in${OFF}`);
+      console.log(`  ${DIM}mees_rules.yaml only after reading it against the source.${OFF}`);
+    }
+    console.log(
+      `  ${DIM}policy as at ${mees.meta.policy_as_at}: minimum ${mees.thresholds.minimum_band.band} ` +
+      `(${mees.thresholds.minimum_band.status}), ${mees.thresholds.target_2031.band} by ` +
+      `${mees.thresholds.target_2031.by} above ${mees.thresholds.target_2031.applies_above_m2} m² ` +
+      `(${mees.thresholds.target_2031.status}), ${mees.thresholds.dropped_2027_c.was} EPC ` +
+      `${mees.thresholds.dropped_2027_c.band} ${mees.thresholds.dropped_2027_c.status}${OFF}`,
+    );
+  } catch (err) {
+    console.log(`  ${RED}FAIL${OFF} ${err instanceof Error ? err.message.slice(0, 160) : err}`);
   }
 
   console.log("\nattribution strings");

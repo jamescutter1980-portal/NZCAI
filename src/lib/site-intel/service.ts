@@ -465,3 +465,58 @@ export async function epcFor(profile: SiteProfile): Promise<EpcReport> {
 export function epcLineage(certificate: EpcCertificate) {
   return certificateLineage(certificate);
 }
+
+/* ------------------------------------------ S-05: building performance --- */
+
+import { screenMees, type AreaInput, type MeesScreening } from "./mees";
+import { certificateAge, intensity, readRating, type CertificateAge, type Intensity, type RatingReading } from "./performance";
+
+export interface PerformanceReport {
+  /** The certificate screened: newest non-domestic where one exists. */
+  certificate: EpcCertificate | null;
+  rating: RatingReading | null;
+  age: CertificateAge | null;
+  intensity: Intensity | null;
+  mees: MeesScreening;
+  /** Every certificate in the postcode, so a wrong pick is visible. */
+  considered: number;
+  unavailable: string | null;
+  fromCache: boolean;
+}
+
+/**
+ * Performance and MEES screening for a resolved site.
+ *
+ * The floor area for the 1,000 m² test is taken from the EPC unless a better
+ * one is passed in. A VOA area is a different measurement on a stated basis
+ * (S-06), so where one is supplied its basis travels with it into the result
+ * rather than being silently substituted.
+ */
+export async function performanceFor(
+  profile: SiteProfile,
+  options: { area?: AreaInput; now?: Date } = {},
+): Promise<PerformanceReport> {
+  const epc = await epcFor(profile);
+
+  // Prefer the certificate carrying this building's UPRN over the newest in
+  // the postcode: the postcode pick is a lead, the UPRN pick is the building.
+  const forThisUprn = profile.uprn
+    ? epc.certificates.find((c) => c.uprn === profile.uprn) ?? null
+    : null;
+  const certificate = forThisUprn ?? epc.current;
+
+  return {
+    certificate,
+    rating: certificate ? readRating(certificate) : null,
+    age: certificate ? certificateAge(certificate, options.now) : null,
+    intensity: certificate ? intensity(certificate) : null,
+    mees: screenMees(certificate, {
+      area: options.area,
+      unavailable: epc.unavailable,
+      now: options.now,
+    }),
+    considered: epc.certificates.length,
+    unavailable: epc.unavailable,
+    fromCache: epc.fromCache,
+  };
+}

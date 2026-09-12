@@ -601,3 +601,71 @@ body {
 .search-caveats { padding-top: 12px; border-top: 1px solid var(--rule); }
 .search-caveats ul { margin: 6px 0 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 5px; }
 .search-caveats li { font-size: 12px; line-height: 1.5; color: var(--ink-3); }
+
+/* --------------------------------------------- S-05 performance & MEES --- */
+
+.perf {
+  display: flex; flex-direction: column; gap: 9px;
+  padding-top: 11px; border-top: 1px solid var(--rule);
+}
+
+.perf-finding {
+  padding: 9px 11px; border-radius: 3px;
+  background: var(--surface-2); border-left: 2px solid var(--ink-3);
+}
+/* Only the states where the band itself is the problem. */
+.perf-finding.alert { background: var(--risk-soft); border-left-color: var(--risk); }
+
+.perf-label { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
+.perf-text { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; }
+.perf-check { margin: 5px 0 0; font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+
+.perf-unapproved {
+  margin: 0; padding: 5px 9px; border-radius: 3px;
+  background: var(--warn-soft); color: var(--warn);
+  font-size: 11.5px; line-height: 1.4;
+}
+
+.perf-facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12.5px; }
+.perf-facts dt { color: var(--ink-3); }
+.perf-facts dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.perf-src { font-family: var(--f-body); font-size: 11px; color: var(--ink-3); }
+.perf-expired { color: var(--risk); }
+
+/*
+ * Band colour inside this panel means MEES status, not raw performance, so it
+ * agrees with the sentence above it. E meets the minimum in force and must not
+ * be shown in the same colour as F and G, which do not. The general .epc-band
+ * scale elsewhere is a performance scale and is left alone.
+ */
+.perf .epc-band.band-aplus,
+.perf .epc-band.band-a,
+.perf .epc-band.band-b { background: var(--good); }
+.perf .epc-band.band-c,
+.perf .epc-band.band-d,
+.perf .epc-band.band-e { background: var(--warn); }
+.perf .epc-band.band-f,
+.perf .epc-band.band-g { background: var(--risk); }
+
+.perf-pv, .perf-warn {
+  margin: 0; font-size: 12px; line-height: 1.45;
+  padding: 6px 9px; border-radius: 3px;
+}
+.perf-pv { background: var(--surface-2); color: var(--ink-2); }
+.perf-warn { background: var(--warn-soft); color: var(--warn); }
+
+.perf-flags { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.perf-flags li {
+  font-size: 12px; line-height: 1.45; color: var(--ink-2);
+  padding-left: 9px; border-left: 2px solid var(--rule);
+}
+.perf-flags strong { color: var(--ink); font-weight: 600; }
+.perf-flags em { display: block; margin-top: 2px; font-style: normal; color: var(--ink-3); }
+
+.perf-caveats { font-size: 12px; }
+.perf-caveats summary { cursor: pointer; color: var(--ink-2); }
+.perf-caveats ul { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 5px; }
+.perf-caveats li { line-height: 1.45; color: var(--ink-3); }
+
+/* A+ was missing from the general scale. */
+.epc-band.band-aplus { background: var(--good); }

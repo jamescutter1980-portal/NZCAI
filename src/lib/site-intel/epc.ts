@@ -71,6 +71,21 @@ export interface EpcCertificate {
   lodgementDate: string | null;
   propertyType: string | null;
   buildingReference: string | null;
+
+  /* S-05 performance fields. Absent on some registers; null is not zero. */
+
+  /** Primary heating fuel as the register spells it. Raw, not classified. */
+  mainFuel: string | null;
+  /** Building Emission Rate, kgCO2/m²/yr. The band is derived from this. */
+  buildingEmissions: number | null;
+  /** Target Emission Rate for the notional building, kgCO2/m²/yr. */
+  targetEmissions: number | null;
+  /** Standard Emission Rate, kgCO2/m²/yr. */
+  standardEmissions: number | null;
+  /** Primary energy use, kWh/m²/yr. */
+  primaryEnergy: number | null;
+  /** Why the certificate exists, e.g. "Mandatory issue (Marketed sale)". */
+  transactionType: string | null;
 }
 
 export interface EpcLookup {
@@ -155,6 +170,15 @@ export function toCertificate(
     lodgementDate: str(row, "lodgement-date", "lodgement-datetime"),
     propertyType: str(row, "property-type", "building-category", "building-level"),
     buildingReference: str(row, "building-reference-number"),
+
+    // The three registers name these differently; the aliases are tried in
+    // order of how authoritative the column is for a non-domestic assessment.
+    mainFuel: str(row, "main-heating-fuel", "main-fuel", "mainheat-description"),
+    buildingEmissions: numeric(row, "building-emissions", "co2-emissions-current"),
+    targetEmissions: numeric(row, "target-emissions"),
+    standardEmissions: numeric(row, "standard-emissions"),
+    primaryEnergy: numeric(row, "primary-energy-value", "energy-consumption-current"),
+    transactionType: str(row, "transaction-type"),
   };
 }
 

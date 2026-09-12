@@ -4,9 +4,9 @@ NZC and ESG AI App.
 
 The **Land** module resolves a building from an address (S-01), screens it for
 planning and environmental constraints (S-02), checks nearby DNO grid capacity
-for solar PV (S-03), identifies likely corporate owners (S-04), pulls floor area
-and use from the VOA rating list (S-06), and finds candidate sites from a
-plain-English question (S-07). See
+for solar PV (S-03), screens its EPC and MEES position (S-05), identifies likely
+corporate owners (S-04), pulls floor area and use from the VOA rating list
+(S-06), and finds candidate sites from a plain-English question (S-07). See
 [`docs/site-intel/BRIEF.md`](docs/site-intel/BRIEF.md) for the full spec and
 [`docs/site-intel/PLAN.md`](docs/site-intel/PLAN.md) for current status, open
 decisions and what is not yet verified.
@@ -235,6 +235,64 @@ the same reason: the authoritative cross-reference is a paid product.
 A query with no filter in it is refused rather than returning every building in
 the list, and a zero result says it reflects the loaded data, not the country.
 
+## Building performance and MEES (S-05)
+
+`/api/site-intel/performance?uprn=` screens a building's EPC against the
+non-domestic MEES standards, and the site panel shows it.
+
+**Every threshold and every sentence lives in
+`src/lib/site-intel/mees_rules.yaml`, not in code**, sourced to SI 2015/962 and
+the DESNZ interim response of 18 June 2026. All 16 entries are `approved: false`
+until James signs them off — `npm run site:verify` prints the count outstanding
+and the policy position the file currently encodes.
+
+That file matters because the policy moved and most write-ups have not:
+
+| | commonly assumed | actual |
+|---|---|---|
+| interim milestone | EPC C by 2027 | **dropped**, 18 June 2026 |
+| headline target | EPC B by 2030 | EPC B by **2031** |
+| applies to | all non-domestic | buildings **over 1,000 m²** only |
+| status | in force | **proposed** — secondary legislation still required |
+
+The dropped 2027 milestone is kept in the file on purpose, so the system can
+state the negative rather than stay silent about a duty someone may still be
+planning against.
+
+### What it will not say
+
+No result says *compliant* or *non-compliant*, and a test enforces that across
+the whole rules file. MEES binds a **letting**, not a building — tenure and lease
+terms decide whether it bites, and this system holds neither. The **PRS
+Exemptions Register is not a dataset we have**, so a building below EPC E may be
+lawfully let under a registered exemption. Both statements ride on every result.
+
+### Distinctions it keeps
+
+- **A DEC is not an EPC.** A Display Energy Certificate is a measured
+  operational rating; MEES uses the modelled asset rating. A DEC returns
+  `not_supported` with no band, rather than being read on the wrong scale. So
+  does a domestic certificate.
+- **An expired certificate is not a low band** — it is the absence of a valid
+  one, and it is checked before the band. Ten years from lodgement.
+- **A band and a score can disagree**, and where the register publishes both the
+  disagreement is reported, never resolved.
+- **The urgent gap depends on the band.** A building at F has a letting problem
+  today; the distance to a 2031 target is the lesser question. Both distances
+  are reported, in BER points as well as whole bands.
+- **The 1,000 m² test is a gross internal area of the demise.** An EPC floor
+  area and a VOA area are different measurements, so a figure within 10% of the
+  threshold returns "cannot determine which regime applies". Pass a measured
+  area with `&area_m2=&area_basis=` — its source travels into the result.
+
+### Fuel, and one claim not to overstate
+
+The non-domestic rating is a CO₂ rate, so rooftop PV — which displaces purchased
+electricity — does not move the band on a gas-heated building. That flag says
+exactly that and no more: it is **not** a view on whether the roof is a good PV
+site for bill savings or Scope 2 reduction. Two questions, two answers.
+`pvCanMoveBand` exposes the narrow claim on its own.
+
 ## Loading real grid data
 
 `npm run db:seed` loads **invented sample rows**, tagged `fixture:sample`, so
@@ -300,7 +358,7 @@ be committed.
 ## Layout
 
 ```
-db/migrations/       schema; 002 is an optional PostGIS upgrade
+db/migrations/       schema; 004 is an optional PostGIS upgrade
 src/ingest/          registry (slugs, licences, attribution), ODS client,
                      field normaliser, verify/ingest CLI
 src/lib/             db pool, types, headroom RAG bands, fixed grid wording,
@@ -310,6 +368,8 @@ src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      S-02: constraint_rules.yaml, constraints, flood
                      S-04: ownership matching, Companies House
                      S-06: VOA assessments, floor area, use class
+                     S-05: performance (bands, validity, fuel),
+                     mees_rules.yaml + MEES screening
                      S-07: query parser, SQL executor, run description
                      Task 0: EPC register client and cache
 PRELAUNCH.md         tickets that block a client release
@@ -317,7 +377,7 @@ tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health,
                      /api/site-intel/* including /search
-src/components/      LandMap, SiteSearch
+src/components/      LandMap, SitePanel, SiteSearch
 fixtures/            sample substations — invented, not DNO data
 docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 ```
@@ -343,6 +403,12 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run site:load-voa -- list\|smv <csv>` | Load VOA rating list or summary valuations |
 
 ## Caveat
+
+MEES and EPC outputs are **screening flags for review by a qualified person, not
+a compliance determination.** MEES applies to a letting, not a building, and the
+PRS Exemptions Register is not held here. The EPC B standard for 2031 is
+proposed and requires secondary legislation; there is no EPC C requirement. All
+wording is unapproved — see PRELAUNCH TICKET-09.
 
 Grid figures are **indicative only, based on published DNO data. Not a
 connection offer.** A connection application to the relevant DNO is required.

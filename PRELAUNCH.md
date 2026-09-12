@@ -121,3 +121,53 @@ brief asks for cannot be written.
 The brief specifies a Python/FastAPI engine. This is Next.js and TypeScript, as
 instructed in the build session. The data model, registries, normalisation and
 screening logic port cheaply; the API routes and UI do not. See PLAN.md §3.1.
+
+---
+
+## TICKET-09 — MEES wording and thresholds need sign-off
+
+**Raised by:** S-05 · **Status:** blocking for client use · **Owner:** James
+
+All 16 entries in `src/lib/site-intel/mees_rules.yaml` are `approved: false`.
+This is the same rule as TICKET-04 with more at stake: constraint wording
+describes a planning position, MEES wording describes a **legal duty**, and part
+of what it describes is not yet law.
+
+Three things in that file must be read against the source before anyone sets
+`approved: true`:
+
+1. **The 2031 EPC B target is proposed, not enacted.** It applies to buildings
+   over 1,000 m² and still requires secondary legislation. The wording says so
+   everywhere it appears; confirm that is still true at sign-off, and re-check
+   whenever the legislation moves.
+2. **The 2027 EPC C milestone is recorded as dropped** (18 June 2026). It is
+   held in the file deliberately, so the system can state the negative — plans
+   and third-party advice written before that date may still assume the duty.
+3. **The band boundaries** (A+ ≤25 through G ≥176) are transcribed, not derived.
+   They decide every screening result. Check them against the published
+   non-domestic table.
+
+Source of record: SI 2015/962 as amended, and the DESNZ Interim Response to the
+2019/2021 non-domestic PRS consultations published 18 June 2026, as recorded in
+the Focus Green `mees-advisory` skill.
+
+`npm run site:verify` prints the count outstanding and the policy position the
+file currently encodes.
+
+---
+
+## TICKET-10 — The PRS Exemptions Register is not held
+
+**Raised by:** S-05 · **Status:** known gap, stated in every result
+
+A building below EPC E with a registered exemption is **lawfully let**. The PRS
+Exemptions Register is not a dataset this system holds, so a below-minimum
+screening result is a prompt to check, never a finding of breach. Every result
+says so, and no state in `mees_rules.yaml` uses the words "compliant" or
+"non-compliant" — a test enforces that.
+
+Decide before client use whether to ingest the register (if it is obtainable in
+bulk) or to keep the caveat as the answer. If a MEES prospect list (S-08) is
+ever built on top of this, the distinction stops being cosmetic: a list of
+"non-compliant buildings" that is really a list of "buildings whose exemption
+status is unknown" would be wrong in a way clients act on.

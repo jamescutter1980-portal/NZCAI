@@ -286,7 +286,8 @@ export async function cachedCertificates(
   const rows = await query<Record<string, unknown>>(
     `SELECT lmk_key, register, address, postcode, uprn, uprn_source, rating,
             asset_rating, floor_area_m2, inspection_date, lodgement_date,
-            property_type, building_reference
+            property_type, building_reference, main_fuel, building_emissions,
+            target_emissions, standard_emissions, primary_energy, transaction_type
        FROM epc_certificate
       WHERE postcode = $1
         AND retrieved_at > now() - ($2 || ' days')::interval`,
@@ -296,6 +297,8 @@ export async function cachedCertificates(
 
   const date = (v: unknown): string | null =>
     v ? new Date(v as string).toISOString().slice(0, 10) : null;
+  // null stays null: an unpublished emission rate is not a rate of zero.
+  const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
   return rows.map((r) => ({
     lmkKey: String(r.lmk_key),
@@ -311,6 +314,12 @@ export async function cachedCertificates(
     lodgementDate: date(r.lodgement_date),
     propertyType: (r.property_type as string) ?? null,
     buildingReference: (r.building_reference as string) ?? null,
+    mainFuel: (r.main_fuel as string) ?? null,
+    buildingEmissions: num(r.building_emissions),
+    targetEmissions: num(r.target_emissions),
+    standardEmissions: num(r.standard_emissions),
+    primaryEnergy: num(r.primary_energy),
+    transactionType: (r.transaction_type as string) ?? null,
   }));
 }
 
@@ -320,8 +329,10 @@ export async function storeCertificates(certificates: EpcCertificate[]): Promise
       `INSERT INTO epc_certificate
          (lmk_key, register, address, postcode, uprn, uprn_source, rating,
           asset_rating, floor_area_m2, inspection_date, lodgement_date,
-          property_type, building_reference, retrieved_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())
+          property_type, building_reference, main_fuel, building_emissions,
+          target_emissions, standard_emissions, primary_energy, transaction_type,
+          retrieved_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19, now())
        ON CONFLICT (lmk_key) DO UPDATE SET
          address = EXCLUDED.address, postcode = EXCLUDED.postcode,
          uprn = EXCLUDED.uprn, uprn_source = EXCLUDED.uprn_source,
@@ -331,11 +342,19 @@ export async function storeCertificates(certificates: EpcCertificate[]): Promise
          lodgement_date = EXCLUDED.lodgement_date,
          property_type = EXCLUDED.property_type,
          building_reference = EXCLUDED.building_reference,
+         main_fuel = EXCLUDED.main_fuel,
+         building_emissions = EXCLUDED.building_emissions,
+         target_emissions = EXCLUDED.target_emissions,
+         standard_emissions = EXCLUDED.standard_emissions,
+         primary_energy = EXCLUDED.primary_energy,
+         transaction_type = EXCLUDED.transaction_type,
          retrieved_at = now()`,
       [
         c.lmkKey, c.register, c.address, c.postcode, c.uprn, c.uprnSource,
         c.rating, c.assetRating, c.floorAreaM2, c.inspectionDate,
         c.lodgementDate, c.propertyType, c.buildingReference,
+        c.mainFuel, c.buildingEmissions, c.targetEmissions,
+        c.standardEmissions, c.primaryEnergy, c.transactionType,
       ],
     );
   }

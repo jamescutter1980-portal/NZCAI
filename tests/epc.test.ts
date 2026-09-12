@@ -40,7 +40,7 @@ const NON_DOM_ROW = {
   uprn: "100050000001",
   "uprn-source": "Address Matched",
   "asset-rating-band": "C",
-  "asset-rating": 58,
+  "asset-rating": 88,
   "floor-area": 1430.75,
   "inspection-date": "2024-06-11",
   "lodgement-date": "2024-06-20",
@@ -56,8 +56,14 @@ function cert(over: Partial<EpcCertificate> = {}): EpcCertificate {
     uprn: "100050000001",
     uprnSource: "address_matched",
     rating: "C",
-    assetRating: 58,
+    assetRating: 88,
     floorAreaM2: 1430.75,
+    mainFuel: "Natural Gas",
+    buildingEmissions: 52.4,
+    targetEmissions: 59.5,
+    standardEmissions: 71.2,
+    primaryEnergy: 268,
+    transactionType: "Mandatory issue (Marketed sale)",
     inspectionDate: "2024-06-11",
     lodgementDate: "2024-06-20",
     propertyType: null,
@@ -129,7 +135,7 @@ describe("certificate parsing", () => {
     assert.equal(c.uprn, "100050000001");
     assert.equal(c.uprnSource, "address_matched");
     assert.equal(c.rating, "C");
-    assert.equal(c.assetRating, 58);
+    assert.equal(c.assetRating, 88);
     assert.equal(c.floorAreaM2, 1430.75);
     assert.equal(c.postcode, "DN4 8DE");
   });

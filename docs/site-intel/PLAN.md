@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-06 · S-07.** Updated 12 September 2026.
+Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-05 · S-06 · S-07.** Updated 12 September 2026.
 
 ---
 
@@ -504,6 +504,154 @@ local authority (above), it cannot rank, and it does not resolve a building —
 
 **34 parser tests plus 3 for `describeRun`**, 214 across the suite.
 
+## 2g. S-05 — EPC and building performance
+
+S-05 is **not in the brief at all.** The brief covers S-01 to S-03 and lists
+S-04, S-06, S-07 and S-08 as out of scope; S-05 is absent from both. It was
+built on instruction, so everything below is my design and needs review.
+
+### The first thing I did was stop writing code
+
+MEES is law. Some of it is *proposed* law. Brief §4.4 already says not to encode
+planning law in code, and that rule binds harder here, because a wrong constraint
+flag is a wrong prompt while a wrong MEES flag is wrong advice about a legal duty.
+
+So before writing any threshold I read the Focus Green `mees-advisory` skill and
+its policy reference. **My training data was wrong**, and wrong in the direction
+that would have shipped:
+
+| | what I would have written from memory | the actual position |
+|---|---|---|
+| interim milestone | EPC C by 2027 | **dropped 18 June 2026**, will not be taken forward |
+| headline target | EPC B by 2030 | EPC B by **2031** |
+| who it applies to | all non-domestic | buildings **over 1,000 m² only** |
+| status | in force | **proposed**, secondary legislation still required |
+
+Every one of those four errors would have produced a confident, plausible, wrong
+screening flag on a client's portfolio. This is the clearest argument yet for
+brief §0 rule 2 — the deterministic-only rule — extending to policy: values that
+decide a legal answer must come from a file, not from a model's recall.
+
+### Everything is data, and none of it is approved
+
+`mees_rules.yaml` holds the thresholds, the states and every sentence, sourced to
+SI 2015/962 and the DESNZ interim response of 18 June 2026. All 16 entries are
+`approved: false`; `npm run site:verify` prints the count and the policy position
+the file currently encodes, so a drift between the file and the law is visible
+without reading the YAML. PRELAUNCH TICKET-09 carries the sign-off.
+
+The dropped 2027 milestone is **kept in the file rather than deleted**, so the
+system can state the negative. Anything written before June 2026 — a portfolio
+plan, a competitor's report, a model's answer — may still assume that duty, and
+"there is no EPC C requirement" is a more useful output than silence.
+
+### What the screening refuses to say
+
+No state says *compliant* or *non-compliant*, and a test enforces it across the
+whole YAML. Three reasons, each a thing the system does not know:
+
+1. **MEES binds a letting, not a building.** Tenure, lease length and lease terms
+   decide whether it bites, and none of them are held here. So the wording is
+   conditional throughout.
+2. **The PRS Exemptions Register is not a dataset we have.** A building below
+   EPC E with a registered exemption is lawfully let. Every below-minimum result
+   says so — PRELAUNCH TICKET-10.
+3. **The 2031 target is not law yet.** Stated on every result, not just the ones
+   it bites.
+
+These five standing caveats are assembled in one place rather than written into
+each state's wording, so no single edit can drop one.
+
+### The distinctions that took the design
+
+**An asset rating is not an operational rating.** A DEC reports measured
+performance on a different scale; MEES is assessed on the asset rating from a
+non-domestic EPC. `currentCertificate()` falls back to any register when no
+non-domestic certificate exists, so without a guard a DEC's band would have been
+screened as if it were an EPC band. It now returns `not_supported` with no band
+at all. A domestic certificate is refused the same way — different regulations.
+
+**An expired certificate is not a low band.** It is the absence of a valid
+certificate, checked *before* the band, because the band is not the finding.
+Ten years from lodgement; inspection date is a fallback that can only make a
+certificate look older, never newer.
+
+**A band and a score can disagree.** Where the register publishes both, a
+disagreement is reported and never resolved — same rule as the S-06 floor-area
+divergence. (The Task 0 test fixture turned out to carry exactly this defect:
+band C against a score of 58, which is band B. Corrected, and the case is now
+tested deliberately.)
+
+**Which gap is urgent depends on the band.** A building at F has a letting
+problem *today*; its distance to a 2031 target is the lesser question. So the
+result carries the distance to the minimum in force and to the proposed target,
+separately. And both are given in BER points as well as whole bands, because a
+one-band gap can be two points or forty-nine.
+
+### The 1,000 m² threshold is the honest-failure case
+
+The 2031 test is a **gross internal area of the demise**. What we have is an EPC
+total floor area, or a VOA area on a stated basis (GIA/NIA/GEA/EFA) — different
+measurements, none of them a measured GIA of a demise. So a figure near the line
+cannot decide which regime applies, and the screening says so rather than
+picking: within ±10% of 1,000 m² returns `area_indeterminate`. No area at all
+returns the same, never "assumed small". Whichever area is used, its source
+travels into the result and onto the screen.
+
+### Fuel, and the one claim that must not be overstated
+
+The non-domestic rating is a CO₂ rate. Rooftop PV displaces purchased
+electricity, so on a gas-heated building it does not touch the emissions that set
+the band. That is why `main_fuel` is now captured and classified.
+
+This matters more here than in a generic EPC tool, because this module exists to
+find PV sites. The flag therefore says exactly one thing and then says what it is
+*not*: PV will not move the **band** on a gas building — which is not a view on
+whether the roof is a good PV site for bill savings or Scope 2. Those are two
+questions with two different answers, and collapsing them would mislead in both
+directions. `pvCanMoveBand` is exposed as its own field so the PV workstream
+consumes the narrow claim rather than re-deriving it.
+
+### Band colour was saying the opposite of the text
+
+The existing `.epc-band` scale colours E red alongside F and G. As a performance
+scale that is defensible; in a MEES panel it contradicts the sentence above it,
+because E *meets* the minimum in force and F and G do not. Inside `.perf` the
+colours now follow MEES meaning — A+/A/B green, C/D/E amber, F/G red — and the
+general scale elsewhere is untouched. A+ was missing from it entirely and has
+been added.
+
+### What was built
+
+| file | role |
+|---|---|
+| `db/migrations/008_epc_performance.sql` | fuel, BER, TER, SER, primary energy, transaction type |
+| `performance.ts` | leaf module: band scale, validity, fuel, intensity. No db, no fs |
+| `mees_rules.yaml` | thresholds, states, flags, all sourced, all unapproved |
+| `mees.ts` | screening; reads the YAML, returns states and rule keys |
+| `service.ts` → `performanceFor()` | prefers the certificate carrying the site's UPRN over the newest in the postcode |
+| `/api/site-intel/performance` | optional `area_m2` / `area_basis` for a measured GIA |
+| `SitePanel` → `PerformancePanel` | finding, check, numbers, flags, then caveats |
+
+One bug found by writing the panel: `reset()` cleared every other report but
+would have left the previous building's MEES screening on screen after a new
+search — a finding about a legal duty attached to the wrong building.
+
+**47 tests**, 261 across the suite.
+
+### Not done
+
+- No live EPC call. Egress is blocked; the screening is verified against the
+  cached sample row and constructed fixtures.
+- The register's EPC recommendations endpoint is not wired, so no measure list
+  or 7-year payback test. That is the `building-energy-audit` skill's territory
+  and needs CAPEX inputs this module does not have.
+- No lease data, so no trigger-year segmentation and no MEES tracker export.
+  Both are in the Focus Green MEES workflow and both need tenure this system
+  does not hold.
+- Welsh divergence not considered. The rules file is marked England and Wales
+  after the source, but nothing verifies the Welsh position separately.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -593,6 +741,12 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   targets `get-energy-performance-data.communities.gov.uk` by default, the
   legacy host is reachable via `EPC_API_BASE`, and the host that answered is
   reported on every lookup. No retirement date is published.
+- **TICKET-09 MEES wording and thresholds** — *blocking for client use.* All 16
+  entries in `mees_rules.yaml` unapproved. This describes a legal duty and part
+  of it is not yet law; the band boundaries are transcribed, not derived.
+- **TICKET-10 PRS Exemptions Register not held** — a building below EPC E with a
+  registered exemption is lawfully let, and we cannot see the register. Decide
+  before S-08 whether to ingest it or keep the caveat as the answer.
 - **TICKET-02** UPRN provenance · **TICKET-03** attributions unverified ·
   **TICKET-04** constraint wording unapproved · **TICKET-05** CCOD/OCOD licence
   unread · **TICKET-06** VOA slugs and column positions unverified ·
@@ -622,6 +776,18 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   "industrial" onto regular expressions over the VOA primary description. That
   is an interpretation of VOA's vocabulary, not a published mapping, and it
   decides what a search returns. Needs a read-through.
+- **S-05 MEES wording and thresholds.** `mees_rules.yaml`, all 16 entries. The
+  most consequential sign-off in the repo: it states a legal duty, and the 2031
+  EPC B target it encodes is proposed rather than enacted. Read it against
+  SI 2015/962 and the DESNZ interim response of 18 June 2026 before approving.
+- **S-05 the ±10% area margin.** A floor area within 10% of 1,000 m² returns
+  "cannot determine which regime applies" rather than a classification. That
+  margin is my judgement, not a published tolerance — confirm it is the right
+  width, or replace it with a rule about which area sources may be trusted for
+  the threshold at all.
+- **S-05 the 250 kWh/m²/yr primary-energy flag.** A screening level from the
+  Focus Green policy reference, applied to gas and oil buildings only. Confirm
+  it is the level you want and that the fuels it applies to are the right set.
 - **S-07 postcode-precision joins.** EPC band, overseas ownership and grid
   headroom are matched by postcode, not to the building. Every row says so and
   §2f records why, but confirm the wording is strong enough — these are leads,

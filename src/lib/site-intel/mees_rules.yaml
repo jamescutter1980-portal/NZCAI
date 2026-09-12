@@ -1,0 +1,245 @@
+# MEES screening wording and thresholds — non-domestic, England and Wales.
+#
+# Brief section 4.4 says not to encode planning law in code. MEES is law, and
+# part of it is only PROPOSED law, so the same rule applies with more force:
+# every threshold, date and sentence below is data, sourced, and carries
+# `approved: false` until James signs it off. `npm run site:verify` lists what
+# is unapproved.
+#
+# SOURCE OF RECORD for every figure here:
+#   - Energy Efficiency (Private Rented Property) (England and Wales)
+#     Regulations 2015, SI 2015/962
+#   - DESNZ Interim Response to the 2019/2021 non-domestic PRS consultations,
+#     published 18 June 2026
+#   as recorded in the Focus Green `mees-advisory` skill policy reference.
+#
+# TWO THINGS THAT ARE EASY TO GET WRONG AND ARE WRONG IN MOST TRAINING DATA:
+#   1. The 2027 EPC C interim milestone was DROPPED on 18 June 2026. It is not
+#      a requirement and must never be screened against.
+#   2. The EPC B target is 2031, not 2030, and applies only to buildings over
+#      1,000 m². It is proposed and still needs secondary legislation.
+#
+# NOTHING HERE MAY STATE THAT A BUILDING IS COMPLIANT OR NON-COMPLIANT.
+# MEES binds a letting, not a building. Whether it bites depends on tenure,
+# lease length and registered exemptions, none of which this system holds.
+
+meta:
+  jurisdiction: England and Wales
+  scope: non-domestic
+  policy_as_at: 2026-06-18
+  source: >
+    SI 2015/962 as amended, and the DESNZ Interim Response to the 2019/2021
+    non-domestic PRS consultations published 18 June 2026.
+  approved: false
+
+thresholds:
+  # In force now. Applies to every size of non-domestic rented property.
+  minimum_band:
+    band: E
+    in_force_from: 2018-04-01
+    continuing_let_from: 2023-04-01
+    status: in_force
+    note: >
+      Since 1 April 2018 a landlord must not grant a new lease below this band,
+      and since 1 April 2023 must not continue to let below it, in each case
+      unless a valid exemption is registered.
+
+  # Proposed. Secondary legislation still required.
+  target_2031:
+    band: B
+    by: 2031
+    applies_above_m2: 1000
+    status: proposed
+    note: >
+      Confirmed as government intent on 18 June 2026 for buildings over
+      1,000 m², where cost effective. Secondary legislation is still required,
+      so this is a planning horizon and not yet a legal duty.
+
+  # Recorded so the system can say this is NOT a requirement. Screening against
+  # a dropped milestone is the most likely error here.
+  dropped_2027_c:
+    band: C
+    was: 2027
+    status: dropped
+    dropped_on: 2026-06-18
+    note: >
+      The 2027 EPC C interim milestone will not be taken forward. There is no
+      legal requirement to reach EPC C at any point under current proposals.
+
+  # Buildings below the 2031 area threshold have no target beyond the minimum.
+  below_area_threshold:
+    note: >
+      For buildings at or under 1,000 m² the minimum band remains the standard.
+      No EPC C or EPC B target is currently proposed for them.
+
+  # The area test is a gross internal area of the demise. Our floor areas come
+  # from an EPC certificate or the VOA rating list, on bases that are not the
+  # same measurement, so a figure near the threshold cannot decide the regime.
+  area_margin_pct: 10
+
+  # Screening flag only. Primary energy above this on a gas or LPG building is
+  # a signal that the pathway to a higher band is capital-intensive.
+  high_primary_energy_kwh_m2: 250
+
+  # An EPC is valid for ten years from lodgement.
+  validity_years: 10
+  # Within this window the certificate is worth planning around.
+  expiring_soon_days: 1095
+
+states:
+  below_minimum:
+    label: Below the minimum band
+    finding: >
+      The most recent certificate puts this building at band {band}, below the
+      {minimum} minimum that has applied to non-domestic lettings since
+      1 April 2023.
+    check: >
+      Establish whether the building is let on a qualifying lease, and whether
+      an exemption is registered on the PRS Exemptions Register. This system
+      does not hold the register, so a building shown here may be lawfully let.
+    approved: false
+
+  meets_minimum_below_2031_target:
+    label: Meets the minimum, below the proposed 2031 target
+    finding: >
+      Band {band} meets the {minimum} minimum in force today. The floor area of
+      {area} m² is above the 1,000 m² threshold for the proposed EPC B standard
+      by 2031.
+    check: >
+      Treat 2031 as a planning horizon rather than a duty: it requires
+      secondary legislation that has not been made. Confirm the demise area on
+      a gross internal basis before relying on the threshold.
+    approved: false
+
+  meets_minimum_no_further_target:
+    label: Meets the minimum, no further target proposed
+    finding: >
+      Band {band} meets the {minimum} minimum in force today. At {area} m² the
+      building is at or under the 1,000 m² threshold, and no EPC C or EPC B
+      target is currently proposed for buildings of this size.
+    check: >
+      Re-check if the demise is reconfigured or combined, which can take the
+      let area over the threshold.
+    approved: false
+
+  meets_2031_target:
+    label: Meets the proposed 2031 target
+    finding: >
+      Band {band} meets both the minimum in force today and the EPC B standard
+      proposed for 2031.
+    check: >
+      Confirm the certificate is still valid at the next letting event; a
+      re-assessment can produce a different band.
+    approved: false
+
+  area_indeterminate:
+    label: Which regime applies cannot be determined
+    finding: >
+      Band {band} meets the minimum in force today, but the floor area
+      available ({area}) does not settle whether the proposed 2031 EPC B
+      standard would apply.
+    check: >
+      The 1,000 m² test is a gross internal area of the demise. Obtain a
+      measured GIA before treating this building as in or out of scope.
+    approved: false
+
+  certificate_expired:
+    label: Certificate expired
+    finding: >
+      The most recent certificate was lodged on {lodged} and expired on
+      {expires}. An expired certificate is not a low band — it is no valid
+      certificate.
+    check: >
+      A valid EPC is needed before the next letting. Commission a re-assessment;
+      the new rating may differ from the expired one in either direction.
+    approved: false
+
+  no_certificate_coverage_complete:
+    label: No certificate found
+    finding: >
+      The register answered for this postcode and returned no certificate
+      matching this building.
+    check: >
+      Confirm whether the building requires an EPC. If it does and none exists,
+      one is needed before letting.
+    approved: false
+
+  no_certificate_coverage_unknown:
+    label: Could not be checked
+    finding: >
+      The register could not be consulted, so the absence of a certificate here
+      means nothing was retrieved rather than that none exists.
+    check: Retry the register before drawing any conclusion from this.
+    approved: false
+
+  not_supported_operational:
+    label: Operational rating, not an asset rating
+    finding: >
+      The only certificate found is a Display Energy Certificate, which reports
+      measured operational performance. MEES is assessed on the asset rating
+      from a non-domestic EPC.
+    check: >
+      Obtain the building's non-domestic EPC. Do not read the DEC band as an
+      EPC band — they are different measurements on different scales.
+    approved: false
+
+  not_supported_domestic:
+    label: Domestic certificate
+    finding: >
+      The only certificate found is a domestic EPC. The non-domestic MEES
+      regulations screened here do not apply to it.
+    check: >
+      If the building is in non-domestic use, obtain a non-domestic EPC. If it
+      is a dwelling, the domestic MEES regulations apply instead and are not
+      covered by this screening.
+    approved: false
+
+flags:
+  gas_or_lpg_fuel:
+    label: Gas or LPG heating
+    finding: >
+      The certificate records {fuel} as the main heating fuel. The non-domestic
+      rating is a CO₂ rate, and rooftop PV displaces purchased electricity
+      rather than heating gas, so PV alone does not move the band materially on
+      a building heated this way.
+    check: >
+      Where a higher band is the objective, the reliable routes are fabric and
+      controls improvements, heating system replacement, or electrification.
+      This says nothing about whether the roof is a good PV site for bill
+      savings or Scope 2 reduction — that is a separate question.
+    approved: false
+
+  high_primary_energy:
+    label: High primary energy on a carbon-bearing fuel
+    finding: >
+      Primary energy use of {value} kWh/m²/yr on {fuel} heating is above the
+      {threshold} kWh/m²/yr screening level.
+    check: >
+      Treat the improvement pathway as capital-intensive and get it costed
+      before committing to a target band.
+    approved: false
+
+  band_score_disagreement:
+    label: Band and score disagree
+    finding: >
+      The register published a band and a numeric rating that do not agree.
+    check: Check the lodged certificate. This is not resolved here.
+    approved: false
+
+  expiring_soon:
+    label: Certificate expiring
+    finding: The certificate expires on {expires}, within {days} days.
+    check: >
+      A re-assessment is an opportunity as well as an obligation: model the
+      improvement measures before re-lodging rather than after.
+    approved: false
+
+  dropped_milestone_note:
+    label: The 2027 EPC C milestone does not apply
+    finding: >
+      There is no EPC C requirement. The 2027 interim milestone was dropped on
+      18 June 2026 and will not be taken forward.
+    check: >
+      Included because portfolio plans and third-party advice written before
+      that date may still assume a 2027 EPC C duty.
+    approved: false

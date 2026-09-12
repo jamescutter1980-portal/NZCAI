@@ -8,6 +8,8 @@ import type { CompanyRecord } from "@/lib/site-intel/companies-house";
 import type { AreaComparison, UseClassInference, VoaResult } from "@/lib/site-intel/voa";
 import { AREA_BASIS_LABEL } from "@/lib/site-intel/area-basis";
 import type { EpcCertificate } from "@/lib/site-intel/epc";
+import type { MeesScreening } from "@/lib/site-intel/mees";
+import type { CertificateAge, Intensity, RatingReading } from "@/lib/site-intel/performance";
 import { TIER_LABEL } from "@/lib/site-intel/types";
 
 /**
@@ -118,6 +120,145 @@ function EpcPanel({ report }: { report: EpcReport }) {
           {fromCache ? " (from cache)" : ""}.
         </p>
       )}
+    </section>
+  );
+}
+
+interface PerformanceReport {
+  certificate: EpcCertificate | null;
+  rating: RatingReading | null;
+  age: CertificateAge | null;
+  intensity: Intensity | null;
+  mees: MeesScreening;
+  considered: number;
+  unavailable: string | null;
+}
+
+/** States that mean the band itself is a problem, for emphasis only. */
+const MEES_ALERT = new Set(["below_minimum", "certificate_expired"]);
+
+/**
+ * S-05 performance and MEES screening.
+ *
+ * The order here is the argument: the finding, then what to go and check, then
+ * the numbers, then the flags, then the caveats. The caveats are last but they
+ * are not optional - each one names something the screening does not know, and
+ * the first of them says this is not a compliance determination. A reader who
+ * takes the band and stops has still been told the band is a screening flag.
+ */
+function PerformancePanel({ report }: { report: PerformanceReport }) {
+  const { mees, rating, age, intensity, certificate } = report;
+  const alert = MEES_ALERT.has(mees.state);
+
+  return (
+    <section className="perf">
+      <p className="eyebrow">Building performance &amp; MEES</p>
+
+      <div className={`perf-finding ${alert ? "alert" : ""}`}>
+        <p className="perf-label">{mees.label}</p>
+        <p className="perf-text">{mees.finding}</p>
+        <p className="perf-check">{mees.check}</p>
+      </div>
+
+      {!mees.approved && (
+        <p className="perf-unapproved">
+          This wording concerns a legal duty and has not been signed off yet.
+        </p>
+      )}
+
+      {mees.band && (
+        <dl className="perf-facts">
+          <dt>Band</dt>
+          <dd>
+            <span className={`epc-band band-${mees.band.toLowerCase().replace("+", "plus")}`}>
+              {mees.band}
+            </span>
+            {mees.score !== null ? ` · BER ${mees.score}` : ""}
+          </dd>
+
+          <dt>To the minimum in force</dt>
+          <dd>
+            {mees.bandsToMinimum === 0
+              ? "at or above it"
+              : `${mees.bandsToMinimum} band${mees.bandsToMinimum === 1 ? "" : "s"}` +
+                (mees.scorePointsToMinimum ? ` · ${mees.scorePointsToMinimum} BER points` : "")}
+          </dd>
+
+          <dt>To the proposed 2031 target</dt>
+          <dd>
+            {mees.bandsToTarget === 0
+              ? "at or above it"
+              : `${mees.bandsToTarget} band${mees.bandsToTarget === 1 ? "" : "s"}` +
+                (mees.scorePointsToTarget ? ` · ${mees.scorePointsToTarget} BER points` : "")}
+          </dd>
+
+          <dt>Floor area used</dt>
+          <dd>
+            {mees.areaM2 ? `${mees.areaM2.toLocaleString()} m²` : "—"}
+            {mees.areaSource ? <span className="perf-src"> {mees.areaSource}</span> : null}
+          </dd>
+
+          {certificate?.mainFuel && (
+            <>
+              <dt>Main heating fuel</dt>
+              <dd>{certificate.mainFuel}</dd>
+            </>
+          )}
+
+          {intensity?.primaryEnergyKwhM2 !== null && intensity !== null && (
+            <>
+              <dt>Primary energy</dt>
+              <dd>{intensity.primaryEnergyKwhM2?.toLocaleString()} kWh/m²/yr</dd>
+            </>
+          )}
+
+          {intensity?.againstNotionalPct !== null && intensity !== null && (
+            <>
+              <dt>Against the notional building</dt>
+              <dd>{intensity.againstNotionalPct}%</dd>
+            </>
+          )}
+
+          {age?.expiresOn && (
+            <>
+              <dt>Certificate expires</dt>
+              <dd className={age.validity === "expired" ? "perf-expired" : undefined}>
+                {age.expiresOn}
+                {age.validity === "expired" ? " — expired" : ""}
+              </dd>
+            </>
+          )}
+        </dl>
+      )}
+
+      {/* Stated for the PV workstream, and stated as the narrow claim it is. */}
+      {mees.band && !mees.pvCanMoveBand && (
+        <p className="perf-pv">
+          Rooftop PV will not move this band — but that is a statement about the
+          rating, not about the roof.
+        </p>
+      )}
+
+      {rating?.disagreement && <p className="perf-warn">{rating.disagreement}</p>}
+
+      {mees.flags.length > 0 && (
+        <ul className="perf-flags">
+          {mees.flags.map((f) => (
+            <li key={f.key}>
+              <strong>{f.label}</strong> {f.finding} <em>{f.check}</em>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <details className="perf-caveats">
+        <summary>What this screening does not know ({mees.caveats.length})</summary>
+        <ul>
+          {mees.caveats.map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }
@@ -391,6 +532,7 @@ export default function SitePanel({ mapApi }: Props) {
   const [ownership, setOwnership] = useState<OwnershipReport | null>(null);
   const [voa, setVoa] = useState<VoaReport | null>(null);
   const [epc, setEpc] = useState<EpcReport | null>(null);
+  const [performance, setPerformance] = useState<PerformanceReport | null>(null);
 
   const reset = useCallback(() => {
     setCandidates([]);
@@ -401,6 +543,10 @@ export default function SitePanel({ mapApi }: Props) {
     setOwnership(null);
     setVoa(null);
     setEpc(null);
+    // Must be cleared with the rest: a MEES screening left on screen after a
+    // new search would attach a finding about a legal duty to the wrong
+    // building.
+    setPerformance(null);
     setStep(null);
     mapApi.clearSite();
   }, [mapApi]);
@@ -456,6 +602,7 @@ export default function SitePanel({ mapApi }: Props) {
       setOwnership(null);
       setVoa(null);
       setEpc(null);
+      setPerformance(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -490,6 +637,13 @@ export default function SitePanel({ mapApi }: Props) {
             .then((r) => r.json())
             .then((report: EpcReport & { error?: string }) => {
               if (!report.error) setEpc(report);
+            })
+            .catch(() => undefined);
+
+          void fetch(`/api/site-intel/performance?uprn=${encodeURIComponent(candidate.uprn)}`)
+            .then((r) => r.json())
+            .then((report: PerformanceReport & { error?: string }) => {
+              if (!report.error) setPerformance(report);
             })
             .catch(() => undefined);
 
@@ -639,6 +793,8 @@ export default function SitePanel({ mapApi }: Props) {
           {screening && <ConstraintList screening={screening} />}
 
           {epc && <EpcPanel report={epc} />}
+
+          {performance && <PerformancePanel report={performance} />}
 
           {voa && <VoaPanel report={voa} />}
 
