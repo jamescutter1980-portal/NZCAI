@@ -3,7 +3,8 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-05 · S-06 · S-07 · S-08.** Updated 12 September 2026.
+Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-05 · S-06 · S-07 · S-08.**
+Updated 12 September 2026. S-03 completed against brief §5 (see §2i).
 
 ---
 
@@ -798,6 +799,165 @@ anything a test or a client component might want.
 - **`fixtures/epc-certificates.sample.csv` is invented**, like the substations
   sample. Every row is prefixed `SAMPLE-`. It is not register data.
 
+## 2i. S-03 completion — grid capacity
+
+S-03 is the one section with a real specification (brief §5), and the only one
+partly built before the brief arrived. §2 above records what existed: the schema,
+the Opendatasoft client, the registry, the normaliser and the map. This is what
+§5 asked for and what was missing.
+
+### §5.1 — "which DNO" was answering a different question
+
+The DNO came from whichever substation happened to be nearest. That is not the
+same question. Licence areas are administrative boundaries; a site near one can
+easily have its nearest substation on the other side of it, and the answer feeds
+a connection enquiry.
+
+Now: point-in-polygon against the NESO DNO licence-area boundaries, with the
+version date stored, because a boundary that moved is a different answer.
+
+Three decisions inside it:
+
+- **Ray-cast in TypeScript, not PostGIS.** There are ~14 licence areas. PostGIS
+  stays optional (migration 004), and a cast over fourteen polygons is
+  microseconds. `geo-polygon.ts` is a leaf module so the map can use it too.
+- **Holes are honoured.** A GeoJSON polygon is an outer ring plus holes, and a
+  licence area can enclose another. A point in a hole is *outside*, because
+  reporting the enclosing DNO would be a wrong answer rather than a missing one.
+- **An unmatched area is stored with a null `dno_id` and reported**, never
+  guessed. `matchDno` maps NESO's area names onto our registry ids by pattern;
+  anything unrecognised returns null and the loader prints it. A wrong DNO on a
+  connection enquiry is worse than none.
+
+The first live run then found a fourth case I had not handled: **two polygons
+containing the same point**. The code returned whichever row the query happened
+to yield first — a coin toss answering "which DNO". It now collects every
+containing area and, where there is more than one, says so in the method text
+and downgrades the state to `proximity`.
+
+### §5.2 — the adapter interface, and NGED
+
+`adapters/base.ts` is the brief's `DnoAdapter` Protocol in TypeScript, shaped
+identically so a port to Python is mechanical (TICKET-08 still open).
+
+The rule the interface encodes: **`null` means "this DNO does not publish it"
+and an empty array means "published, and there is nothing here."** Callers must
+be able to tell those apart — it is the difference between `not_supported` and
+`not_found_coverage_complete`.
+
+`adapters/ckan.ts` covers NGED, which the brief puts first in the build order and
+which the original ingest could not touch because it publishes through CKAN
+rather than Opendatasoft. The shape difference that matters: CKAN serves a
+*package of resources*, so a pull is read-package → choose-resource → fetch, and
+choosing is the step that fails silently. A package carries PDFs and dashboards
+alongside the data, so `chooseResource` takes the most recent CSV and the choice
+is always reported rather than assumed.
+
+Two helpers that are deliberately conservative:
+
+- `levelFromVoltage` returns **null in the overlapping ranges** rather than
+  picking. A level is a network role and voltage is only a proxy, so a derived
+  level is always recorded as `derived_from_voltage` and never shown as the
+  publisher's word.
+- `normaliseEcrStatus` matches the **participle, not the stem**. "Accepted to
+  Connect" contains "connect" and means the opposite of connected — it is an
+  offer, not an energised generator. A stem match put generation on the network
+  that is not there yet, which understates the headroom a screen would find. The
+  test suite carries that case.
+
+### §5.4 — the logic, and what stays unrated
+
+All thresholds are in `grid_rules.yaml`, all unapproved, as §5.4 requires.
+
+1. **A containing supply-area polygon wins; otherwise the nearest N,
+   `nearest_by_distance`.** The label travels into the output and onto the
+   screen, with the sentence explaining that proximity does not mean a
+   substation would serve the site.
+2. **ECR within 2 km at 50 kW export and above**, summarised by technology *and*
+   by status. An entry whose technology did not map gets its own `unknown`
+   bucket rather than being folded into a named one — it is not evidence about
+   solar or wind.
+3. **`unrated` is a fourth state, not a missing green.** Both screens stay
+   unrated until something supplies their input, and the wording says "an
+   absence of assessment and not a favourable result". Collapsing unrated into
+   green is the single most dangerous simplification available here, because a
+   screen is read as a permission. A test asserts the explanation contains no
+   reassuring word.
+4. **The fixed caveat is rendered last and unconditionally** — not collapsible,
+   not optional, straight from the YAML.
+5. **Staleness is measured against the DNO's published date**, falling back to
+   our ingest date only when the publisher states none. Fetching old data today
+   does not make it fresh, and `basis` records which date was used.
+
+One more distinction the panel makes: **whose RAG is it.** Where the DNO
+publishes its own rating the ingest keeps it; where it does not, ours is used
+and the row says "RAG is our screening band, not the DNO's".
+
+### The G98/G99 figures are deliberately null
+
+§5.4 says "Any G98/G99 or other threshold values live in config and are signed
+off by James." They are in config — as `null`, marked `verified: false`, with a
+source line saying PLACEHOLDER.
+
+They are not in the brief, not in the `solar-pv-design` skill (which covers G99
+*applications* and G100 export limitation, not the threshold values), and writing
+a connection threshold from memory is how you ship a wrong answer about someone's
+grid application — the MEES lesson from S-05, one section later. Null fails
+loudly. Nothing currently reads them, because the PV export screen is unrated
+until a PV design module supplies a kWac figure, so no output depends on them
+today. A test asserts they stay null.
+
+### A bug that would have broken most of the country
+
+The API route reused one "non-negative number" validator for capacities *and*
+coordinates. **Most of Great Britain has a negative longitude**, so every site
+west of Greenwich became `NaN`, and the point-in-polygon then reported "no DNO
+contains this point" — a confident wrong answer rather than an error.
+
+It surfaced on the first end-to-end run against Doncaster and took a while to
+find precisely because both the SQL and the geometry were correct in isolation.
+Separate validators now, and a test asserting the two shapes differ.
+
+### A third CLI-on-import bug, fixed as a class
+
+Importing `matchDno` from `dno-boundaries.ts` for a test printed a usage message
+and exited the runner — the same failure as `epc-load.ts` in S-08. Rather than
+extracting a third leaf module, `src/ingest/cli.ts` provides
+`isEntryPoint(import.meta.url)` and the loaders' `main()` calls are wrapped in
+it. Helpers stay importable and the class of bug is closed.
+
+### What was built
+
+| file | role |
+|---|---|
+| `db/migrations/010_grid_s03.sql` | `dno_licence_area`; substation `level`/`source_date`/`area_geom`; ECR `technology`/`status` |
+| `lib/geo-polygon.ts` | ray cast, holes, bbox, haversine, latitude-aware radius box |
+| `site-intel/grid_rules.yaml` | every threshold and sentence, all unapproved |
+| `site-intel/grid-screen.ts` | RAG, freshness, screens, ECR summary, fixed wording |
+| `site-intel/grid.ts` | §5.1 and §5.4 end to end for a site |
+| `ingest/adapters/base.ts` | the brief's `DnoAdapter`, plus level and status normalisation |
+| `ingest/adapters/ckan.ts` | NGED |
+| `ingest/dno-boundaries.ts` | NESO GeoJSON loader |
+| `ingest/cli.ts` | entry-point guard |
+| `/api/site-intel/grid` + `GridPanel` | §5.5 profile panel |
+
+**46 tests**, 322 across the suite.
+
+### Not done
+
+- **§5.5 map layers.** The substation layer exists and is RAG-coloured. The
+  supply-area polygon layer and ECR-by-technology layer are not drawn; the data
+  and the containment test are both in place for them.
+- **No live DNO call, still.** Every portal returns 403 from the egress proxy.
+  `grid:verify` reports 0 reachable, 12 failed — which is the honest state, and
+  the reason the CKAN field mapping is a proposal rather than a fact.
+- **The five Opendatasoft DNOs still use the original ingest path**, not the new
+  adapter interface. The interface is defined and CKAN implements it; wiring the
+  ODS DNOs through it is mechanical and was not done here.
+- **`fixtures/dno-licence-areas.sample.geojson` is invented**, three boxes over
+  Yorkshire. Every feature is prefixed `SAMPLE-`. It exercises the containment,
+  the unmatched-area path and the overlap path; it is not NESO data.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -902,8 +1062,15 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   **TICKET-04** constraint wording unapproved · **TICKET-05** CCOD/OCOD licence
   unread · **TICKET-06** VOA slugs and column positions unverified ·
   **TICKET-07** fixture sites not chosen · **TICKET-08** stack decision.
-- NESO "GIS Boundaries for GB DNO Licence Areas" not yet loaded — needed for
-  point-in-polygon DNO lookup (brief §5.1).
+- **TICKET-13 grid thresholds and wording** — 9 blocks in `grid_rules.yaml`
+  unapproved, including the RAG bands, which are our defaults and not a
+  regulated classification.
+- **TICKET-14 G98/G99 values are null placeholders** — deliberately, so reading
+  them fails loudly. Nothing reads them yet. Replace from ENA Engineering
+  Recommendation G98/G99 before the PV export screen takes a real input.
+- NESO "GIS Boundaries for GB DNO Licence Areas" loader now exists
+  (`npm run grid:boundaries`), but has only been run against an invented
+  fixture — the real GeoJSON has never been fetched.
 - NGED publishes via CKAN, not Opendatasoft; no adapter written.
 - No recorded fixtures / contract tests yet (brief §9). Sample rows in
   `fixtures/substations.sample.json` are invented and tagged `fixture:sample`,
@@ -916,9 +1083,16 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
 
 ## 6. Needs sign-off
 
-- **Headroom RAG bands.** `src/lib/headroom.ts` currently screens at ≥10 MVA
-  green, 2–10 amber, <2 red. These are our defaults, used only where the DNO
-  publishes no rating of its own. Not a regulated classification.
+- **Headroom RAG bands.** Now in `grid_rules.yaml` (≥10 MVA green, 2–10 amber,
+  <2 red), used only where the DNO publishes no rating of its own. Ours, not a
+  regulated classification. `src/lib/headroom.ts` keeps the same defaults for
+  the map layer.
+- **S-03 screen fractions.** A proposal at or under 50% of published headroom is
+  green, to 90% amber, above that red. My judgement, not a published tolerance.
+- **S-03 proximity radius and count.** Nearest 5 within 10 km where no supply-area
+  polygon exists. Confirm both.
+- **S-03 G98/G99.** Currently null placeholders (TICKET-14). Supply the figures
+  before the PV export screen is wired to a real export capacity.
 - **Grid caveat wording.** Implemented verbatim from brief §5.4 in
   `src/lib/grid.ts`. Confirm it reads correctly.
 - **Fixture sites.** The brief asks for 8 confirmed sites; none chosen yet.

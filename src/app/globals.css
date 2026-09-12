@@ -777,3 +777,76 @@ body {
   background: var(--risk-soft); color: var(--risk);
   font-size: 11.5px; line-height: 1.4;
 }
+
+/* ------------------------------------------------- S-03 grid capacity --- */
+
+.grid-panel {
+  display: flex; flex-direction: column; gap: 9px;
+  padding-top: 11px; border-top: 1px solid var(--rule);
+}
+
+.grid-facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12.5px; }
+.grid-facts dt { color: var(--ink-3); }
+.grid-facts dd { margin: 0; }
+.grid-method { display: block; margin-top: 2px; font-size: 11px; line-height: 1.4; color: var(--ink-3); }
+
+.grid-proximity, .grid-none, .grid-network-note {
+  margin: 0; padding: 6px 9px; border-radius: 3px;
+  background: var(--surface-2); color: var(--ink-2);
+  font-size: 11.5px; line-height: 1.45;
+}
+.grid-stale {
+  margin: 0; padding: 6px 9px; border-radius: 3px;
+  background: var(--warn-soft); color: var(--warn);
+  font-size: 11.5px; line-height: 1.45;
+}
+
+.grid-subs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.grid-subs li { padding-left: 9px; border-left: 2px solid var(--rule); }
+.grid-sub-head { margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.grid-sub-name { font-size: 13px; font-weight: 500; }
+.grid-sub-level {
+  font-family: var(--f-mono); font-size: 10.5px; letter-spacing: 0.04em;
+  color: var(--ink-3); text-transform: uppercase;
+}
+.grid-sub-level em { font-style: normal; opacity: 0.8; }
+.grid-sub-dist { margin-left: auto; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-3); }
+.grid-sub-meta { margin: 3px 0 0; font-size: 11.5px; color: var(--ink-2); }
+.grid-ourband { display: block; margin-top: 2px; font-style: normal; font-size: 11px; color: var(--ink-3); }
+.grid-constraint { margin: 3px 0 0; font-size: 11.5px; color: var(--warn); }
+
+.grid-screens { display: flex; flex-direction: column; gap: 6px; }
+.grid-screen {
+  padding: 7px 10px; border-radius: 3px;
+  background: var(--surface-2); border-left: 2px solid var(--ink-3);
+}
+.grid-screen.green { border-left-color: var(--good); }
+.grid-screen.amber { border-left-color: var(--warn); }
+.grid-screen.red   { border-left-color: var(--risk); }
+/*
+ * Unrated keeps a neutral, visible treatment. Greying it out or hiding it
+ * would let a reader infer a pass from the absence of a warning.
+ */
+.grid-screen.unrated { border-left-style: dashed; }
+.grid-screen-head { margin: 0; font-size: 12.5px; font-weight: 500; display: flex; gap: 6px; align-items: center; }
+.grid-screen-result {
+  margin-left: auto; font-family: var(--f-mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3);
+}
+.grid-screen-why { margin: 3px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
+
+.grid-ecr-head { margin: 0; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.grid-ecr-total { margin: 4px 0 0; font-family: var(--f-mono); font-size: 12.5px; }
+.grid-ecr ul { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12px; color: var(--ink-2); }
+.grid-ecr-status { margin: 3px 0 0; font-size: 11px; color: var(--ink-3); }
+
+/* Brief §5.4 step 4: fixed wording, on every grid output. */
+.grid-caveat {
+  margin: 0; padding: 8px 10px; border-radius: 3px;
+  background: var(--accent-soft); color: var(--ink);
+  font-size: 11.5px; line-height: 1.45; font-weight: 500;
+}
+.grid-unapproved { margin: 0; font-size: 11px; color: var(--warn); }
+/* .dot is sized for flex rows elsewhere; inside these paragraphs it needs to
+   be inline-block or it collapses to nothing. */
+.grid-panel .dot { display: inline-block; vertical-align: middle; margin-right: 2px; }

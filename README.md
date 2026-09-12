@@ -363,6 +363,72 @@ No lease data, so no trigger-year segmentation — EPC expiry is a third of that
 calculation and a lease event usually comes first. This finds prospects; it does
 not track a client's portfolio. See PRELAUNCH TICKET-12.
 
+## Grid capacity (S-03)
+
+```bash
+npm run grid:boundaries -- <neso-dno-areas.geojson>   # which DNO, by containment
+npm run grid:verify                                   # probe datasets, print config
+npm run grid:ingest                                   # pull heatmap + ECR
+```
+
+`/api/site-intel/grid?uprn=` (or `?lat=&lng=`) returns the DNO, the substations,
+the ECR summary and the two screens. The site panel shows all of it.
+
+### Which DNO is a containment question
+
+It used to be answered by whichever substation was nearest. That is a different
+question with a frequently different answer — licence areas are administrative
+boundaries, and a site near one can have its nearest substation across it. Now
+it is point-in-polygon against the NESO DNO licence-area boundaries, with the
+version date stored.
+
+Ray-cast in TypeScript rather than PostGIS (there are ~14 areas, and PostGIS
+stays optional). Holes are honoured: a licence area can enclose another, and a
+point inside a hole is *outside*. An area that does not map to a known DNO is
+stored with a null id and reported — **a wrong DNO on a connection enquiry is
+worse than none**. If two polygons contain the same point, that is reported too
+rather than resolved by whichever row came back first.
+
+### Substations: containment first, then labelled proximity
+
+A DNO's own supply-area polygon containing the site wins. Otherwise the nearest
+5 within 10 km, **labelled `nearest_by_distance`**, with the sentence explaining
+that proximity does not mean a substation would serve the site. Where the DNO
+publishes its own RAG the ingest keeps it; where it does not, the row says "RAG
+is our screening band, not the DNO's".
+
+### Unrated is a fourth state
+
+The PV export and electrification screens output green / amber / red / **unrated**.
+Unrated means the input has not been supplied — "an absence of assessment and
+not a favourable result". It is shown with its own visible treatment, because
+greying it out would let a reader infer a pass. A test asserts the explanation
+contains no reassuring word.
+
+### Freshness is the publisher's date
+
+Staleness (90 days, from the brief) is measured against the DNO's published
+source date, falling back to our ingest date only when the publisher states
+none — fetching old data today does not make it fresh. Past the window the tier
+becomes `stale` and an amber warning shows; the figure is not withheld, because
+an old number that says it is old beats a gap.
+
+### The fixed wording
+
+Every grid output carries it, last and unconditionally, from the config:
+
+> Indicative only — based on published DNO data dated [date]. Not a connection
+> offer. A connection application to [DNO] is required.
+
+### G98/G99 are null on purpose
+
+Brief §5.4 requires the threshold values in config. They are there as `null`,
+marked `verified: false`. They are not in the brief or in any bundled reference,
+and a connection threshold written from memory is a wrong answer about someone's
+grid application. Null fails loudly. Nothing reads them — the PV export screen is
+unrated until a PV design module supplies an AC export capacity (a G99
+application is made on kWac, not kWp). See PRELAUNCH TICKET-14.
+
 ## Loading real grid data
 
 `npm run db:seed` loads **invented sample rows**, tagged `fixture:sample`, so
@@ -430,9 +496,11 @@ be committed.
 ```
 db/migrations/       schema; 004 is an optional PostGIS upgrade
 src/ingest/          registry (slugs, licences, attribution), ODS client,
-                     field normaliser, verify/ingest CLI
+                     field normaliser, verify/ingest CLI, DNO boundary loader,
+                     adapters/ (DnoAdapter interface, CKAN for NGED),
+                     cli.ts (entry-point guard so helpers stay importable)
 src/lib/             db pool, types, headroom RAG bands, fixed grid wording,
-                     base map config
+                     base map config, geo-polygon (containment, distance)
 src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      resolution chain, profile builder, stores, service
                      S-02: constraint_rules.yaml, constraints, flood
@@ -442,6 +510,7 @@ src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      mees_rules.yaml + MEES screening
                      S-07: query parser, SQL executor, run description
                      S-08: prospect cohorts, dedupe, coverage
+                     S-03: grid_rules.yaml, screening, site grid lookup
                      Task 0: EPC register client and cache
 PRELAUNCH.md         tickets that block a client release
 tests/               unit tests + fixtures (constructed, not recorded)
@@ -449,8 +518,8 @@ scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health,
                      /api/site-intel/* including /search
 src/components/      LandMap, SitePanel, SiteSearch, MeesProspects
-fixtures/            sample substations and EPC certificates — invented,
-                     not DNO or register data; every EPC row is SAMPLE-*
+fixtures/            sample substations, EPC certificates and DNO licence
+                     areas — all invented, not DNO, NESO or register data
 docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 ```
 
@@ -465,6 +534,7 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run db:seed` | Load sample substations |
 | `npm run grid:verify` | Probe DNO datasets, report real schemas |
 | `npm run grid:ingest` | Pull and load capacity heatmap + ECR |
+| `npm run grid:boundaries -- <geojson>` | Load NESO DNO licence areas for point-in-polygon |
 | `npm run maplibre:worker` | Re-stage the MapLibre worker into `public/` |
 | `npm test` | Unit tests (no network required) |
 | `npm run site:verify` | S-01 readiness: reference data, slugs, attributions |

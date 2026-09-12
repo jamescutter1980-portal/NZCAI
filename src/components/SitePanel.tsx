@@ -9,6 +9,7 @@ import type { AreaComparison, UseClassInference, VoaResult } from "@/lib/site-in
 import { AREA_BASIS_LABEL } from "@/lib/site-intel/area-basis";
 import type { EpcCertificate } from "@/lib/site-intel/epc";
 import type { MeesScreening } from "@/lib/site-intel/mees";
+import type { GridProfile } from "@/lib/site-intel/grid";
 import type { CertificateAge, Intensity, RatingReading } from "@/lib/site-intel/performance";
 import { TIER_LABEL } from "@/lib/site-intel/types";
 
@@ -259,6 +260,136 @@ function PerformancePanel({ report }: { report: PerformanceReport }) {
           ))}
         </ul>
       </details>
+    </section>
+  );
+}
+
+/**
+ * S-03 grid capacity. Brief §5.4 step 4 and §5.5.
+ *
+ * The fixed caveat is rendered LAST and unconditionally, because it is the
+ * sentence that makes every figure above it safe to read: indicative, not a
+ * connection offer. It is not collapsible and not optional.
+ *
+ * `unrated` is shown as its own state with its own explanation. A screen with
+ * no input is not a pass, and greying it out or hiding it would let a reader
+ * infer one.
+ */
+function GridPanel({ report }: { report: GridProfile }) {
+  const { dno, substations, ecr, ecrState, screens } = report;
+  const stale = substations.substations.some((s) => s.freshness.stale);
+
+  return (
+    <section className="grid-panel">
+      <p className="eyebrow">Grid capacity</p>
+
+      <dl className="grid-facts">
+        <dt>DNO</dt>
+        <dd>
+          {dno.areaName ?? "Not determined"}
+          <span className="grid-method">{dno.method}</span>
+        </dd>
+      </dl>
+
+      {substations.proximityNote && (
+        <p className="grid-proximity">{substations.proximityNote}</p>
+      )}
+
+      {stale && (
+        <p className="grid-stale">
+          {substations.substations.find((s) => s.freshness.warning)?.freshness.warning}
+        </p>
+      )}
+
+      {substations.substations.length > 0 ? (
+        <ul className="grid-subs">
+          {substations.substations.map((s) => (
+            <li key={s.id}>
+              <p className="grid-sub-head">
+                <span className="grid-sub-name">{s.name ?? s.sourceRef}</span>
+                {s.level && (
+                  <span className="grid-sub-level">
+                    {s.level}
+                    {s.levelSource === "derived_from_voltage" && (
+                      <em title="Inferred from voltage, not stated by the DNO"> inferred</em>
+                    )}
+                  </span>
+                )}
+                {s.distanceM !== null && (
+                  <span className="grid-sub-dist">{(s.distanceM / 1000).toFixed(1)} km</span>
+                )}
+              </p>
+              <p className="grid-sub-meta">
+                <span className={`dot ${s.generationRag ?? "unknown"}`} />
+                Generation {s.generationHeadroomMva ?? "—"} MVA
+                {" · "}
+                <span className={`dot ${s.demandRag ?? "unknown"}`} />
+                Demand {s.demandHeadroomMva ?? "—"} MVA
+                {!s.ragPublished && (
+                  <em className="grid-ourband"> RAG is our screening band, not the DNO&rsquo;s</em>
+                )}
+              </p>
+              {s.constraintNote && <p className="grid-constraint">{s.constraintNote}</p>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="grid-none">{substations.proximityNote}</p>
+      )}
+
+      <div className="grid-screens">
+        {screens.map((sc) => (
+          <div key={sc.key} className={`grid-screen ${sc.result}`}>
+            <p className="grid-screen-head">
+              <span className={`dot ${sc.result === "unrated" ? "unknown" : sc.result}`} />
+              {sc.key === "pv_export" ? "PV export" : "Electrification"}
+              <span className="grid-screen-result">{sc.result}</span>
+            </p>
+            <p className="grid-screen-why">{sc.explanation}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid-ecr">
+        <p className="grid-ecr-head">
+          Embedded Capacity Register — within {ecr.radiusM / 1000} km, {ecr.minExportKw} kW export and above
+        </p>
+        {ecrState === "present" ? (
+          <>
+            <p className="grid-ecr-total">
+              {ecr.entries.length} entr{ecr.entries.length === 1 ? "y" : "ies"},{" "}
+              {ecr.totalExportMva} MVA export
+            </p>
+            <ul>
+              {ecr.byTechnology.map((t) => (
+                <li key={t.technology}>
+                  {t.technology} — {t.count} × {t.exportMva} MVA
+                </li>
+              ))}
+            </ul>
+            <p className="grid-ecr-status">
+              {ecr.byStatus.map((x) => `${x.status}: ${x.count}`).join(" · ")}
+            </p>
+          </>
+        ) : (
+          <p className="grid-none">
+            {ecrState === "not_found_coverage_unknown"
+              ? "No register data is loaded, so this is an absence of data rather than an absence of generation."
+              : "The register is loaded and carries nothing matching within the radius."}
+          </p>
+        )}
+      </div>
+
+      <p className="grid-network-note">{report.networkVsSite}</p>
+
+      {/* Brief §5.4 step 4. Unconditional, never collapsed. */}
+      <p className="grid-caveat">{report.caveat}</p>
+
+      {report.wordingUnapproved.length > 0 && (
+        <p className="grid-unapproved">
+          {report.wordingUnapproved.length} grid rule block(s) await sign-off.
+        </p>
+      )}
     </section>
   );
 }
@@ -533,6 +664,7 @@ export default function SitePanel({ mapApi }: Props) {
   const [voa, setVoa] = useState<VoaReport | null>(null);
   const [epc, setEpc] = useState<EpcReport | null>(null);
   const [performance, setPerformance] = useState<PerformanceReport | null>(null);
+  const [grid, setGrid] = useState<GridProfile | null>(null);
 
   const reset = useCallback(() => {
     setCandidates([]);
@@ -547,6 +679,7 @@ export default function SitePanel({ mapApi }: Props) {
     // new search would attach a finding about a legal duty to the wrong
     // building.
     setPerformance(null);
+    setGrid(null);
     setStep(null);
     mapApi.clearSite();
   }, [mapApi]);
@@ -603,6 +736,7 @@ export default function SitePanel({ mapApi }: Props) {
       setVoa(null);
       setEpc(null);
       setPerformance(null);
+      setGrid(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -637,6 +771,13 @@ export default function SitePanel({ mapApi }: Props) {
             .then((r) => r.json())
             .then((report: EpcReport & { error?: string }) => {
               if (!report.error) setEpc(report);
+            })
+            .catch(() => undefined);
+
+          void fetch(`/api/site-intel/grid?uprn=${encodeURIComponent(candidate.uprn)}`)
+            .then((r) => r.json())
+            .then((report: GridProfile & { error?: string }) => {
+              if (!report.error) setGrid(report);
             })
             .catch(() => undefined);
 
@@ -795,6 +936,8 @@ export default function SitePanel({ mapApi }: Props) {
           {epc && <EpcPanel report={epc} />}
 
           {performance && <PerformancePanel report={performance} />}
+
+          {grid && <GridPanel report={grid} />}
 
           {voa && <VoaPanel report={voa} />}
 

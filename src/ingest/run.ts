@@ -14,6 +14,7 @@ import { closePool, getPool } from "@/lib/db";
 import { DNOS, dnoById, supportedDnos, type DnoEntry, type DatasetRef } from "./registry";
 import { describeDataset, exportAll, sampleRecords, searchDatasets } from "./opendatasoft";
 import { normaliseEcr, normaliseSubstation } from "./normalise";
+import { loadGridRules, unapprovedGridRules } from "@/lib/site-intel/grid-screen";
 
 const GREEN = "\x1b[32m", RED = "\x1b[31m", DIM = "\x1b[2m", YELLOW = "\x1b[33m", OFF = "\x1b[0m";
 
@@ -81,6 +82,60 @@ async function verify(arg?: string): Promise<void> {
   if (failed > 0) {
     console.log("Fix the slugs in src/ingest/registry.ts, then re-run verify.");
   }
+
+  /* -- S-03 boundaries and config, brief §5.1 and §5.4 -------------------- */
+
+  console.log("\nDNO licence-area boundaries (brief §5.1)");
+  try {
+    const { rows } = await getPool().query<{ n: string; unmatched: string; version: string | null }>(
+      `SELECT count(*)::text AS n,
+              count(*) FILTER (WHERE dno_id IS NULL)::text AS unmatched,
+              max(version_date)::text AS version
+         FROM dno_licence_area`,
+    );
+    const n = Number(rows[0]?.n ?? 0);
+    if (n === 0) {
+      console.log(`  ${YELLOW}none loaded${OFF} — "which DNO" falls back to nothing at all.`);
+      console.log(`  ${DIM}npm run grid:boundaries -- <NESO GeoJSON>${OFF}`);
+    } else {
+      console.log(`  ${GREEN}${n} area(s)${OFF} ${DIM}version ${rows[0].version ?? "not published"}${OFF}`);
+      const unmatched = Number(rows[0].unmatched);
+      if (unmatched > 0) {
+        console.log(
+          `  ${YELLOW}${unmatched} not mapped to a known DNO${OFF} ` +
+          `${DIM}— a site in one returns no DNO rather than a wrong one${OFF}`,
+        );
+      }
+    }
+  } catch (err) {
+    console.log(`  ${RED}FAIL${OFF} ${err instanceof Error ? err.message.slice(0, 140) : err}`);
+  }
+
+  console.log("\ngrid thresholds and wording (brief §5.4)");
+  try {
+    const rules = loadGridRules();
+    const unapproved = unapprovedGridRules();
+    if (unapproved.length === 0) {
+      console.log(`  ${GREEN}all approved${OFF}`);
+    } else {
+      console.log(`  ${YELLOW}${unapproved.length} block(s) awaiting James's sign-off${OFF}: ${unapproved.join(", ")}`);
+      console.log(`  ${DIM}Set approved: true in src/lib/site-intel/grid_rules.yaml.${OFF}`);
+    }
+    console.log(
+      `  ${DIM}stale after ${rules.staleness.stale_after_days}d · ECR ${rules.ecr.radius_m / 1000} km ` +
+      `at ${rules.ecr.min_export_kw} kW+ · nearest ${rules.proximity.nearest_count} within ` +
+      `${rules.proximity.radius_m / 1000} km · RAG green ${rules.rag_bands.generation.green_mva} MVA${OFF}`,
+    );
+    if (!rules.connection_thresholds.verified) {
+      console.log(
+        `  ${YELLOW}G98/G99 values are null placeholders${OFF} ${DIM}— nothing reads them; ` +
+        `replace from ENA Engineering Recommendation before anything does${OFF}`,
+      );
+    }
+  } catch (err) {
+    console.log(`  ${RED}FAIL${OFF} ${err instanceof Error ? err.message.slice(0, 140) : err}`);
+  }
+
   await closePool();
 }
 

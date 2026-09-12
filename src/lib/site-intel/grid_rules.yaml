@@ -1,0 +1,130 @@
+# S-03 grid screening thresholds and wording.
+#
+# Brief §5.4: "deterministic, thresholds in config" and "Any G98/G99 or other
+# threshold values live in config and are signed off by James." So nothing here
+# is hardcoded and nothing is approved until signed off. `npm run grid:verify`
+# prints what is outstanding.
+#
+# WHAT IS AND IS NOT SOURCED, PLAINLY:
+#   - The RAG headroom bands are OUR screening defaults. They are not a
+#     regulated classification and no publisher stands behind them. Where a DNO
+#     publishes its own RAG rating the ingest keeps that and these are unused.
+#   - The ECR radius and minimum export come from the brief itself (§5.4 step 2).
+#   - The staleness window comes from the brief (§5.4 step 5).
+#   - THE G98/G99 FIGURES BELOW ARE NOT VERIFIED. They are not in any reference
+#     available to this build, and writing a connection threshold from memory is
+#     how you ship a wrong answer about someone's grid application. They are
+#     recorded as placeholders, marked unverified, and NOTHING READS THEM: the
+#     PV export screen is unrated until a PV design module supplies an export
+#     figure, so no output currently depends on them. Replace with the figures
+#     from ENA Engineering Recommendation G98 and G99 before anything does.
+
+meta:
+  source: >
+    NZC AI Site Intelligence Brief S-01..S-03, section 5.4. Dataset licences and
+    attributions live in sources.yaml.
+  approved: false
+
+# Brief §5.4 step 5.
+staleness:
+  stale_after_days: 90
+  note: >
+    Measured against the DNO's published source date where one exists, falling
+    back to our ingest date. Past this the tier becomes stale and the figure is
+    shown with a warning rather than withheld - an old number that says it is
+    old is more useful than a gap.
+  approved: false
+
+# Brief §5.4 step 2.
+ecr:
+  radius_m: 2000
+  min_export_kw: 50
+  note: >
+    Entries within the radius with an export capacity at or above the minimum,
+    summarised by technology and status. A register entry is what is already
+    connected or accepted, so it is evidence of what the network has absorbed,
+    not of what is left.
+  approved: false
+
+# Brief §5.4 step 1.
+proximity:
+  # Used only where the DNO publishes no supply-area polygon containing the site.
+  nearest_count: 5
+  radius_m: 10000
+  note: >
+    Where a containing polygon exists it wins. Otherwise the nearest primaries
+    within the radius are returned and labelled nearest_by_distance - a
+    substation near a site is not necessarily the substation that would serve
+    it, and the label has to survive into the output.
+  approved: false
+
+# OUR defaults. Not a regulated classification.
+rag_bands:
+  generation:
+    green_mva: 10
+    amber_mva: 2
+  demand:
+    green_mva: 10
+    amber_mva: 2
+  note: >
+    Calibrated against typical distribution-connected solar: 10 MVA or more
+    comfortably takes a mid-size ground-mount scheme, 2-10 MVA suits a small
+    scheme or a large rooftop array, below 2 MVA is rooftop territory at best.
+    Revisit once there are real acceptance rates to score against.
+  approved: false
+
+# Brief §5.4 step 3. Both screens output green / amber / red / unrated.
+screens:
+  pv_export:
+    # Fraction of published generation headroom a proposed export may occupy
+    # before the screen stops being green, then amber.
+    green_max_fraction: 0.5
+    amber_max_fraction: 0.9
+    note: >
+      Unrated until a PV design module supplies a proposed export in MVA. The
+      brief is explicit that an absent input leaves the flag unrated rather than
+      defaulting it, so an unrated screen means "not assessed", never "fine".
+    approved: false
+  electrification:
+    green_max_fraction: 0.5
+    amber_max_fraction: 0.9
+    note: >
+      Unrated until audit data supplies an estimated added load (heat pump, EV).
+      Same rule as the export screen.
+    approved: false
+
+# NOT VERIFIED. See the header. Nothing reads these yet.
+connection_thresholds:
+  verified: false
+  source: >
+    PLACEHOLDER - not taken from ENA Engineering Recommendation G98 or G99, and
+    not confirmed against any reference available to this build. Must be
+    replaced with the published figures before any output depends on them.
+  g98_max_kw_per_phase: null
+  g99_applies_above: null
+  note: >
+    A G99 application is made on the AC export capacity (kWac), not the DC array
+    size (kWp) - that much is certain and is why the PV design module must pass
+    kWac. The threshold values themselves are deliberately null so that reading
+    them fails loudly instead of returning a plausible wrong number.
+  approved: false
+
+wording:
+  # Brief §5.4 step 4, verbatim. Placeholders are filled at render time.
+  fixed_caveat: >
+    Indicative only — based on published DNO data dated {date}. Not a connection
+    offer. A connection application to {dno} is required.
+  network_vs_site: >
+    Headroom is network capacity in MVA. It is not a site's agreed supply
+    capacity in kVA, which is held per-MPAN and is not published.
+  nearest_by_distance: >
+    This DNO publishes no supply-area polygon for the site, so these are the
+    nearest substations by straight-line distance. Proximity does not mean a
+    substation would serve this site.
+  stale: >
+    This data is older than {days} days. Treat the figures as indicative of an
+    earlier network state and re-check with the DNO.
+  unrated: >
+    Not assessed. The input this screen needs has not been supplied, so this is
+    an absence of assessment and not a favourable result.
+  approved: false

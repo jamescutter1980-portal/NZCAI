@@ -28,6 +28,7 @@ import { closePool, getPool } from "@/lib/db";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 import { toCertificate, type EpcRegister } from "@/lib/site-intel/epc";
 import { parseCsvLine } from "./csv";
+import { isEntryPoint } from "./cli";
 
 const GREEN = "\x1b[32m", RED = "\x1b[31m", YELLOW = "\x1b[33m", DIM = "\x1b[2m", OFF = "\x1b[0m";
 
@@ -189,8 +190,10 @@ async function main(): Promise<void> {
   await closePool();
 }
 
-main().catch(async (err) => {
-  console.error(err);
-  await closePool();
-  process.exit(1);
-});
+if (isEntryPoint(import.meta.url)) {
+  main().catch(async (err) => {
+    console.error(err);
+    await closePool();
+    process.exit(1);
+  });
+}

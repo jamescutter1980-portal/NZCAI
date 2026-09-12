@@ -213,3 +213,50 @@ alone would be wrong most of the time and wrong in the direction of complacency
 
 Also outstanding for the tracker workflow: no .xlsx output (CSV only), and no
 EPC recommendations, so no measure list and no 7-year payback test.
+
+---
+
+## TICKET-13 — Grid thresholds and wording need sign-off
+
+**Raised by:** S-03 · **Status:** blocking for client use · **Owner:** James
+
+Nine blocks in `src/lib/site-intel/grid_rules.yaml` are `approved: false`.
+`npm run grid:verify` prints them and the figures currently in force.
+
+Three need a decision rather than a read-through:
+
+1. **The RAG headroom bands** (≥10 MVA green, 2–10 amber, <2 red) are **our
+   screening defaults**. No publisher stands behind them. Where a DNO publishes
+   its own rating the ingest keeps that and these are unused — the UI says which
+   is which on every row.
+2. **The screen fractions** (green to 50% of headroom, amber to 90%) are my
+   judgement, not a published tolerance.
+3. **The proximity fallback** (nearest 5 within 10 km) decides what a site sees
+   when its DNO publishes no supply-area polygon.
+
+The ECR radius (2 km), export floor (50 kW) and staleness window (90 days) come
+from the brief itself and need confirming rather than deciding.
+
+---
+
+## TICKET-14 — G98/G99 threshold values are null placeholders
+
+**Raised by:** S-03 · **Status:** blocking before the PV export screen takes input
+
+Brief §5.4 requires G98/G99 threshold values to live in config. They are in
+`grid_rules.yaml` as **null**, with `verified: false` and a source line reading
+PLACEHOLDER.
+
+That is deliberate. The figures are not in the brief and not in the
+`solar-pv-design` skill, which covers G99 *applications* and G100 export
+limitation but not the threshold values. Writing a connection threshold from
+recall is how a wrong answer about someone's grid application gets shipped, so
+null was chosen over a plausible number: reading it fails loudly.
+
+**Nothing reads them today.** The PV export screen is `unrated` until a PV design
+module supplies an AC export capacity, so no output depends on them. Supply the
+figures from ENA Engineering Recommendation G98 and G99 before that changes.
+
+One thing that is certain and already encoded in the note: a G99 application is
+made on **kWac**, not kWp, which is why the PV design module must pass AC export
+capacity rather than array size.
