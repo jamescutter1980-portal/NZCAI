@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import {
+  constraintsFor,
   getProfile,
   loadProfile,
   overrideProfile,
   resolveCandidates,
   saveProfile,
 } from "@/lib/site-intel/service";
+import { unapprovedRules } from "@/lib/site-intel/rules";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 import { unverifiedAttributions } from "@/lib/site-intel/sources";
 
@@ -34,14 +36,20 @@ export async function GET(request: Request): Promise<NextResponse> {
   const lat = num(params.get("lat"));
   const lon = num(params.get("lon"));
   const candidatesOnly = params.get("candidates") === "1";
+  const withConstraints = params.get("constraints") === "1";
   const allowGeocode = params.get("geocode") !== "0";
 
   try {
     if (buildingId) {
       const profile = await loadProfile(buildingId);
-      return profile
-        ? NextResponse.json({ profile, buildingId })
-        : NextResponse.json({ error: `No profile for building ${buildingId}` }, { status: 404 });
+      if (!profile) {
+        return NextResponse.json({ error: `No profile for building ${buildingId}` }, { status: 404 });
+      }
+      return NextResponse.json({
+        profile,
+        buildingId,
+        constraints: withConstraints ? await constraintsFor(profile) : null,
+      });
     }
 
     const postcode = rawPostcode ? normalisePostcode(rawPostcode) ?? undefined : undefined;
@@ -74,8 +82,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       candidates: result.candidates,
       step: result.step,
       reason: result.reason ?? null,
-      // Surfaced so nobody ships a report with an unchecked attribution string.
+      constraints:
+        withConstraints && result.profile ? await constraintsFor(result.profile) : null,
+      // Surfaced so nobody ships a report with an unchecked attribution string
+      // or wording James has not signed off.
       unverifiedAttributions: unverifiedAttributions(),
+      unapprovedWording: unapprovedRules(),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Site intelligence failed";

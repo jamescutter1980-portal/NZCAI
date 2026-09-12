@@ -1,0 +1,201 @@
+# Constraint wording.
+#
+# Brief section 4.4: "Code returns states and rule keys only... Don't encode
+# planning law (GPDO classes, thresholds)." So nothing here states a legal
+# conclusion. Each entry says what was found and what a competent person should
+# go and check. No entry may say whether consent IS or IS NOT required.
+#
+# ALL WORDING NEEDS JAMES'S SIGN-OFF before it reaches a client. Every rule is
+# `approved: false` until then; `npm run site:verify` lists the unapproved ones.
+#
+# `feeds` links a constraint to the NZC AI workstreams that should react to it
+# (brief section 7). It drives prompts, never automatic decisions.
+
+rules:
+  conservation-area:
+    label: Conservation area
+    present: The building sits within a conservation area.
+    proximity: A conservation area lies within {buffer} m of the building.
+    check: >
+      Confirm with the local planning authority what consents apply to external
+      works, rooftop PV, external insulation and window replacement here.
+    feeds: [mees, solar-pv, epc]
+    approved: false
+
+  listed-building:
+    label: Listed building
+    present: A listed building record falls on this site.
+    proximity: A listed building lies within {buffer} m of the building.
+    check: >
+      Confirm the listing grade and extent, and what it means for fabric,
+      services and rooftop works. Check whether an EPC or MEES exemption
+      review is warranted.
+    feeds: [mees, solar-pv, epc]
+    approved: false
+
+  listed-building-outline:
+    label: Listed building outline
+    present: The building intersects a mapped listed-building outline.
+    proximity: A listed-building outline lies within {buffer} m.
+    check: Confirm the listing grade and extent with the local planning authority.
+    feeds: [mees, solar-pv, epc]
+    approved: false
+
+  locally-listed-building:
+    label: Locally listed building
+    present: The building is on the local heritage list.
+    proximity: A locally listed building lies within {buffer} m.
+    check: Ask the local planning authority how local listing is weighed here.
+    feeds: [mees, solar-pv]
+    approved: false
+
+  heritage-at-risk:
+    label: Heritage at risk
+    present: A heritage-at-risk record falls on this site.
+    proximity: A heritage-at-risk record lies within {buffer} m.
+    check: Review the register entry and any agreed remediation before specifying works.
+    feeds: [mees]
+    approved: false
+
+  article-4-direction-area:
+    label: Article 4 direction area
+    present: The building sits within an Article 4 direction area.
+    proximity: An Article 4 direction area lies within {buffer} m.
+    check: >
+      Obtain the direction itself and confirm which permitted development
+      rights it removes, and for which works.
+    feeds: [solar-pv, mees]
+    approved: false
+
+  area-of-outstanding-natural-beauty:
+    label: National Landscape (AONB)
+    present: The building sits within a National Landscape (AONB).
+    proximity: A National Landscape (AONB) lies within {buffer} m.
+    check: Confirm what designated-land status means for the proposed works.
+    feeds: [solar-pv]
+    approved: false
+
+  national-park:
+    label: National Park
+    present: The building sits within a National Park.
+    proximity: A National Park boundary lies within {buffer} m.
+    check: Confirm what designated-land status means for the proposed works.
+    feeds: [solar-pv]
+    approved: false
+
+  world-heritage-site:
+    label: World Heritage Site
+    present: The building sits within a World Heritage Site.
+    proximity: A World Heritage Site lies within {buffer} m.
+    check: Confirm what the designation means for external and rooftop works.
+    feeds: [solar-pv]
+    approved: false
+
+  world-heritage-site-buffer-zone:
+    label: World Heritage Site buffer zone
+    present: The building sits within a World Heritage Site buffer zone.
+    proximity: A World Heritage Site buffer zone lies within {buffer} m.
+    check: Confirm what the buffer zone means for external and rooftop works.
+    feeds: [solar-pv]
+    approved: false
+
+  scheduled-monument:
+    label: Scheduled monument
+    present: A scheduled monument falls on this site.
+    proximity: A scheduled monument lies within {buffer} m.
+    check: >
+      Establish the extent of the scheduling and what consent regime applies to
+      any ground works or plant installation.
+    feeds: [solar-pv]
+    approved: false
+
+  park-and-garden:
+    label: Registered park or garden
+    present: The site falls within a registered park or garden.
+    proximity: A registered park or garden lies within {buffer} m.
+    check: Confirm what the registration means for the proposed works.
+    feeds: [solar-pv]
+    approved: false
+
+  flood-risk-zone:
+    label: Flood risk zone
+    present: The building intersects a mapped flood risk zone.
+    proximity: A mapped flood risk zone lies within {buffer} m.
+    check: >
+      Confirm the zone with the Environment Agency Flood Map for Planning and
+      feed it into the physical climate risk narrative. Surface-water risk is
+      not covered here.
+    feeds: [crrem, tcfd]
+    approved: false
+
+  tree-preservation-zone:
+    label: Tree preservation order
+    present: A tree preservation zone falls on this site.
+    proximity: A tree preservation zone lies within {buffer} m.
+    check: >
+      Confirm which trees are protected before any ground works, ground-source
+      heat pump array or external works.
+    feeds: [solar-pv, biodiversity]
+    approved: false
+
+  ancient-woodland:
+    label: Ancient woodland
+    present: Ancient woodland falls on this site.
+    proximity: Ancient woodland lies within {buffer} m.
+    check: Confirm the extent and what it means for ground works and ground-mount PV.
+    feeds: [solar-pv, biodiversity]
+    approved: false
+
+  site-of-special-scientific-interest:
+    label: SSSI
+    present: The site intersects a Site of Special Scientific Interest.
+    proximity: An SSSI lies within {buffer} m.
+    check: >
+      Establish the notified features and whether the works fall within the
+      SSSI impact risk zones. Engage the biodiversity workstream.
+    feeds: [biodiversity, solar-pv]
+    approved: false
+
+  special-area-of-conservation:
+    label: Special Area of Conservation
+    present: The site intersects a Special Area of Conservation.
+    proximity: A Special Area of Conservation lies within {buffer} m.
+    check: Establish the qualifying features and what assessment may be required.
+    feeds: [biodiversity]
+    approved: false
+
+  special-protection-area:
+    label: Special Protection Area
+    present: The site intersects a Special Protection Area.
+    proximity: A Special Protection Area lies within {buffer} m.
+    check: Establish the qualifying features and what assessment may be required.
+    feeds: [biodiversity]
+    approved: false
+
+  ramsar-site:
+    label: Ramsar site
+    present: The site intersects a Ramsar site.
+    proximity: A Ramsar site lies within {buffer} m.
+    check: Establish the qualifying features and what assessment may be required.
+    feeds: [biodiversity]
+    approved: false
+
+  green-belt:
+    label: Green Belt
+    present: The building sits within the Green Belt.
+    proximity: Green Belt land lies within {buffer} m.
+    check: >
+      Confirm what Green Belt status means for extensions and any ground-mount
+      PV proposal on this site.
+    feeds: [solar-pv]
+    approved: false
+
+  air-quality-management-area:
+    label: Air quality management area
+    present: The building sits within an air quality management area.
+    proximity: An air quality management area lies within {buffer} m.
+    check: >
+      Factor into the siting and selection of any combustion plant, CHP or
+      air-source heat pump.
+    feeds: [energy-audit]
+    approved: false

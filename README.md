@@ -2,9 +2,9 @@
 
 NZC and ESG AI App.
 
-The **Land** module resolves a building from an address (S-01) and screens sites
-against DNO grid capacity for solar PV (S-03) — two slices of the Site
-Intelligence layer. See
+The **Land** module resolves a building from an address (S-01), screens it for
+planning and environmental constraints (S-02), and checks nearby DNO grid
+capacity for solar PV (S-03). See
 [`docs/site-intel/BRIEF.md`](docs/site-intel/BRIEF.md) for the full spec and
 [`docs/site-intel/PLAN.md`](docs/site-intel/PLAN.md) for current status, open
 decisions and what is not yet verified.
@@ -65,6 +65,42 @@ memory because this build could not reach the licence pages. `site:verify` lists
 them and the API returns the unverified set with every profile. Check each
 against its `licence_url` before anything reaches a client; they are licence
 conditions, not decoration.
+
+## Constraints (S-02)
+
+Once a building is resolved it is screened against 21 planning and environmental
+datasets on planning.data.gov.uk — conservation areas, listed buildings, Article
+4 directions, Green Belt, flood zones, SSSIs, TPOs, AQMAs and the rest. Two
+passes: intersecting the site (`on site`), then within 50 m (`within 50 m`,
+configurable).
+
+Three rules shape what you see:
+
+- **Nothing found is not the same as nothing there.** Where coverage cannot be
+  confirmed the result is "not confirmed", never a clean bill. planning.data
+  publishes no per-dataset coverage guarantee, so that is the normal outcome for
+  datasets with no hit.
+- **A flood disagreement never clears risk.** The Environment Agency map is
+  cross-checked against planning.data; where they differ, both are shown and the
+  screening is flagged `source_conflict`. An unreachable EA reads as
+  unconfirmed, not as an all-clear.
+- **No legal conclusions.** Wording lives in `constraint_rules.yaml` and says
+  what was found and what to check. A test fails the build if any rule starts
+  claiming consent is or is not required.
+
+**All 21 wordings are `approved: false`** pending sign-off. `site:verify` counts
+them; the API returns the unapproved list with every screening.
+
+England only. Welsh and Scottish sites return `not_supported` with a reason.
+
+`checkNarrative()` guards generated text: it rejects "no constraints" while
+anything is unconfirmed, a denial of flood risk that was never established, any
+claim that grid capacity is available, and naming a constraint that was not
+found.
+
+Env: `EA_FLOOD_SERVICE_URL` to point at the EA service (the default path is
+unverified), `EA_FLOOD_DISABLED=1` to skip the cross-check,
+`PLANNING_DATA_BASE` to point at a fixture server.
 
 ## Loading real grid data
 
@@ -138,6 +174,7 @@ src/lib/             db pool, types, headroom RAG bands, fixed grid wording,
                      base map config
 src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      resolution chain, profile builder, stores, service
+                     S-02: constraint_rules.yaml, constraints, flood
 tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health

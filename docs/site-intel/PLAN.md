@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **S-01 building resolution + S-03 grid layer.** Updated 12 September 2026.
+Status: **S-01 resolve · S-02 constraints · S-03 grid.** Updated 12 September 2026.
 
 ---
 
@@ -120,6 +120,66 @@ areas that sit wholly within one country; `CH`, `SY`, `NP`, `TD` and `DG`
 straddle the border and are deliberately left unanswered rather than guessed.
 Inferred answers carry the `country_inferred_from_postcode` flag.
 
+## 2c. S-02 — planning and environmental constraints
+
+`constraints.ts` screens a resolved profile against the 21 datasets in brief
+section 4.2, in two passes: the site geometry intersecting (`present`), then a
+buffered box around it (`proximity`, 50 m by default, configurable). Wording
+lives in `constraint_rules.yaml`; the code returns states and rule keys only.
+
+**31 further tests** cover the state machine, the England gate, the buffer pass,
+the flood cross-check and the narrative guard. 84 in total across the suite.
+
+### Design decisions worth knowing
+
+**`not_found_coverage_complete` is currently unreachable, deliberately.**
+planning.data does not publish a per-dataset, per-LPA coverage guarantee we
+could rely on, so every empty result is `not_found_coverage_unknown`. The UI
+says "17 not confirmed" and explains that absence is not established. If the
+organisation/provision endpoints turn out to give a usable coverage signal,
+that is the one place to change.
+
+**A hit on the site always outranks a hit nearby.** Pass 2 is filtered to
+datasets not already `present`, *and* guarded on write. A test caught the
+unguarded version silently downgrading a `present` constraint to `proximity`
+when the source returned more than was asked for - which understates a real
+constraint, the wrong direction to fail in.
+
+**The 50 m buffer is a bounding-box buffer, not a true geometric buffer.** It
+over-captures at the corners, so it may report something as nearby that is
+slightly beyond 50 m. That is the safe direction for screening, and it is why
+buffer results are `proximity` at tier T3, never `present`.
+
+**A flood disagreement never clears risk.** Where the EA and planning.data
+disagree, the constraint stays `present`, both readings are shown, and
+`source_conflict` is raised. An unreachable EA is reported as unconfirmed, never
+as an all-clear.
+
+**No rule states a legal conclusion.** A test greps every rule for GPDO
+references, "class A", and "consent is/is not required" and fails the build on a
+hit. Rules say what was found and what to go and check.
+
+### Narrative guard
+
+`checkNarrative(text, screening)` implements brief section 7: generated text may
+not claim "no constraints" while anything is coverage-unknown, deny flood risk
+that was never confirmed absent, assert grid capacity is available, or name a
+constraint that was not found. Five tests hold it. Wire it into the LLM
+narrative path when that lands.
+
+### Not done
+
+- **EA flood endpoint is unverified.** `flood.ts` follows the documented ArcGIS
+  REST convention but has never been exercised live. Every failure returns
+  `null`, which reads as "could not confirm". Set `EA_FLOOD_SERVICE_URL` once the
+  real path is known, or `EA_FLOOD_DISABLED=1` to skip it.
+- **Bulk downloads for portfolio runs.** The brief wants bulk datasets beyond 50
+  buildings; `BULK_THRESHOLD` is defined but nothing acts on it yet. Per-building
+  API screening with a 250 ms pause is fine for single sites, not for a portfolio.
+- **Welsh and Scottish constraints.** Return `not_supported` with a reason, as
+  specified. DataMapWales and SpatialData.gov.scot are phase 2.
+- **Surface-water flood risk** - out of scope for phase 1, per the brief.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -229,5 +289,11 @@ needs its own adapter. Highest-value next piece of S-03.
   none verified against a licence page.
 - **Fixture sites.** The brief asks for 8 confirmed sites (§9). None chosen.
   Needed before the golden-file and contract tests can be meaningful.
+- **All 21 constraint wordings in `constraint_rules.yaml`** — every rule is
+  `approved: false`. `site:verify` counts them and the API returns the
+  unapproved list with every screening. Nothing should reach a client until
+  these are signed off.
+- **The 50 m proximity buffer** and whether it should differ per dataset (the
+  setting of a listed building may warrant more than an AQMA).
 - **Base map tile source.** OS Data Hub key needed for production; CARTO
   fallback has not had its terms checked for commercial use.

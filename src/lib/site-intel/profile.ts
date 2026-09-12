@@ -294,12 +294,16 @@ export function applyOverride(
  * Convenience for the constraints work in S-02: the geometry to query with is
  * the footprint if we have one, otherwise the title extent, otherwise nothing.
  */
-export function queryGeometry(profile: SiteProfile): { wkt: string; basis: string } | null {
+export function queryGeometry(
+  profile: SiteProfile,
+): { wkt: string; basis: string; geometry: GeoJSON.Geometry } | null {
   if (profile.footprint.geometry) {
-    return { wkt: toWkt(profile.footprint.geometry), basis: "footprint" };
+    const geometry = profile.footprint.geometry;
+    return { wkt: toWkt(geometry), basis: "footprint", geometry };
   }
   if (profile.titleExtents.length === 1) {
-    return { wkt: toWkt(profile.titleExtents[0].geometry), basis: "title extent" };
+    const geometry = profile.titleExtents[0].geometry;
+    return { wkt: toWkt(geometry), basis: "title extent", geometry };
   }
   return null;
 }

@@ -121,3 +121,39 @@ sources:
       Fallback only, and its coordinates are NEVER persisted. Used solely to
       find candidate OS Open UPRN points within 25 m, which are what gets
       stored. Brief section 3.1.
+
+  planning-data-constraints:
+    name: Planning and environmental constraints
+    publisher: Ministry of Housing, Communities and Local Government
+    dataset: planning-data-constraints
+    kind: api
+    url: https://www.planning.data.gov.uk/entity.json
+    licence: OGL-UK-3.0
+    licence_url: https://www.planning.data.gov.uk/docs
+    attribution: "Contains public sector information licensed under the Open Government Licence v3.0"
+    attribution_verified: false
+    refresh: 7d
+    coverage: England
+    notes: >
+      Covers every S-02 constraint dataset. Coverage varies by dataset and by
+      local planning authority and is not guaranteed complete, which is why an
+      empty result is not_found_coverage_unknown rather than a plain not-found.
+
+  ea-flood-map:
+    name: Flood Map for Planning (Rivers and Sea)
+    publisher: Environment Agency
+    dataset: flood-map-for-planning
+    kind: api
+    url: https://environment.data.gov.uk/spatialdata/flood-map-for-planning-rivers-and-sea-flood-zone-3/wfs
+    licence: OGL-UK-3.0
+    licence_url: https://environment.data.gov.uk/
+    attribution: "© Environment Agency copyright and/or database right {year}. All rights reserved."
+    attribution_verified: false
+    refresh: 30d
+    coverage: England
+    notes: >
+      The authoritative flood source; planning.data carries a copy. Where the
+      two disagree both are shown and source_conflict is raised. Surface-water
+      flood risk is out of scope for phase 1. ENDPOINT SHAPE UNVERIFIED - this
+      build could not reach environment.data.gov.uk.
+

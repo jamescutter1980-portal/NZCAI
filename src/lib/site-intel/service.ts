@@ -5,6 +5,8 @@ import { resolve, type ResolveDeps, type ResolveInput, type ResolveResult } from
 import { footprintStore, postcodeStore, uprnStore } from "./stores";
 import type { Candidate, SiteProfile, SourceRecord } from "./types";
 import type { LatLon } from "./geo";
+import { screenConstraints, type ConstraintScreening } from "./constraints";
+import { eaFloodCheck, noFloodCheck } from "./flood";
 
 /**
  * Service layer. `getProfile` is the single entry point skills, reports and the
@@ -59,6 +61,19 @@ export async function profileForCandidate(candidate: Candidate): Promise<SitePro
   const profile = await buildProfile(candidate, profileDeps);
   profile.sources = profile.sources.map((s) => applyStaleness(s));
   return profile;
+}
+
+/**
+ * Screens a profile for planning and environmental constraints.
+ *
+ * The EA flood cross-check is on by default and off when EA_FLOOD_DISABLED is
+ * set - useful where the service is unreachable, since an unreachable EA is
+ * reported as unconfirmed rather than as an absence of risk either way.
+ */
+export async function constraintsFor(profile: SiteProfile): Promise<ConstraintScreening> {
+  return screenConstraints(profile, {
+    flood: process.env.EA_FLOOD_DISABLED ? noFloodCheck : eaFloodCheck(),
+  });
 }
 
 /** Resolve then profile in one step, taking the best candidate. */

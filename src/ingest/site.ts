@@ -19,6 +19,7 @@ import { closePool, getPool } from "@/lib/db";
 import { checkSlugs } from "@/lib/site-intel/planning-data";
 import { DATASETS } from "@/lib/site-intel/profile";
 import { loadSources, unverifiedAttributions } from "@/lib/site-intel/sources";
+import { ruleDatasets, unapprovedRules } from "@/lib/site-intel/rules";
 import { referenceDataCounts } from "@/lib/site-intel/stores";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 
@@ -168,7 +169,8 @@ async function verify(): Promise<void> {
   }
 
   console.log("\nplanning.data.gov.uk slugs");
-  const wanted = [DATASETS.title, DATASETS.lpa, DATASETS.lad];
+  // Brief 4.1: resolve slugs at startup and fail loudly on a missing one.
+  const wanted = [DATASETS.title, DATASETS.lpa, DATASETS.lad, ...ruleDatasets()];
   try {
     const { present, missing } = await checkSlugs(wanted);
     for (const slug of present) console.log(`  ${GREEN}OK${OFF}   ${slug}`);
@@ -178,6 +180,15 @@ async function verify(): Promise<void> {
     }
   } catch (err) {
     console.log(`  ${RED}FAIL${OFF} ${err instanceof Error ? err.message.slice(0, 160) : err}`);
+  }
+
+  console.log("\nconstraint wording");
+  const unapproved = unapprovedRules();
+  if (unapproved.length === 0) {
+    console.log(`  ${GREEN}all ${ruleDatasets().length} rules approved${OFF}`);
+  } else {
+    console.log(`  ${YELLOW}${unapproved.length}/${ruleDatasets().length} awaiting James's sign-off${OFF}`);
+    console.log(`  ${DIM}Set approved: true in constraint_rules.yaml once signed off.${OFF}`);
   }
 
   console.log("\nattribution strings");

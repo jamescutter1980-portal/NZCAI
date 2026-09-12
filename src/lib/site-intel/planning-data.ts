@@ -9,7 +9,11 @@
  * network, per the brief ("No live network calls in CI").
  */
 
-const BASE = "https://www.planning.data.gov.uk";
+/**
+ * Overridable so the app can be pointed at a recorded-fixture server for
+ * contract testing and offline demos, without touching call sites.
+ */
+const BASE = process.env.PLANNING_DATA_BASE ?? "https://www.planning.data.gov.uk";
 const USER_AGENT = "NZC-AI/0.1 (site intelligence)";
 
 export type FetchLike = (url: string) => Promise<{

@@ -187,3 +187,35 @@ export function extractPostcode(address: string): string | null {
   const match = /([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})/i.exec(address);
   return match ? normalisePostcode(`${match[1]}${match[2]}`) : null;
 }
+
+/**
+ * Expands a geometry's bounding box by `metres` and returns it as a Polygon.
+ *
+ * This is a bounding-box buffer, not a true geometric buffer: at the corners it
+ * reaches further than `metres`, so it OVER-captures. That is the safe
+ * direction for a screening tool - flagging something just outside the radius
+ * as nearby costs a reviewer a moment, missing one does not surface at all.
+ * Results from it are reported as `proximity`, never as `present`.
+ */
+export function bufferBounds(
+  geometry: GeoJSON.Geometry,
+  metres: number,
+): GeoJSON.Polygon | null {
+  const box = bounds(geometry);
+  if (!box) return null;
+  const [west, south, east, north] = box;
+
+  const dLat = metres / EARTH_RADIUS_M / DEG;
+  const midLat = (south + north) / 2;
+  const dLon = dLat / Math.max(0.01, Math.cos(midLat * DEG));
+
+  const w = west - dLon;
+  const e = east + dLon;
+  const s = south - dLat;
+  const n = north + dLat;
+
+  return {
+    type: "Polygon",
+    coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]],
+  };
+}

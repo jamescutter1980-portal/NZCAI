@@ -345,3 +345,55 @@ body {
 .site-lineage strong { color: var(--ink-2); font-family: var(--f-mono); }
 .site-lineage .attrib { color: var(--ink-3); font-style: italic; }
 .site-method { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+
+/* ---- S-02 constraints ---------------------------------------------------- */
+
+.constraints {
+  padding-top: 10px; border-top: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 9px;
+}
+
+.constraint {
+  padding: 9px 10px; border-radius: 3px;
+  border-left: 3px solid var(--rule); background: var(--surface);
+}
+.constraint.present { border-left-color: var(--risk); }
+.constraint.proximity { border-left-color: var(--warn); }
+
+.constraint-label {
+  margin: 0; font-size: 13px; font-weight: 600;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+}
+.constraint-state {
+  font-family: var(--f-mono); font-size: 10px; font-weight: 400;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3);
+  white-space: nowrap;
+}
+.constraint.present .constraint-state { color: var(--risk); }
+.constraint.proximity .constraint-state { color: var(--warn); }
+
+.constraint-msg { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.constraint-check {
+  margin: 5px 0 0; font-size: 12px; line-height: 1.45; color: var(--ink-3);
+  padding-left: 9px; border-left: 1px solid var(--rule);
+}
+.constraint-refs { margin: 4px 0 0; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+
+.constraint-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.constraint-conflict {
+  margin: 0; padding: 8px 10px; border-radius: 3px;
+  background: var(--risk-soft); color: var(--risk);
+  font-size: 12.5px; line-height: 1.45;
+}
+
+.constraint-unchecked { font-size: 12px; color: var(--ink-3); }
+.constraint-unchecked summary {
+  cursor: pointer; font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em;
+}
+.constraint-unchecked p { margin: 7px 0 5px; line-height: 1.45; }
+.constraint-unchecked ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 2px; }
+
+.constraint-caveat {
+  margin: 0; padding-top: 8px; border-top: 1px solid var(--rule);
+  font-size: 11.5px; line-height: 1.45; color: var(--ink-3);
+}

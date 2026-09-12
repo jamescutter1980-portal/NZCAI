@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import type { Candidate, SiteProfile } from "@/lib/site-intel/types";
+import type { ConstraintScreening } from "@/lib/site-intel/constraints";
 import { TIER_LABEL } from "@/lib/site-intel/types";
 
 /**
@@ -43,6 +44,88 @@ const STATE_COPY: Record<string, string> = {
   source_error: "source unavailable",
 };
 
+/** Constraints found on or near the site. Absences are stated, never implied. */
+function ConstraintList({ screening }: { screening: ConstraintScreening }) {
+  const found = screening.constraints.filter(
+    (c) => c.state === "present" || c.state === "proximity",
+  );
+  const unchecked = screening.constraints.filter(
+    (c) => c.state === "not_found_coverage_unknown" || c.state === "source_error",
+  );
+  const unsupported = screening.constraints.filter((c) => c.state === "not_supported");
+
+  return (
+    <section className="constraints">
+      <p className="eyebrow">Planning and environmental</p>
+
+      {screening.unsupportedReason && (
+        <p className="constraint-note">{screening.unsupportedReason}</p>
+      )}
+
+      {screening.flags.includes("source_conflict") && (
+        <p className="constraint-conflict">
+          Sources disagree on flood risk. Both readings are shown below; treat it as
+          unresolved until checked directly.
+        </p>
+      )}
+
+      {found.map((c) => (
+        <div key={c.dataset} className={`constraint ${c.state}`}>
+          <p className="constraint-label">
+            {c.label}
+            <span className="constraint-state">
+              {c.state === "present" ? "on site" : `within ${screening.bufferM} m`}
+            </span>
+          </p>
+          {c.message && <p className="constraint-msg">{c.message}</p>}
+          {c.check && <p className="constraint-check">{c.check}</p>}
+          {c.entities.length > 0 && (
+            <p className="constraint-refs">
+              {c.entities.slice(0, 4).map((e) => e.name ?? e.reference).filter(Boolean).join(", ")}
+            </p>
+          )}
+        </div>
+      ))}
+
+      {found.length === 0 && unsupported.length === 0 && (
+        <p className="constraint-note">
+          Nothing was found on or within {screening.bufferM} m of this site. That is not
+          the same as there being nothing: see the unconfirmed list below.
+        </p>
+      )}
+
+      {unsupported.length > 0 && (
+        <p className="constraint-note">
+          {unsupported.length} datasets not screened — outside England.
+        </p>
+      )}
+
+      {unchecked.length > 0 && (
+        <details className="constraint-unchecked">
+          <summary>{unchecked.length} not confirmed</summary>
+          <p>
+            Nothing was returned for these, but coverage could not be confirmed, so
+            absence is not established.
+          </p>
+          <ul>
+            {unchecked.map((c) => (
+              <li key={c.dataset}>
+                {c.label}
+                {c.state === "source_error" ? " — source unavailable" : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <p className="constraint-caveat">
+        Screening flags for review by a qualified person. Not a planning
+        determination, and not a statement that consent is or is not required.
+      </p>
+    </section>
+  );
+}
+
 export default function SitePanel({ mapApi }: Props) {
   const [queryText, setQueryText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,12 +135,14 @@ export default function SitePanel({ mapApi }: Props) {
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [profile, setProfile] = useState<SiteProfile | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [screening, setScreening] = useState<ConstraintScreening | null>(null);
 
   const reset = useCallback(() => {
     setCandidates([]);
     setSelected(null);
     setProfile(null);
     setConfirmed(false);
+    setScreening(null);
     setStep(null);
     mapApi.clearSite();
   }, [mapApi]);
@@ -109,6 +194,7 @@ export default function SitePanel({ mapApi }: Props) {
     async (candidate: Candidate) => {
       setSelected(candidate);
       setConfirmed(false);
+      setScreening(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -118,11 +204,16 @@ export default function SitePanel({ mapApi }: Props) {
       setBusy(true);
       try {
         const res = await fetch(
-          `/api/site-intel/profile?uprn=${encodeURIComponent(candidate.uprn)}`,
+          `/api/site-intel/profile?uprn=${encodeURIComponent(candidate.uprn)}&constraints=1`,
         );
-        const data = (await res.json()) as { profile?: SiteProfile; error?: string };
+        const data = (await res.json()) as {
+          profile?: SiteProfile;
+          constraints?: ConstraintScreening | null;
+          error?: string;
+        };
         if (data.profile) {
           setProfile(data.profile);
+          setScreening(data.constraints ?? null);
           mapApi.showGeometry(data.profile);
         } else if (data.error) {
           setError(data.error);
@@ -258,6 +349,8 @@ export default function SitePanel({ mapApi }: Props) {
           {profile && profile.flags.length > 0 && (
             <p className="site-flags">{profile.flags.join(" · ")}</p>
           )}
+
+          {screening && <ConstraintList screening={screening} />}
 
           <div className="site-actions">
             {!confirmed && selected.uprn && (
