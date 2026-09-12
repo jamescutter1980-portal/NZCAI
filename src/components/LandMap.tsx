@@ -45,6 +45,7 @@ import {
   linesForEdge,
   linesForVertex,
   regularise,
+  selfCrossings,
   simplify,
   insertAfter,
   midpoints,
@@ -58,6 +59,9 @@ import {
   toPolygon,
   vertexAt,
   type Assist,
+  type BulkOutcome,
+  type Crossing,
+  type DrawState,
   type Regularised,
   type Simplified,
   type SnapResult,
@@ -137,6 +141,12 @@ const DRAW_SQUARE = "site-draw-square";
  * and this half is our extrapolation of it.
  */
 const DRAW_SQUARE_EXT = "site-draw-square-extension";
+/**
+ * Where the outline crosses itself. RED, and the only red on the editing map:
+ * everything else here is a suggestion, and this is the one thing that makes
+ * the shape unusable.
+ */
+const DRAW_CROSS = "site-draw-crossing";
 /** Neighbouring OS polygons: context to draw against, and snap targets. */
 const NEIGHBOURS = "site-neighbours";
 
@@ -218,6 +228,11 @@ function nearerEnd(
   const da = Math.hypot(point[0] - wall.a[0], point[1] - wall.a[1]);
   const db = Math.hypot(point[0] - wall.b[0], point[1] - wall.b[1]);
   return da <= db ? wall.a : wall.b;
+}
+
+/** One wall as a drawable feature. */
+function wallFeature(a: [number, number], b: [number, number]): GeoJSON.Feature {
+  return { type: "Feature", geometry: { type: "LineString", coordinates: [a, b] }, properties: {} };
 }
 
 function emptyCollection(): GeoJSON.FeatureCollection {
@@ -799,6 +814,27 @@ export default function LandMap({
         paint: { "line-color": "#B26B00", "line-width": 3, "line-opacity": 0.85 },
       });
 
+      m.addSource(DRAW_CROSS, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: `${DRAW_CROSS}-line`,
+        type: "line",
+        source: DRAW_CROSS,
+        filter: ["==", ["geometry-type"], "LineString"],
+        paint: { "line-color": "#C0261B", "line-width": 3 },
+      });
+      m.addLayer({
+        id: DRAW_CROSS,
+        type: "circle",
+        source: DRAW_CROSS,
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 6,
+          "circle-color": "#C0261B",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#FFFFFF",
+        },
+      });
+
       m.addSource(DRAW_SNAP, { type: "geojson", data: emptyCollection() });
       m.addLayer({
         id: DRAW_SNAP,
@@ -972,7 +1008,7 @@ export default function LandMap({
         e.preventDefault();
         drawing.current = removeVertex(drawing.current as Vertex[], target.index);
         renderDrawing();
-        onDrawChange.current?.(drawing.current.length);
+        reportDrawing();
         return;
       }
 
@@ -1079,7 +1115,7 @@ export default function LandMap({
           );
           renderDrawing();
         }
-        onDrawChange.current?.(drawing.current.length);
+        reportDrawing();
         return;
       }
 
@@ -1087,7 +1123,7 @@ export default function LandMap({
       dragging.current = null;
       instance.dragPan.enable();
       showSnap(null);
-      onDrawChange.current?.(drawing.current.length);
+      reportDrawing();
     };
     instance.on("mouseup", endDrag);
     // A pointer released off the canvas still has to release the map.
@@ -1135,7 +1171,7 @@ export default function LandMap({
         drawing.current = [...drawing.current, vertex];
         renderDrawing();
         showSnap(null);
-        onDrawChange.current?.(drawing.current.length);
+        reportDrawing();
         return;
       }
 
@@ -1276,10 +1312,37 @@ export default function LandMap({
    * LineString until then and a Polygon after. Showing a closed shape with two
    * points would misrepresent what has actually been placed.
    */
+  /**
+   * Walls that cross, worked out once per render and kept for the report.
+   *
+   * Not a nicety. A crossed outline has no meaningful area — the shoelace sum
+   * gives the two lobes opposite signs and they partly cancel — so this is the
+   * one shape defect that would put a wrong number into the database with
+   * nothing downstream able to tell.
+   */
+  const crossings = useRef<Crossing[]>([]);
+
   const renderDrawing = useCallback(() => {
     const points = drawing.current;
     const m = map.current;
     if (!m) return;
+
+    crossings.current = selfCrossings(points as Vertex[]);
+    const cross = m.getSource(DRAW_CROSS) as GeoJSONSource | undefined;
+    cross?.setData({
+      type: "FeatureCollection",
+      features: crossings.current.flatMap((c) => [
+        // The two walls at fault AND the point where they meet: the point
+        // alone would leave the user hunting for which corner to pull back.
+        wallFeature(points[c.a], points[(c.a + 1) % points.length]),
+        wallFeature(points[c.b], points[(c.b + 1) % points.length]),
+        {
+          type: "Feature" as const,
+          geometry: { type: "Point" as const, coordinates: c.at },
+          properties: {},
+        },
+      ]),
+    });
 
     const line = m.getSource(DRAW_LINE) as GeoJSONSource | undefined;
     const dots = m.getSource(DRAW_POINTS) as GeoJSONSource | undefined;
@@ -1329,6 +1392,14 @@ export default function LandMap({
           }
         : emptyCollection(),
     );
+  }, []);
+
+  /** Tells the panel how the drawing stands: how many points, and whether it crosses. */
+  const reportDrawing = useCallback(() => {
+    onDrawChange.current?.({
+      points: drawing.current.length,
+      crossings: crossings.current.length,
+    });
   }, []);
 
   /**
@@ -1528,6 +1599,36 @@ export default function LandMap({
     source?.setData(data);
   }, []);
 
+  /**
+   * Applies a whole-shape change, unless it would leave the outline crossed.
+   *
+   * Both operations move or remove every corner on an assumption about
+   * buildings, and either could in principle fold a very ragged shape through
+   * itself. Where the shape was clean before and is not after, the change is
+   * REFUSED outright rather than applied and left for the user to notice.
+   *
+   * Where it was already crossed, the operation goes ahead: it did not cause
+   * the fault, refusing would trap the user with no way to tidy the shape, and
+   * the warning stands either way.
+   */
+  const applyBulk = useCallback(<T extends { vertices: Vertex[] }>(
+    done: T | null,
+  ): BulkOutcome<T> => {
+    if (!done) return { ok: false, reason: "nothing" };
+
+    const wasCrossed = crossings.current.length > 0;
+    if (!wasCrossed && selfCrossings(done.vertices).length > 0) {
+      return { ok: false, reason: "would-cross" };
+    }
+
+    beforeBulk.current = drawing.current as Vertex[];
+    drawing.current = done.vertices;
+    renderDrawing();
+    showSnap(null);
+    reportDrawing();
+    return { ok: true, report: done };
+  }, [renderDrawing, showSnap, reportDrawing]);
+
   const mapApi: SiteMapApi = useMemo(
     () => ({
       showSite(lat, lon) {
@@ -1662,7 +1763,7 @@ export default function LandMap({
         if (canvas) canvas.style.cursor = "";
       },
 
-      startDraw(onChange: (count: number) => void) {
+      startDraw(onChange: (state: DrawState) => void) {
         // Same rule the other way round.
         picking.current = false;
         onPick.current = null;
@@ -1672,7 +1773,7 @@ export default function LandMap({
         beforeBulk.current = null;
         onDrawChange.current = onChange;
         renderDrawing();
-        onChange(0);
+        reportDrawing();
         const canvas = map.current?.getCanvas();
         if (canvas) canvas.style.cursor = "crosshair";
       },
@@ -1685,7 +1786,7 @@ export default function LandMap({
        * because a footprint with a moved corner is no longer what OS
        * published. Returns false when there is nothing editable.
        */
-      startEdit(geometry: GeoJSON.Geometry | null, onChange: (count: number) => void): boolean {
+      startEdit(geometry: GeoJSON.Geometry | null, onChange: (state: DrawState) => void): boolean {
         const ring = outerRing(geometry);
         if (ring.length < 3) return false;
 
@@ -1698,7 +1799,7 @@ export default function LandMap({
         appendOnClick.current = false;
         onDrawChange.current = onChange;
         renderDrawing();
-        onChange(ring.length);
+        reportDrawing();
         const canvas = map.current?.getCanvas();
         if (canvas) canvas.style.cursor = "crosshair";
         return true;
@@ -1723,15 +1824,8 @@ export default function LandMap({
        * corner at that, so it needs its own way back that is not "cancel the
        * entire edit".
        */
-      squareUp(): Regularised | null {
-        const done = regularise(drawing.current as Vertex[]);
-        if (!done) return null;
-        beforeBulk.current = drawing.current as Vertex[];
-        drawing.current = done.vertices;
-        renderDrawing();
-        showSnap(null);
-        onDrawChange.current?.(drawing.current.length);
-        return done;
+      squareUp(): BulkOutcome<Regularised> {
+        return applyBulk(regularise(drawing.current as Vertex[]));
       },
 
       /**
@@ -1741,15 +1835,8 @@ export default function LandMap({
        * come out near-collinear: dropping a vertex the user placed is a
        * separate decision and gets a separate button.
        */
-      simplifyShape(): Simplified | null {
-        const done = simplify(drawing.current as Vertex[]);
-        if (!done) return null;
-        beforeBulk.current = drawing.current as Vertex[];
-        drawing.current = done.vertices;
-        renderDrawing();
-        showSnap(null);
-        onDrawChange.current?.(drawing.current.length);
-        return done;
+      simplifyShape(): BulkOutcome<Simplified> {
+        return applyBulk(simplify(drawing.current as Vertex[]));
       },
 
       undoBulkEdit(): boolean {
@@ -1758,7 +1845,7 @@ export default function LandMap({
         beforeBulk.current = null;
         drawing.current = before;
         renderDrawing();
-        onDrawChange.current?.(drawing.current.length);
+        reportDrawing();
         return true;
       },
 
@@ -1783,7 +1870,7 @@ export default function LandMap({
       undoDrawPoint() {
         drawing.current = drawing.current.slice(0, -1);
         renderDrawing();
-        onDrawChange.current?.(drawing.current.length);
+        reportDrawing();
       },
 
       cancelDraw() {
@@ -1833,7 +1920,7 @@ export default function LandMap({
           CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
           GRID_SUPPLY_AREA, GRID_SITE_SUBS, GRID_ECR,
           DRAW_LINE, DRAW_POINTS, DRAW_MIDS, DRAW_SNAP, DRAW_SNAP_EDGE,
-          DRAW_SQUARE, DRAW_SQUARE_EXT, NEIGHBOURS,
+          DRAW_SQUARE, DRAW_SQUARE_EXT, DRAW_CROSS, NEIGHBOURS,
         ]) {
           setSiteData(id, emptyCollection());
         }
@@ -1874,7 +1961,7 @@ export default function LandMap({
    */
   const drawing = useRef<[number, number][]>([]);
   const drawActive = useRef(false);
-  const onDrawChange = useRef<((count: number) => void) | null>(null);
+  const onDrawChange = useRef<((state: DrawState) => void) | null>(null);
 
   /*
    * Move-pin mode. Separate from draw mode and mutually exclusive with it: one

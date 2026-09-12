@@ -1291,3 +1291,132 @@ export function simplify(
     furthestM: furthest * 111_320,
   };
 }
+
+/* --------------------------------------------------- self-intersection --- */
+
+/**
+ * Two walls of the same shape that cross, and where.
+ *
+ * `a` and `b` are wall indices, indexed like `midpoints`: wall i runs from
+ * vertex i to vertex i + 1.
+ */
+export interface Crossing {
+  a: number;
+  b: number;
+  at: Vertex;
+}
+
+/**
+ * How a drawing stands, as reported to whatever is showing the controls.
+ *
+ * The crossing count travels with the point count because they are read
+ * together: a shape is finishable when it has three points AND none of them
+ * cross, and a caller given only the first would offer to save a bow tie.
+ */
+export interface DrawState {
+  points: number;
+  crossings: number;
+}
+
+/**
+ * What came of a whole-shape change.
+ *
+ * A bare null would collapse two different answers into one: "there was
+ * nothing here to do" and "doing it would have folded the shape through
+ * itself". The panel has to tell the user which, so the type keeps them apart.
+ */
+export type BulkOutcome<T> =
+  | { ok: true; report: T }
+  | { ok: false; reason: "nothing" | "would-cross" };
+
+/**
+ * Tolerance for "these three points are in a line", as a perpendicular
+ * distance in degrees once the cross product is normalised by segment length.
+ *
+ * The same value and the same reasoning as `geo.ts`: a raw cross product
+ * scales with the size of the segments, so a fixed epsilon against it would be
+ * strict for small polygons and loose for large ones, and an exact `=== 0`
+ * test decides a knife edge by rounding error.
+ */
+const COLLINEAR_EPSILON = 1e-12;
+
+/** Which side of a→b does c fall, as a length-normalised distance. */
+function side(a: Vertex, b: Vertex, c: Vertex, k: number): number {
+  const abx = (b[0] - a[0]) * k;
+  const aby = b[1] - a[1];
+  const acx = (c[0] - a[0]) * k;
+  const acy = c[1] - a[1];
+  const length = Math.hypot(abx, aby);
+  if (length === 0) return 0;
+  return (abx * acy - aby * acx) / length;
+}
+
+/**
+ * Walls of a ring that cross each other.
+ *
+ * WHY THIS MATTERS MORE THAN IT LOOKS. A polygon that crosses itself has no
+ * well-defined area: the shoelace sum treats the two lobes as opposite signs
+ * and they partly cancel, so a bow tie can report an area near zero. That
+ * figure feeds the constraint screen and every floor-area comparison, and
+ * nothing downstream can tell it is nonsense. This is the one shape defect the
+ * editor must not let through quietly.
+ *
+ * PROPER crossings only — two walls sharing an interior point. Merely touching
+ * does not count, and must not: every ring's adjacent walls touch at the vertex
+ * between them by construction, and a vertex that happens to sit exactly on a
+ * far wall pinches the outline without making its area wrong.
+ *
+ * That is the difference from `geo.ts`'s segment test, which counts touching as
+ * crossing on purpose — two buildings on a party wall do intersect, and PostGIS
+ * agrees. The question there is "do these meet"; here it is "is this shape
+ * valid", and they want opposite answers about a touch.
+ *
+ * O(n²) over walls, which is nothing on a footprint.
+ */
+export function selfCrossings(vertices: Vertex[]): Crossing[] {
+  const n = vertices.length;
+  if (n < 4) return [];   // a triangle cannot cross itself
+
+  // One flat frame, as everywhere else here: a crossing is a fact about the
+  // ground, and raw degrees are not isotropic.
+  const lat0 = vertices.reduce((sum, v) => sum + v[1], 0) / n;
+  const k = Math.cos((lat0 * Math.PI) / 180);
+  if (k === 0) return [];
+
+  const out: Crossing[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const p1 = vertices[i];
+    const p2 = vertices[(i + 1) % n];
+
+    // Start far enough along that neighbouring walls, which share a vertex,
+    // are never compared; stop before the wall that closes back onto wall i.
+    for (let j = i + 2; j < n; j += 1) {
+      if (i === 0 && j === n - 1) continue;   // these two share vertex 0
+
+      const p3 = vertices[j];
+      const p4 = vertices[(j + 1) % n];
+
+      const d1 = side(p1, p2, p3, k);
+      const d2 = side(p1, p2, p4, k);
+      const d3 = side(p3, p4, p1, k);
+      const d4 = side(p3, p4, p2, k);
+
+      // Strictly opposite sides on BOTH walls. Anything within the epsilon is
+      // a touch or a collinear overlap, not a crossing.
+      const straddles =
+        Math.abs(d1) > COLLINEAR_EPSILON && Math.abs(d2) > COLLINEAR_EPSILON &&
+        Math.abs(d3) > COLLINEAR_EPSILON && Math.abs(d4) > COLLINEAR_EPSILON &&
+        (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0);
+      if (!straddles) continue;
+
+      // Where they cross, so the map can point at it.
+      const t = d3 / (d3 - d4);
+      out.push({
+        a: i,
+        b: j,
+        at: [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])],
+      });
+    }
+  }
+  return out;
+}

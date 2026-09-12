@@ -718,6 +718,33 @@ Below three corners there is no area, so where simplifying would go under it
 and simplifying share one undo snapshot, so the second means the first can no
 longer be taken back — the button names which one it will undo.
 
+### An outline that crosses itself
+
+The one shape defect the editor stops rather than flags, because it is the one
+that would be **silent**. A crossed polygon has no well-defined area: the
+shoelace sum gives the two lobes opposite signs and they partly cancel, so a bow
+tie over a 100 m square reports an area of zero. That figure would go onto the
+profile, into the constraint screen and into every floor-area comparison, and
+nothing downstream could tell it was nonsense.
+
+Any gesture can produce one — drag a corner across the shape, push a wall
+through the one opposite — so the check runs on every change, not just on save.
+
+**Proper crossings only**, which is the opposite of what `geo.ts` asks. That
+test counts touching as crossing on purpose (two buildings on a party wall do
+intersect, and PostGIS agrees); here touching must *not* count, because every
+ring's adjacent walls meet at the vertex between them by construction, and a
+vertex landing exactly on a far wall pinches the outline without making its area
+wrong.
+
+While it crosses: both offending walls and the crossing point are drawn in
+**red** — the only red on the editing map, since everything else there is a
+suggestion — and **Save is disabled** with the reason stated first in the panel.
+A whole-shape change that would fold the outline is refused outright rather than
+applied and left to be noticed; where the shape was already crossed it goes
+ahead, since it did not cause the fault and refusing would leave no way to tidy
+up.
+
 ### Reproject first — the loader will stop you
 
 OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.

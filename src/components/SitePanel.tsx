@@ -12,7 +12,7 @@ import type { MeesScreening } from "@/lib/site-intel/mees";
 import type { GridProfile } from "@/lib/site-intel/grid";
 import type { CertificateAge, Intensity, RatingReading } from "@/lib/site-intel/performance";
 import { TIER_LABEL, buildingIdFor } from "@/lib/site-intel/types";
-import type { Regularised, Simplified } from "@/lib/site-intel/draw";
+import type { BulkOutcome, DrawState, Regularised, Simplified } from "@/lib/site-intel/draw";
 
 /**
  * S-01 "Is this the building?" step.
@@ -44,9 +44,9 @@ export interface SiteMapApi {
   cancelPick(): void;
 
   /* Redraw (brief §3.2, §3.4). */
-  startDraw(onChange: (count: number) => void): void;
+  startDraw(onChange: (state: DrawState) => void): void;
   /** Seeds the editor from an existing shape. False when there is none. */
-  startEdit(geometry: GeoJSON.Geometry | null, onChange: (count: number) => void): boolean;
+  startEdit(geometry: GeoJSON.Geometry | null, onChange: (state: DrawState) => void): boolean;
   undoDrawPoint(): void;
   cancelDraw(): void;
   /** Closes the ring. Null below three points, which is not an area. */
@@ -63,12 +63,12 @@ export interface SiteMapApi {
    * Squares the whole shape up against its own grid, all at once. Returns what
    * it did — the panel has to say, because it moves every corner.
    */
-  squareUp(): Regularised | null;
+  squareUp(): BulkOutcome<Regularised>;
   /**
    * Drops corners that carry no shape. Separate from squaring, which keeps a
    * corner whose walls come out near-collinear on purpose.
    */
-  simplifyShape(): Simplified | null;
+  simplifyShape(): BulkOutcome<Simplified>;
   /** Takes the last whole-shape change back, without losing the rest of the edit. */
   undoBulkEdit(): boolean;
   /** Neighbouring polygons: context to draw against, and snap targets. */
@@ -753,6 +753,19 @@ export default function SitePanel({ mapApi }: Props) {
   /* Redraw. `drawPoints` is null when not drawing, a count when drawing. */
   const [drawPoints, setDrawPoints] = useState<number | null>(null);
   /*
+   * How many places the outline crosses itself. Its own state because it gates
+   * saving: a crossed polygon has no meaningful area — the shoelace sum gives
+   * the lobes opposite signs and they cancel — and that figure would go into
+   * the database and feed the constraint screen with nothing able to tell.
+   */
+  const [crossings, setCrossings] = useState(0);
+
+  /** One handler for both modes, so neither can forget half the state. */
+  const onDrawState = useCallback((state: DrawState) => {
+    setDrawPoints(state.points);
+    setCrossings(state.crossings);
+  }, []);
+  /*
    * Which of the two modes is running. They accept different gestures — a
    * click on open map places a corner in a fresh drawing and does nothing to
    * an existing ring — so the hint has to tell the user which one they are in.
@@ -792,6 +805,7 @@ export default function SitePanel({ mapApi }: Props) {
     setPerformance(null);
     setGrid(null);
     setDrawPoints(null);
+    setCrossings(0);
     setEditing(false);
     setBulk(null);
     setPicking(false);
@@ -1269,6 +1283,20 @@ export default function SitePanel({ mapApi }: Props) {
 
           {drawPoints !== null && (
             <div className="site-hint">
+              {/*
+                * First in the block, because it is the reason Save is
+                * unavailable. Below the hint and the two checkboxes it would
+                * have been under the fold, leaving a disabled button with its
+                * explanation out of sight.
+                */}
+              {crossings > 0 && (
+                <p className="site-crossed">
+                  This outline crosses itself
+                  {crossings > 1 ? ` in ${crossings} places` : ""} — shown in red on the
+                  map. A shape that crosses has no meaningful area, so it cannot be
+                  saved until the crossing is pulled apart.
+                </p>
+              )}
               <p>
                 {drawPoints} point{drawPoints === 1 ? "" : "s"}.{" "}
                 {editing
@@ -1362,7 +1390,7 @@ export default function SitePanel({ mapApi }: Props) {
                       setPicking(false);
                       const ok = mapApi.startEdit(
                         profile.footprint.geometry,
-                        setDrawPoints,
+                        onDrawState,
                       );
                       if (!ok) setError("That footprint has no editable outline.");
                       setEditing(ok);
@@ -1379,7 +1407,7 @@ export default function SitePanel({ mapApi }: Props) {
                     setPicking(false);
                     setEditing(false);
                     setBulk(null);
-                    mapApi.startDraw(setDrawPoints);
+                    mapApi.startDraw(onDrawState);
                   }}
                   disabled={busy || !selected.uprn || picking}
                   title={selected.uprn ? undefined : "A drawing needs a UPRN to be saved against"}
@@ -1392,7 +1420,14 @@ export default function SitePanel({ mapApi }: Props) {
                 <button
                   type="button"
                   className="primary"
-                  disabled={busy || drawPoints < 3}
+                  /*
+                   * Blocked while the outline crosses itself. Not fussiness:
+                   * the area of a crossed polygon is meaningless, and saving
+                   * would put that figure on the profile and into the
+                   * constraint screen with nothing able to tell. The warning
+                   * says which walls, and Cancel is still there.
+                   */
+                  disabled={busy || drawPoints < 3 || crossings > 0}
                   onClick={() => {
                     const polygon = mapApi.finishDraw();
                     setDrawPoints(null);
@@ -1445,10 +1480,15 @@ export default function SitePanel({ mapApi }: Props) {
                       type="button"
                       disabled={busy || drawPoints < 3}
                       onClick={() => {
-                        const report = mapApi.squareUp();
-                        setBulk(report ? { kind: "squared", report } : null);
-                        if (!report) {
-                          setError("That shape has no wall with any length to square to.");
+                        const done = mapApi.squareUp();
+                        setBulk(done.ok ? { kind: "squared", report: done.report } : null);
+                        if (!done.ok) {
+                          setError(
+                            done.reason === "would-cross"
+                              ? "Squaring that shape would fold it through itself, so nothing"
+                                + " was changed."
+                              : "That shape has no wall with any length to square to.",
+                          );
                         }
                       }}
                     >
@@ -1462,11 +1502,14 @@ export default function SitePanel({ mapApi }: Props) {
                       type="button"
                       disabled={busy || drawPoints <= 3}
                       onClick={() => {
-                        const report = mapApi.simplifyShape();
-                        setBulk(report ? { kind: "simplified", report } : null);
-                        if (!report) {
+                        const done = mapApi.simplifyShape();
+                        setBulk(done.ok ? { kind: "simplified", report: done.report } : null);
+                        if (!done.ok) {
                           setError(
-                            "Nothing to simplify — every corner is carrying part of the shape.",
+                            done.reason === "would-cross"
+                              ? "Simplifying that shape would fold it through itself, so nothing"
+                                + " was changed."
+                              : "Nothing to simplify — every corner is carrying part of the shape.",
                           );
                         }
                       }}

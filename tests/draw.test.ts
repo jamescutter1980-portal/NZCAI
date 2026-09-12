@@ -19,6 +19,7 @@ import {
   linesForVertex,
   regularise,
   REGULARISE_DEGREES,
+  selfCrossings,
   simplify,
   SIMPLIFY_METRES,
   insertAfter,
@@ -1446,5 +1447,98 @@ describe("dropping corners that carry no shape", () => {
     const out = simplify(squared.vertices);
     assert.ok(out);
     assert.equal(out.vertices.length, 4, "simplifying takes it");
+  });
+});
+
+/* --------------------------------------------------- self-intersection --- */
+
+describe("a shape that crosses itself", () => {
+  const square: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+
+  test("a clean shape has none", () => {
+    assert.deepEqual(selfCrossings(square), []);
+  });
+
+  test("a bow tie is caught", () => {
+    // The classic: two corners swapped, so the outline crosses in the middle.
+    const bowtie: Vertex[] = [[0, 0], [0.001, 0], [0, 0.001], [0.001, 0.001]];
+    const found = selfCrossings(bowtie);
+    assert.equal(found.length, 1);
+    // Wall 0 (v0->v1, the south side) against wall 2 (v2->v3, the diagonal back).
+    assert.deepEqual([found[0].a, found[0].b], [1, 3]);
+  });
+
+  test("it says WHERE, so the map can point at it", () => {
+    const bowtie: Vertex[] = [[0, 0], [0.001, 0], [0, 0.001], [0.001, 0.001]];
+    const [found] = selfCrossings(bowtie);
+    close(found.at, [0.0005, 0.0005], "the middle of the bow");
+  });
+
+  test("this is why it matters: the area of a bow tie is nonsense", () => {
+    /*
+     * The shoelace sum gives the two lobes opposite signs and they cancel. A
+     * bow tie over a 100 x 100 m square reports an area of zero, and nothing
+     * downstream can tell that figure is meaningless.
+     */
+    const shoelace = (r: Vertex[]) => {
+      let a = 0;
+      for (let i = 0; i < r.length; i += 1) {
+        const p = r[i], q = r[(i + 1) % r.length];
+        a += p[0] * q[1] - q[0] * p[1];
+      }
+      return Math.abs(a / 2);
+    };
+    const bowtie: Vertex[] = [[0, 0], [0.001, 0], [0, 0.001], [0.001, 0.001]];
+    assert.ok(shoelace(square) > 0, "a real square has area");
+    assert.ok(shoelace(bowtie) < 1e-18, `the bow tie reports ${shoelace(bowtie)}`);
+  });
+
+  test("adjacent walls share a vertex and that is not a crossing", () => {
+    // Every ring would fail otherwise: wall i and wall i+1 meet at vertex i+1
+    // by construction, and the closing wall meets wall 0 at vertex 0.
+    assert.deepEqual(selfCrossings(square), []);
+    const wonky: Vertex[] = [[0, 0], [0.001, 0], [0.0009, 0.001], [0.0001, 0.0011], [0, 0.001]];
+    assert.deepEqual(selfCrossings(wonky), []);
+  });
+
+  test("a vertex sitting exactly ON a far wall is a touch, not a crossing", () => {
+    /*
+     * It pinches the outline but leaves the area sound, because the ring is
+     * still traversed consistently. Reporting it would fire on shapes that are
+     * perfectly usable.
+     */
+    const pinched: Vertex[] = [
+      [0, 0], [0.001, 0], [0.001, 0.001], [0.0005, 0], [0, 0.001],
+    ];
+    assert.deepEqual(selfCrossings(pinched), []);
+  });
+
+  test("a triangle cannot cross itself", () => {
+    assert.deepEqual(selfCrossings([[0, 0], [0.001, 0], [0, 0.001]]), []);
+    assert.deepEqual(selfCrossings([[0, 0], [0.001, 0]]), []);
+  });
+
+  test("more than one crossing is reported, not just the first", () => {
+    // A five-pointed star traced as one ring crosses itself five times.
+    const star: Vertex[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+      star.push([0.001 * Math.cos(a), 0.001 * Math.sin(a)]);
+    }
+    assert.equal(selfCrossings(star).length, 5);
+  });
+
+  test("the crossing is judged on the ground, not in raw degrees", () => {
+    /*
+     * At 53.5°N a degree of longitude is about six tenths of a degree of
+     * latitude. The flat frame makes the sides test isotropic; a crossing is a
+     * crossing either way, but the epsilon is a real distance only in one.
+     */
+    const bowtie: Vertex[] = [
+      [0, 53.5], [0.001, 53.5], [0, 53.501], [0.001, 53.501],
+    ];
+    const found = selfCrossings(bowtie);
+    assert.equal(found.length, 1);
+    assert.ok(Math.abs(found[0].at[1] - 53.5005) < 1e-9, `crossed at ${found[0].at}`);
   });
 });

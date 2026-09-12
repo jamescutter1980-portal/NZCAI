@@ -2582,13 +2582,118 @@ now: a minus sign on nothing reads as a mistake.
 
 - **No self-intersection check.** At a quarter of a metre on a building this
   cannot realistically happen, but "cannot realistically" is not "cannot", and
-  nothing verifies it. The area is reported, which would show a gross failure.
+  nothing verifies it. The area is reported, which would show a gross failure. *(Done in §2w.)*
 - **The tolerance is fixed.** No control to loosen it for a shape that wants
   heavier generalisation, which is the case for an imported outline with
   hundreds of points.
 - **It cannot be previewed**, like squaring: you apply it and read what it did.
 - **One snapshot**, so squaring then simplifying leaves only the simplifying
   undoable.
+- **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
+  and nothing is touch-tested.
+
+## 2w. S-01 self-intersection
+
+§2v recorded this as a simplification footnote. It is not: a shape that crosses
+itself can be produced by **any** of the editing gestures — drag a corner across
+the shape, push a wall through the one opposite, place a corner on the far side
+of the outline — and the consequence is the same every time.
+
+### Why it is the one defect that must not pass
+
+A crossed polygon has **no well-defined area**. The shoelace sum gives the two
+lobes opposite signs and they partly cancel, so a bow tie over a 100 m square
+reports an area of *zero*. That figure goes onto the profile, into the
+constraint screen, and into every floor-area comparison, and **nothing
+downstream can tell it is nonsense** — it is a plausible number of the right
+type.
+
+Every other thing the editor does wrong is visible or recoverable. This one is
+silent, so it is the one that gets a hard stop rather than a flag.
+
+### Proper crossings only, and that is the opposite of `geo.ts`
+
+`geo.ts`'s `segmentsCross` counts **touching** as crossing, deliberately: two
+buildings sharing a party wall do intersect, and PostGIS says the same. Here
+that answer would be wrong in both directions — every ring's adjacent walls
+touch at the vertex between them by construction, so every shape would fail,
+and a vertex that happens to land exactly on a far wall pinches the outline
+without making its area wrong.
+
+So `selfCrossings` tests for a **proper** crossing: strictly opposite sides on
+both walls, with anything inside the epsilon treated as a touch. The two
+functions want opposite answers about the same geometry because they are asking
+different questions — "do these meet" against "is this shape valid" — and that
+is worth the second implementation rather than a shared one with a flag.
+
+The epsilon is the same value and the same reasoning as §2l's: cross products
+normalised by segment length, so the tolerance means a distance rather than an
+area.
+
+`draw.ts` keeps its no-imports contract, and the test runs in the same flat
+frame as everything else there.
+
+### What it does
+
+- **The crossing is drawn in red** — both walls at fault and the point where
+  they meet. The point alone would leave the user hunting for which corner to
+  pull back. Red is the only red on the editing map: everything else there is a
+  suggestion, and this is the one thing that makes the shape unusable.
+- **Save is blocked** while the outline crosses, with the reason stated. Not
+  fussiness: the alternative is a meaningless area in the database. Cancel is
+  still there, and the warning sits **first** in the hint block — under the
+  point count and both checkboxes it would have been below the fold, which is a
+  disabled button with its explanation out of sight.
+- **A whole-shape change that would fold the shape is refused** outright rather
+  than applied and left to be noticed. Where the shape was *already* crossed the
+  operation goes ahead: it did not cause the fault, refusing would trap the user
+  with no way to tidy up, and the warning stands either way.
+
+`BulkOutcome` exists for that last point. A bare null collapsed two different
+answers — "there was nothing to do" and "doing it would have folded the shape" —
+and the panel has to tell the user which.
+
+### Verified in the browser
+
+A bow tie drawn by clicking the four corners of a rectangle with the top two
+swapped:
+
+- the warning appeared, worded in full;
+- **Save was disabled**;
+- **126 px of red** at the crossing point, with both offending walls drawn;
+- dragging the offending corner back cleared the warning and **re-enabled
+  Save**;
+- cancelling left the stored footprint untouched;
+- the published rectangle showed no warning and saved normally — no false
+  positive.
+
+The unit tests include the demonstration that matters: the same bow tie's
+shoelace area comes out at **zero** over a 100 m square, which is the number
+this check exists to keep out of the database.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `selfCrossings`, `Crossing`, `DrawState`, `BulkOutcome` |
+| `LandMap.tsx` | the red crossing layer, crossings computed per render, `applyBulk` refusing a change that would fold the shape |
+| `SitePanel.tsx` | the warning, the Save block, the two refusal wordings |
+| `globals.css` | the warning block, the only red in the editing panel |
+
+**9 more tests**, 532 across the suite.
+
+### Not done
+
+- **Collinear overlap is not caught.** Two walls lying along each other rather
+  than crossing is a zero-width spike; the assists refuse to create one, but a
+  user can still draw it by hand and the area is then wrong in a smaller way.
+- **A pinch is allowed**, by design: a vertex exactly on a far wall leaves the
+  area sound. It is still a shape no surveyor would draw.
+- **The crossing marker can sit under the site pin**, which is drawn above it.
+  A coincidence of where the crossing falls rather than a general problem, and
+  the red walls carry the message regardless.
+- **Only the editor is guarded.** A crossed polygon arriving from a source, or
+  through the PATCH endpoint directly, is stored without complaint.
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
   and nothing is touch-tested.
 
