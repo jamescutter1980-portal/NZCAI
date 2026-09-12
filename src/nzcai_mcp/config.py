@@ -22,6 +22,8 @@ class Config:
     data_dir: Path
     allowed_hosts: tuple[str, ...] = ()
     allowed_origins: tuple[str, ...] = ()
+    auth_token: str | None = None
+    allow_anonymous: bool = False
 
     @property
     def mcp_transport(self) -> str:
@@ -51,8 +53,24 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         data_dir=Path(env.get("NZCAI_DATA_DIR", str(DEFAULT_DATA_DIR))),
         allowed_hosts=_split(env.get("NZCAI_MCP_ALLOWED_HOSTS", "")),
         allowed_origins=_split(env.get("NZCAI_MCP_ALLOWED_ORIGINS", "")),
+        auth_token=_optional(env.get("NZCAI_MCP_AUTH_TOKEN")),
+        allow_anonymous=_flag(env.get("NZCAI_MCP_ALLOW_ANONYMOUS")),
     )
 
 
 def _split(raw: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
+def _optional(raw: str | None) -> str | None:
+    """An empty or whitespace-only variable counts as unset: compose writes an
+    empty string for a variable that has no value, and that must not be mistaken
+    for a (very short) token."""
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    return stripped or None
+
+
+def _flag(raw: str | None) -> bool:
+    return (raw or "").strip().lower() in {"1", "true", "yes", "on"}

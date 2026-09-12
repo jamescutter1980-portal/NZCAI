@@ -106,11 +106,14 @@ without a server in the loop, and `server.py` is a thin adapter over it.
 HTTP, the shape the portal uses:
 
 ```bash
+# The HTTP transport will not start without a token -- see Authentication below.
+echo "NZCAI_MCP_AUTH_TOKEN=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> .env
 docker compose up --build
 curl http://127.0.0.1:8080/healthz
 ```
 
-The MCP endpoint is `http://127.0.0.1:8080/mcp`.
+The MCP endpoint is `http://127.0.0.1:8080/mcp`, and callers send
+`Authorization: Bearer $NZCAI_MCP_AUTH_TOKEN`.
 
 stdio, where the client spawns the container per session — point an MCP client at:
 
@@ -165,19 +168,51 @@ travelling with every result is the control.
 Datasets are cached for the process lifetime, so restart the container after
 editing one.
 
+### Authentication
+
+The HTTP transport is guarded by a shared bearer token, the same shape as the
+portal's `SYNC_TOKEN` (`src/proxy.ts`). Set it and callers must present it:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"   # into NZCAI_MCP_AUTH_TOKEN
+curl -H "Authorization: Bearer $NZCAI_MCP_AUTH_TOKEN" http://127.0.0.1:8080/mcp
+```
+
+Three rules are worth knowing:
+
+- **HTTP refuses to start without a token.** Unlike the portal, which serves its
+  sync route openly when `SYNC_TOKEN` is unset, an unauthenticated MCP endpoint is
+  machine-to-machine and nobody would notice it. Set `NZCAI_MCP_ALLOW_ANONYMOUS=true`
+  to opt out deliberately for a port confined to a trusted network; it logs a warning.
+- **stdio ignores the token entirely.** The client spawns the process, so there is
+  no network surface to guard and nowhere to put a credential.
+- **`/healthz` stays open**, because the container healthcheck has no credential to
+  present. It reveals only that the server is up, and its version.
+
+Comparison is constant-time, tokens under 32 characters are refused at startup, and
+a wrong token is answered `401` with `error="invalid_token"` so a caller can tell it
+apart from a missing one.
+
+It is a shared secret, not identity: any holder reaches every tool. That suits the
+current design — one deployment per client (`CLIENT_NAME`), read-only calculation
+tools, no per-user data. Per-user identity means OAuth, and the SDK's
+`token_verifier`/`auth` hooks are where it would go; `build_http_app` in `server.py`
+is the seam.
+
 ### Security posture
 
 - Runs as an unprivileged user, read-only root filesystem, all capabilities dropped,
   `no-new-privileges`.
 - `/data` is mounted read-only; dataset names arriving as tool arguments are matched
   against a strict pattern rather than joined onto a path.
-- The HTTP port binds to loopback. DNS-rebinding protection is enabled by setting
-  `NZCAI_MCP_ALLOWED_HOSTS`; leaving it unset turns the check off and logs a warning
-  at startup.
+- DNS-rebinding protection: the SDK auto-protects a **loopback** bind, but applies
+  no default to any other bind address. The container binds `0.0.0.0`, so
+  `NZCAI_MCP_ALLOWED_HOSTS` is the only guard there — unset, it logs a warning.
+- A bearer token on plain HTTP is readable in transit, so terminate TLS at a reverse
+  proxy before the port leaves the host.
 
-**Not yet built:** the HTTP transport has no authentication of its own. Put a
-reverse proxy or OAuth in front of it before it is reachable off the host, and add
-per-tenant scoping before it serves more than one client's data.
+**Still not built:** per-tenant scoping. One token reaches everything, which is fine
+while a deployment serves one client and the tools hold no client data.
 
 ### Development
 

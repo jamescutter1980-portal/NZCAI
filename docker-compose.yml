@@ -10,12 +10,18 @@ services:
       NZCAI_MCP_HOST: 0.0.0.0
       NZCAI_MCP_PORT: 8080
       NZCAI_DATA_DIR: /data
-      # Host header allowlist for DNS-rebinding protection. Unset means the check
-      # is OFF, which is only acceptable while the port stays on loopback.
+      # Host header allowlist for DNS-rebinding protection. The container binds
+      # 0.0.0.0, for which the SDK applies no default, so this is the only guard.
       NZCAI_MCP_ALLOWED_HOSTS: ${NZCAI_MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*}
+      # Shared bearer token. The server refuses to start on HTTP without it unless
+      # NZCAI_MCP_ALLOW_ANONYMOUS is set, so put one in .env:
+      #   python -c "import secrets; print(secrets.token_urlsafe(32))"
+      NZCAI_MCP_AUTH_TOKEN: ${NZCAI_MCP_AUTH_TOKEN:-}
+      NZCAI_MCP_ALLOW_ANONYMOUS: ${NZCAI_MCP_ALLOW_ANONYMOUS:-}
     ports:
-      # Loopback only. Put a reverse proxy in front before this is reachable off
-      # the host -- the server has no authentication of its own yet.
+      # Loopback only by default. The bearer token is the access control; a
+      # reverse proxy terminating TLS is still wanted before this leaves the host,
+      # since a bearer token on plain HTTP is readable in transit.
       - "127.0.0.1:8080:8080"
     volumes:
       # Factor tables and pathways, read-only: the server never writes reference data.

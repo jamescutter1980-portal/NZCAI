@@ -9,12 +9,14 @@ from .server import run
 
 
 def main() -> int:
+    # AuthConfigError subclasses ValueError, so a refusal to start unauthenticated
+    # exits cleanly with its message rather than a traceback.
     try:
         config = load_config()
+        run(config)
     except ValueError as exc:
         print(f"configuration error: {exc}", file=sys.stderr)
         return 2
-    run(config)
     return 0
 
 
