@@ -28,6 +28,18 @@ export const TIER_LABEL: Record<Tier, string> = {
   stale: "Stale",
 };
 
+/**
+ * The id a profile is stored and looked up under.
+ *
+ * Shared rather than spelled out at each call site: the client saves under this
+ * id and the server has to find the same row when the site is resolved afresh.
+ * A drift between the two ends does not error — it silently produces a second
+ * row, and the user's drawing stops being found.
+ */
+export function buildingIdFor(uprn: string): string {
+  return `UPRN-${uprn}`;
+}
+
 /** How confident we are that this is the right building. */
 export type MatchConfidence =
   | "exact" // address and UPRN agree from a register

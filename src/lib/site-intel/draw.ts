@@ -17,6 +17,12 @@
  * disagreeing by half a metre. It does NOT change the provenance of the result.
  * A shape built entirely from OS vertices is still a user drawing at T4,
  * because the user chose which vertices and in what order.
+ *
+ * CORNERS AND WALLS ARE DIFFERENT TARGETS. A corner is a point you aim at; a
+ * wall is a line you cross. Walls are continuous and cover far more of the map
+ * than corners do, so a vertex dragged across a street would stick to every
+ * one it passed at the same tolerance. Walls therefore have a tighter
+ * threshold, and a corner in range always beats a wall in range.
  */
 
 export type Vertex = [number, number];
@@ -25,8 +31,16 @@ export type ScreenPoint = { x: number; y: number };
 /** Projects a lng/lat to screen pixels. Supplied by the map. */
 export type Project = (vertex: Vertex) => ScreenPoint;
 
-/** Default snap radius in screen pixels. */
+/** Default snap radius for corners, in screen pixels. */
 export const SNAP_PX = 12;
+
+/**
+ * Snap radius for walls, in screen pixels. Tighter than SNAP_PX on purpose
+ * (see the header). Keeping it BELOW SNAP_PX also means a wall snap can never
+ * land on a corner: at the ends of a segment the closest point is the corner
+ * itself, and any corner that close was already claimed by the corner rule.
+ */
+export const SNAP_EDGE_PX = 8;
 
 /** Minimum vertices for a polygon. Below this there is no area. */
 export const MIN_VERTICES = 3;
@@ -113,45 +127,156 @@ export interface SnapCandidate {
   source: string;
 }
 
+/** One wall: a segment of a neighbour's outline. */
+export interface SnapEdge {
+  a: Vertex;
+  b: Vertex;
+  source: string;
+}
+
+/** Everything a dragged vertex may snap to. */
+export interface SnapTargets {
+  vertices: SnapCandidate[];
+  edges: SnapEdge[];
+}
+
 export interface SnapResult {
   vertex: Vertex;
   snapped: boolean;
-  /** The candidate taken, for the indicator. */
+  /** What was taken. The indicator draws a corner and a wall differently. */
+  kind: "none" | "vertex" | "edge";
+  /** The corner taken, when `kind` is "vertex". */
   target: SnapCandidate | null;
+  /** The wall taken, when `kind` is "edge". Drawn, so the jump is explained. */
+  edge: SnapEdge | null;
+  /** Whatever was taken belongs to this, for a label. */
+  source: string | null;
+}
+
+const NO_SNAP = (vertex: Vertex): SnapResult => ({
+  vertex,
+  snapped: false,
+  kind: "none",
+  target: null,
+  edge: null,
+  source: null,
+});
+
+/**
+ * The closest point on segment a-b to `point`, measured in SCREEN space.
+ *
+ * Returns the position as a fraction along the segment rather than as a
+ * coordinate, because the caller then applies that fraction to the segment's
+ * OWN lng/lat. Two reasons for the detour:
+ *
+ *  - the result has to lie exactly on the neighbour's wall as stored, and
+ *    un-projecting a screen point back would land fractionally off it;
+ *  - the perpendicular is taken on screen because that is where the user is
+ *    aiming and where the threshold is measured. A perpendicular computed in
+ *    degrees is not the one they can see: a degree of longitude is about six
+ *    tenths of a degree of latitude on the ground at these latitudes.
+ *
+ * `t` is clamped to the segment. Without that, a vertex dragged past the end
+ * of a short wall would snap to a point on its infinite line, out in a field.
+ */
+function footOnSegment(
+  point: ScreenPoint,
+  a: ScreenPoint,
+  b: ScreenPoint,
+): { t: number; distance: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSq = dx * dx + dy * dy;
+
+  // A zero-length segment is a point. Guarding here rather than filtering them
+  // out: a repeated coordinate in source data is not an error worth refusing,
+  // and dividing by its length would be NaN.
+  if (lengthSq === 0) {
+    return { t: 0, distance: Math.hypot(point.x - a.x, point.y - a.y) };
+  }
+
+  const t = Math.min(1, Math.max(0, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq));
+  return {
+    t,
+    distance: Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy)),
+  };
 }
 
 /**
- * Snaps a vertex to the nearest candidate within the screen threshold.
+ * Snaps a vertex to the nearest corner, or failing that the nearest wall,
+ * within the screen thresholds.
  *
  * Returns the ORIGINAL vertex untouched when nothing is in range, so a caller
  * can use this unconditionally. `snapped` says which happened, because the UI
  * has to show the user that their point moved — a handle that jumps without
  * explanation reads as a bug.
+ *
+ * CORNERS FIRST, and not merely because they are usually nearer. Near a corner
+ * the foot of the wall is almost exactly the corner too, so "nearest wins"
+ * would have the point stick to the wall a hair short of the corner — which is
+ * precisely the corner the user was aiming at. A corner in range settles it.
  */
 export function snap(
   vertex: Vertex,
-  candidates: SnapCandidate[],
+  targets: SnapTargets,
   project: Project,
   thresholdPx: number = SNAP_PX,
+  edgeThresholdPx: number = SNAP_EDGE_PX,
 ): SnapResult {
-  if (!candidates.length) return { vertex, snapped: false, target: null };
-
   const at = project(vertex);
-  let best: SnapCandidate | null = null;
-  let bestDist = Infinity;
 
-  for (const candidate of candidates) {
+  let bestCorner: SnapCandidate | null = null;
+  let bestCornerDist = Infinity;
+  for (const candidate of targets.vertices) {
     const p = project(candidate.vertex);
     const d = Math.hypot(p.x - at.x, p.y - at.y);
-    if (d < bestDist) {
-      bestDist = d;
-      best = candidate;
+    if (d < bestCornerDist) {
+      bestCornerDist = d;
+      bestCorner = candidate;
     }
   }
 
-  return bestDist <= thresholdPx && best
-    ? { vertex: best.vertex, snapped: true, target: best }
-    : { vertex, snapped: false, target: null };
+  if (bestCorner && bestCornerDist <= thresholdPx) {
+    return {
+      vertex: bestCorner.vertex,
+      snapped: true,
+      kind: "vertex",
+      target: bestCorner,
+      edge: null,
+      source: bestCorner.source,
+    };
+  }
+
+  let bestEdge: SnapEdge | null = null;
+  let bestEdgeDist = Infinity;
+  let bestT = 0;
+  for (const edge of targets.edges) {
+    const { t, distance } = footOnSegment(at, project(edge.a), project(edge.b));
+    if (distance < bestEdgeDist) {
+      bestEdgeDist = distance;
+      bestEdge = edge;
+      bestT = t;
+    }
+  }
+
+  if (bestEdge && bestEdgeDist <= edgeThresholdPx) {
+    // The fraction is taken on screen; the point is placed on the wall's own
+    // coordinates, so it lands exactly on the neighbour's outline.
+    const onWall: Vertex = [
+      bestEdge.a[0] + bestT * (bestEdge.b[0] - bestEdge.a[0]),
+      bestEdge.a[1] + bestT * (bestEdge.b[1] - bestEdge.a[1]),
+    ];
+    return {
+      vertex: onWall,
+      snapped: true,
+      kind: "edge",
+      target: null,
+      edge: bestEdge,
+      source: bestEdge.source,
+    };
+  }
+
+  return NO_SNAP(vertex);
 }
 
 /**
@@ -200,4 +325,40 @@ export function candidatesFrom(
     }
   }
   return out;
+}
+
+/**
+ * Wall candidates: the segments of neighbouring polygons.
+ *
+ * The closing segment is included — the side between a ring's last corner and
+ * its first is a wall like any other, and leaving it out would put one blind
+ * side on every building.
+ *
+ * Not the shape's own walls, for the reason above and one more: every vertex
+ * already sits on two of them, so its own walls are always at distance zero
+ * and it could never be dragged anywhere at all.
+ */
+export function edgesFrom(
+  neighbours: { geometry: GeoJSON.Geometry; label: string }[],
+): SnapEdge[] {
+  const out: SnapEdge[] = [];
+  for (const n of neighbours) {
+    const ring = outerRing(n.geometry);
+    if (ring.length < 2) continue;
+    // Two corners are one wall, not two: the closing segment would be the
+    // same wall reversed. Above two, every step including the closing one is
+    // a distinct side.
+    const sides = ring.length === 2 ? 1 : ring.length;
+    for (let i = 0; i < sides; i += 1) {
+      out.push({ a: ring[i], b: ring[(i + 1) % ring.length], source: n.label });
+    }
+  }
+  return out;
+}
+
+/** Both target kinds from one list of neighbours. */
+export function targetsFrom(
+  neighbours: { geometry: GeoJSON.Geometry; label: string }[],
+): SnapTargets {
+  return { vertices: candidatesFrom(neighbours), edges: edgesFrom(neighbours) };
 }

@@ -33,16 +33,18 @@ import {
 } from "@/lib/site-intel/constraint-layers";
 import type { GridProfile } from "@/lib/site-intel/grid";
 import {
+  SNAP_EDGE_PX,
   SNAP_PX,
-  candidatesFrom,
   insertAfter,
   midpoints,
   moveVertex,
   outerRing,
   removeVertex,
   snap,
+  targetsFrom,
   toPolygon,
   vertexAt,
+  type SnapTargets,
   type Vertex,
 } from "@/lib/site-intel/draw";
 import {
@@ -104,6 +106,8 @@ const DRAW_LINE = "site-draw-line";
 const DRAW_POINTS = "site-draw-points";
 const DRAW_MIDS = "site-draw-midpoints";
 const DRAW_SNAP = "site-draw-snap";
+/** The wall a vertex is snapped to, drawn so the jump is explained. */
+const DRAW_SNAP_EDGE = "site-draw-snap-edge";
 /** Neighbouring OS polygons: context to draw against, and snap targets. */
 const NEIGHBOURS = "site-neighbours";
 
@@ -688,7 +692,20 @@ export default function LandMap({
       /*
        * The snap indicator. A handle that jumps to another coordinate without
        * explanation reads as a bug, so the target is shown while it holds.
+       *
+       * A corner snap explains itself - there is a visible corner under the
+       * ring. A WALL snap does not: the point lands mid-side, where nothing is
+       * drawn, and the ring alone would look arbitrary. So the wall that was
+       * taken is lit along its whole length.
        */
+      m.addSource(DRAW_SNAP_EDGE, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: DRAW_SNAP_EDGE,
+        type: "line",
+        source: DRAW_SNAP_EDGE,
+        paint: { "line-color": "#1B4DD1", "line-width": 3, "line-opacity": 0.8 },
+      });
+
       m.addSource(DRAW_SNAP, { type: "geojson", data: emptyCollection() });
       m.addLayer({
         id: DRAW_SNAP,
@@ -1116,10 +1133,10 @@ export default function LandMap({
     );
   }, []);
 
-  /** Shows or clears the snap indicator. */
-  const showSnap = useCallback((vertex: Vertex | null) => {
-    const source = map.current?.getSource(DRAW_SNAP) as GeoJSONSource | undefined;
-    source?.setData(
+  /** Shows or clears the snap indicator, and the wall behind it if there is one. */
+  const showSnap = useCallback((vertex: Vertex | null, wall: [Vertex, Vertex] | null = null) => {
+    const point = map.current?.getSource(DRAW_SNAP) as GeoJSONSource | undefined;
+    point?.setData(
       vertex
         ? {
             type: "FeatureCollection",
@@ -1131,15 +1148,30 @@ export default function LandMap({
           }
         : emptyCollection(),
     );
+
+    const edge = map.current?.getSource(DRAW_SNAP_EDGE) as GeoJSONSource | undefined;
+    edge?.setData(
+      wall
+        ? {
+            type: "FeatureCollection",
+            features: [{
+              type: "Feature",
+              geometry: { type: "LineString", coordinates: wall },
+              properties: {},
+            }],
+          }
+        : emptyCollection(),
+    );
   }, []);
 
   /**
    * Applies snapping to a raw pointer position.
    *
-   * Candidates are the neighbouring polygons' vertices - not this shape's own,
-   * which would let a corner collapse onto the one beside it. The projection
-   * comes from the map, so the threshold is screen pixels at whatever zoom is
-   * in force.
+   * Targets are the neighbouring polygons' corners and walls - not this
+   * shape's own. Its own corners would let one collapse onto the corner beside
+   * it, and its own walls would hold every vertex at distance zero, so nothing
+   * could be dragged at all. The projection comes from the map, so both
+   * thresholds are screen pixels at whatever zoom is in force.
    */
   const withSnap = useCallback(
     (lngLat: Vertex): Vertex => {
@@ -1148,17 +1180,20 @@ export default function LandMap({
         showSnap(null);
         return lngLat;
       }
-      const candidates = candidatesFrom(neighbours.current);
       const result = snap(
         lngLat,
-        candidates,
+        snapTargets.current,
         (v) => {
           const p = m.project({ lng: v[0], lat: v[1] });
           return { x: p.x, y: p.y };
         },
         SNAP_PX,
+        SNAP_EDGE_PX,
       );
-      showSnap(result.snapped ? result.vertex : null);
+      showSnap(
+        result.snapped ? result.vertex : null,
+        result.edge ? [result.edge.a, result.edge.b] : null,
+      );
       return result.vertex;
     },
     [showSnap],
@@ -1352,6 +1387,10 @@ export default function LandMap({
         buildings: { geometry: GeoJSON.Geometry; label: string }[],
       ) {
         neighbours.current = buildings;
+        // Built once here rather than on every pointer move: a dense street is
+        // a few thousand corners and walls, and `mousemove` fires on every
+        // frame of a drag.
+        snapTargets.current = targetsFrom(buildings);
         setSiteData(NEIGHBOURS, {
           type: "FeatureCollection",
           features: buildings.map((b) => ({
@@ -1410,7 +1449,7 @@ export default function LandMap({
           SITE_PIN, SITE_TITLE, SITE_FOOTPRINT,
           CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
           GRID_SUPPLY_AREA, GRID_SITE_SUBS, GRID_ECR,
-          DRAW_LINE, DRAW_POINTS, DRAW_MIDS, DRAW_SNAP, NEIGHBOURS,
+          DRAW_LINE, DRAW_POINTS, DRAW_MIDS, DRAW_SNAP, DRAW_SNAP_EDGE, NEIGHBOURS,
         ]) {
           setSiteData(id, emptyCollection());
         }
@@ -1418,8 +1457,9 @@ export default function LandMap({
         drawActive.current = false;
         onDrawChange.current = null;
         // Snap targets belong to the site that was on screen. Left in place
-        // they would be invisible corners from the previous building.
+        // they would be invisible corners and walls from the previous building.
         neighbours.current = [];
+        snapTargets.current = { vertices: [], edges: [] };
         dragging.current = null;
         appendOnClick.current = true;
         setCoverage(null);
@@ -1455,8 +1495,9 @@ export default function LandMap({
    * Move-pin mode. Separate from draw mode and mutually exclusive with it: one
    * click cannot mean both "place a corner" and "pick a building".
    */
-  /** Neighbouring polygons currently drawn, and their vertices as snap targets. */
+  /** Neighbouring polygons currently drawn, and their corners and walls. */
   const neighbours = useRef<{ geometry: GeoJSON.Geometry; label: string }[]>([]);
+  const snapTargets = useRef<SnapTargets>({ vertices: [], edges: [] });
   const snapOn = useRef(true);
   /** Index of the vertex being dragged, or null. */
   const dragging = useRef<number | null>(null);

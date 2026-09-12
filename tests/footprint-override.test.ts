@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { applyOverride } from "../src/lib/site-intel/profile";
+import { applyOverride, withStoredOverrides } from "../src/lib/site-intel/profile";
 import { emptyProfile, type SiteProfile } from "../src/lib/site-intel/types";
 
 const square = (west: number, south: number, size: number): GeoJSON.Polygon => ({
@@ -144,5 +144,73 @@ describe("overrides do not interfere", () => {
     assert.deepEqual(before.footprint.geometry, PUBLISHED);
     assert.equal(before.footprintOriginal, null);
     assert.deepEqual(before.flags, []);
+  });
+});
+
+/* ------------------------------- surviving a re-resolve --------------------- */
+
+describe("an override survives the site being searched for again", () => {
+  /*
+   * A fresh resolve is built from source data and knows nothing about what the
+   * user drew. Before this was carried forward the override was write-only:
+   * search the site again and the panel showed the published polygon, with no
+   * "your drawing" badge and no "Revert to published" button — so the drawing
+   * could not even be undone. Confirming then destroyed it, because the save
+   * re-wrote whatever the resolve produced.
+   */
+  const stored = applyOverride(sited(), { footprint: DRAWN });
+
+  test("the drawing is carried onto the freshly resolved profile", () => {
+    const next = withStoredOverrides(sited(), stored);
+    assert.equal(next.footprint.method, "user_drawn");
+    assert.deepEqual(next.footprint.geometry, DRAWN);
+  });
+
+  test("the original is the one from when the drawing was made", () => {
+    // Not today's published polygon under today's date: the audit trail needs
+    // the shape that was there when the user drew over it, and when.
+    const next = withStoredOverrides(sited(), stored);
+    assert.deepEqual(next.footprintOriginal?.geometry, PUBLISHED);
+    assert.equal(next.footprintOriginal?.overriddenAt, stored.footprintOriginal?.overriddenAt);
+  });
+
+  test("the flags and lineage say it is a drawing", () => {
+    const next = withStoredOverrides(sited({ flags: ["footprint_inferred"] }), stored);
+    assert.ok(next.flags.includes("footprint_overridden"));
+    assert.ok(!next.flags.includes("footprint_inferred"), "that flag described the source polygon");
+    assert.ok(next.sources.some((s) => s.method === "user redrew the footprint" && s.tier === "T4"));
+  });
+
+  test("everything else is re-resolved, not restored", () => {
+    // The point of resolving again is to get what the sources say NOW.
+    const fresh = sited({ address: "New address from the register", lpaName: "New LPA" });
+    const next = withStoredOverrides(fresh, stored);
+    assert.equal(next.address, "New address from the register");
+    assert.equal(next.lpaName, "New LPA");
+  });
+
+  test("a confirmation survives too — it is the same UPRN", () => {
+    const confirmed = applyOverride(sited(), { confirmed: true });
+    assert.equal(withStoredOverrides(sited(), confirmed).userConfirmed, true);
+  });
+
+  test("a stored profile with no override changes nothing", () => {
+    const fresh = sited();
+    const next = withStoredOverrides(fresh, sited());
+    assert.equal(next.footprint.method, "uprn_contained");
+    assert.equal(next.footprintOriginal, null, "nothing was overridden, so there is no original");
+  });
+
+  test("no stored profile at all is returned untouched", () => {
+    const fresh = sited();
+    assert.equal(withStoredOverrides(fresh, null), fresh);
+  });
+
+  test("a reverted profile does not resurrect the drawing", () => {
+    // Revert clears the original, which is what marks an override as in force.
+    const reverted = applyOverride(stored, { revertFootprint: true });
+    const next = withStoredOverrides(sited(), reverted);
+    assert.equal(next.footprint.method, "uprn_contained");
+    assert.deepEqual(next.footprint.geometry, PUBLISHED);
   });
 });

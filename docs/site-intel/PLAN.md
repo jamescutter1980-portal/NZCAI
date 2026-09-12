@@ -1628,7 +1628,7 @@ the neighbour's published vertex, exactly.
   be dragged in turn.
 - **No snapping to edges, only to corners.** Putting a vertex on a neighbour's
   wall *between* its corners is not supported, and that is a real case for
-  terraces.
+  terraces. *(Done in §2o.)*
 - **No rectangle or right-angle assist.** Buildings are mostly orthogonal and
   nothing helps the user keep them so.
 - **Neighbours are the 120 largest in the bbox**, not the 120 nearest. At the
@@ -1637,6 +1637,165 @@ the neighbour's published vertex, exactly.
 - **Holes are still dropped.** `outerRing` takes the outer ring only, so a
   courtyard building edited here comes back solid.
 - **Nothing is touch-tested.** The drag is mouse events; a tablet is untried.
+
+## 2o. S-01 edge snapping
+
+§2n snapped to corners and named the gap: a vertex could not be put on a
+neighbour's wall *between* its corners. For a terrace that is the normal case —
+the party wall runs the length of the building and the corner you want is a
+point somewhere along it that nobody has ever published.
+
+### The fraction is taken on screen, the point is placed on the wall
+
+`footOnSegment` returns the closest point on a wall as a **fraction along it**
+rather than as a coordinate, and the caller applies that fraction to the wall's
+own lng/lat. The detour is the whole design:
+
+- the result has to lie **exactly** on the neighbour's wall as stored. That is
+  the point of snapping at all — two polygons sharing a line rather than
+  disagreeing by half a metre. Un-projecting a screen point back would land
+  fractionally off it, which is the same defect with extra steps;
+- the perpendicular is taken **on screen**, because that is where the user is
+  aiming and where the threshold is measured (§2n). A perpendicular computed in
+  degrees is not the one they can see: a degree of longitude is about six
+  tenths of a degree of latitude on the ground at these latitudes, so the foot
+  would sit visibly off the pointer.
+
+`t` is clamped to [0, 1]. Without it a vertex dragged past the end of a short
+wall would snap to a point on that wall's *infinite line*, out in a field.
+
+### Walls are a tighter target than corners
+
+`SNAP_EDGE_PX` is 8 against `SNAP_PX`'s 12, and the difference is not a taste
+judgement. A corner is a point you aim at; a wall is a line you cross. Walls
+are continuous and cover far more of the map than corners do, so at equal
+tolerance a vertex dragged across a street would stick to every wall it passed.
+
+Keeping the wall threshold **below** the corner one also buys a property worth
+having: a wall snap can never land on a corner. At the ends of a segment the
+closest point is the corner itself, and any corner that close was already
+claimed by the corner rule.
+
+### Corners beat walls, and not because they are nearer
+
+The obvious rule is "nearest target wins". It is wrong. Near a corner the foot
+of the wall is *almost exactly the corner too*, so nearest-wins has the point
+stick to the wall a hair short of the corner — which is precisely the corner
+the user was aiming at. A corner in range settles it, and the wall is only
+consulted when no corner is.
+
+### Not the shape's own walls
+
+§2n excluded the shape's own corners because dragging one onto its neighbour
+collapses the edge between them. Its own walls are excluded for a blunter
+reason: **every vertex already lies on two of them**, at distance zero. Include
+them and no vertex could ever be dragged anywhere at all.
+
+### The indicator had to change
+
+A corner snap explains itself — there is a visible corner under the ring. A
+wall snap does not: the point lands mid-side where nothing is drawn, and the
+ring alone looks arbitrary. So the wall that was taken is **lit along its whole
+length** while the snap holds.
+
+`SnapResult` gained `kind` and `edge` to carry that, and a `source` that names
+whichever target was taken without the caller unpicking which kind it was.
+
+### A performance change that had to come with it
+
+`candidatesFrom` was being called on **every `mousemove`**, which fires on every
+frame of a drag. Corners alone made that wasteful; adding a wall per corner
+doubled it. Targets are now built once, in `showNeighbours`, and cleared with
+the site.
+
+### The bug this slice found: overrides were write-only
+
+Verifying the above meant reading the saved polygon back, and the sample site
+turned out to be carrying a drawing that the panel was not showing.
+
+`getProfile` builds a profile from source data and **never consulted the stored
+one**. So a saved footprint override survived exactly as long as the page did:
+
+- search the site again and the panel showed the **published** polygon, with no
+  "your drawing" badge, no stale-constraint warning, and — worst — no "Revert
+  to published" button, so the drawing could not even be undone;
+- pressing Confirm then **destroyed** it, because the POST re-saves whatever
+  the resolve produced and `saveProfile` overwrites `footprint_original`.
+
+The data was in the database the whole time. It was simply unreachable, which
+makes the §2m "keep the original" guarantee worthless in the only scenario that
+matters: coming back to a site tomorrow.
+
+`withStoredOverrides` now carries the user's overrides onto a freshly resolved
+profile. Three decisions in it:
+
+- **Only the overrides travel.** Address, LPA, screening states and lineage are
+  re-resolved on purpose — the point of resolving again is to get what the
+  sources say now.
+- **The drawing is re-applied through `applyOverride`**, not copied field by
+  field, so the T4 lineage record, the `footprint_overridden` flag and the
+  dropped `footprint_inferred` flag stay consistent with a drawing made today.
+- **The stored original wins.** `applyOverride` would capture today's published
+  polygon as "the original", under today's date. What the audit trail needs is
+  the shape that was there when the user drew over it, and when.
+
+A confirmation travels too: it is a person saying "this is the right building",
+and it is the same UPRN.
+
+The building id convention (`UPRN-<uprn>`) moved into `types.ts` as
+`buildingIdFor`. It had been spelled out in the client only, so the server had
+no way to find the row the client had written — a drift between the two ends
+would not error, it would quietly create a second row and lose the drawing.
+
+**A moved pin needed nothing**, and that is the §2m design paying off: Move pin
+stores a *UPRN*, not the click, so re-resolving by that UPRN returns the same
+coordinates from OS Open UPRN. An override that stored a raw coordinate would
+have needed carrying too.
+
+### Verified in the browser
+
+Pixels per degree calibrated from the map's own scale control, then the site's
+south-west corner dragged onto the middle of `SAMPLE-BLD-0002`'s west wall —
+the party wall it shares with the site. The saved ring came back holding
+`[-1.12045, 53.50768879556152]`: longitude **exactly** the wall's, latitude an
+arbitrary value 25 m from the nearest corner on that line and equal to no
+published corner at all. That is a wall snap and could be nothing else.
+
+The indicator was checked by sampling the wall's screen column for the
+indicator blue: **0 px before the drag, a 107 px run while the snap held, 0 px
+after cancelling**. The screenshot shows the wall lit from end to end with the
+ring sitting on it.
+
+Then the site was searched for again from a fresh page load: **1,056 m², "your
+drawing", and Revert offered.** Before the fix the Revert button was not even
+present.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `SNAP_EDGE_PX`, `SnapEdge`, `SnapTargets`, `footOnSegment`, `edgesFrom`, `targetsFrom`; `snap` now decides corner-then-wall |
+| `profile.ts` | `withStoredOverrides` |
+| `service.ts` | `getProfile` consults the stored profile |
+| `types.ts` | `buildingIdFor`, shared by both ends |
+| `LandMap.tsx` | the lit-wall layer, targets built once per site |
+| `SitePanel.tsx` | wording for walls, and the shared building id |
+
+**24 more tests**, 429 across the suite.
+
+### Not done
+
+- **No edge dragging.** A whole wall still cannot be moved; both its corners
+  have to be dragged in turn.
+- **No rectangle or right-angle assist.** Buildings are mostly orthogonal and
+  nothing helps the user keep them so.
+- **Neighbours are the 120 largest in the bbox**, not the 120 nearest.
+- **Holes are still dropped**, and the snapped wall is always an outer ring, so
+  a courtyard's inner wall is not a target.
+- **Nothing is touch-tested.**
+- **The carry-forward is not covered by an end-to-end test**, only by unit
+  tests and a browser run. It depends on the client and server agreeing on a
+  building id, which is now one function but still an agreement.
 
 ## 3. Blockers and conflicts — need James's decision
 

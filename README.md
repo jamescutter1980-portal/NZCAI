@@ -418,6 +418,22 @@ Reverting restores `footprint_inferred` if the original carried it: that flag
 described the source polygon's provenance, and losing it would make the restored
 polygon look better sourced than it is.
 
+**A drawing survives searching for the site again.** Resolving a site builds a
+profile from source data, which knows nothing about what you drew, so the stored
+override is carried onto it. Only the override travels — address, LPA and
+screening states are re-resolved on purpose, because the point of resolving
+again is to get what the sources say now. The original kept is the one from when
+you drew over it, under its own date, not today's published polygon under
+today's.
+
+The id a profile is stored under (`buildingIdFor`, `UPRN-<uprn>`) is shared by
+the client and the server rather than spelled out at each end: a drift between
+them would not error, it would quietly write a second row and lose the drawing.
+
+A moved pin needs none of this, because Move pin stores a **UPRN rather than a
+coordinate** — re-resolving by that UPRN gives the same position back from OS
+Open UPRN.
+
 ### Move pin
 
 Beside Confirm and Redraw. Click the building on the map and the pin moves to
@@ -436,7 +452,7 @@ across.
 The mode is one-shot, and Move pin and Redraw disarm each other: one click
 cannot mean both "place a corner" and "pick a building".
 
-### Editing a shape, and snapping
+### Editing a shape, and snapping to corners and walls
 
 **Edit shape** sits before Redraw, because the common correction is not "draw
 this again" — it is "the published polygon is right except for one corner". It
@@ -469,6 +485,26 @@ building at one zoom and refuse to snap at all at another. What you are doing
 is "put this handle on that corner", which is a screen-space judgement, so the
 threshold is one too — 12 px at whatever zoom is in force.
 
+A vertex snaps to a neighbour's **corner**, or failing that to a point anywhere
+along one of its **walls** — which is the normal case for a terrace, where the
+party wall runs the length of the building and the corner you want has never
+been published. A snapped wall point lands *exactly* on the wall as stored: the
+perpendicular is taken on screen, where you are aiming, but the point is then
+placed at that fraction along the wall's own coordinates, so the two polygons
+share a line rather than disagreeing by half a metre.
+
+Walls are a **tighter** target than corners — 8 px against 12 — and it is not a
+taste judgement. A corner is a point you aim at; a wall is a line you cross,
+and walls cover far more of the map, so at equal tolerance a vertex dragged
+across a street would stick to every wall it passed. Keeping the wall threshold
+lower also means a wall snap can never land on a corner: any corner that close
+was already claimed by the corner rule.
+
+**A corner in range always beats a wall in range**, and not merely because it
+is usually nearer. Close to a corner the foot of the wall is almost exactly the
+corner too, so "nearest wins" would have the point stick to the wall a hair
+short of the corner you were plainly aiming at.
+
 Candidates are the corners of **neighbouring buildings**, drawn faintly under
 the shape, fetched from `/api/site-intel/buildings`. Deliberately **not this
 shape's own corners**: dragging one onto the corner beside it collapses the
@@ -478,13 +514,12 @@ because the site's own published footprint is in the neighbour list already.
 
 A snapped handle jumps, so the target is **ringed in blue while the snap
 holds** — a handle that moves to a coordinate you did not choose, with no
-explanation, reads as a bug.
+explanation, reads as a bug. A corner snap explains itself: there is a visible
+corner under the ring. A wall snap does not, so the **whole wall lights up**.
 
-Snapping does **not** change provenance. A snapped corner takes the
-neighbour's exact coordinate, which is the point: party walls line up instead
-of disagreeing by half a metre. A shape built entirely from OS vertices is
-still a user drawing at T4, because you chose which vertices and in what order.
-The panel says so under the checkbox.
+Snapping does **not** change provenance. A shape built entirely from OS
+vertices and walls is still a user drawing at T4, because you chose which ones
+and in what order. The panel says so under the checkbox.
 
 With nothing to snap to, the reason is given, because "no buildings near this
 site" and "no building polygons loaded at all" call for different things: the

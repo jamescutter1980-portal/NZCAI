@@ -1,10 +1,10 @@
 import { query } from "@/lib/db";
 import { applyStaleness } from "./sources";
-import { buildProfile, applyOverride, type ProfileDeps } from "./profile";
+import { buildProfile, applyOverride, withStoredOverrides, type ProfileDeps } from "./profile";
 import { resolve, type ResolveDeps, type ResolveInput, type ResolveResult } from "./resolve";
 import { footprintStore, postcodeStore, uprnStore } from "./stores";
 import { epcAddressRegister } from "./epc";
-import type { Candidate, SiteProfile, SourceRecord } from "./types";
+import { buildingIdFor, type Candidate, type SiteProfile, type SourceRecord } from "./types";
 import { areaM2, type LatLon } from "./geo";
 import { screenConstraints, type ConstraintScreening } from "./constraints";
 import { eaFloodCheck, noFloodCheck } from "./flood";
@@ -108,7 +108,11 @@ export async function getProfile(
   if (!resolved.candidates.length) {
     return { profile: null, candidates: [], step: resolved.step, reason: resolved.reason };
   }
-  const profile = await profileForCandidate(resolved.candidates[0]);
+  const candidate = resolved.candidates[0];
+  const fresh = await profileForCandidate(candidate);
+  const profile = candidate.uprn
+    ? withStoredOverrides(fresh, await loadProfile(buildingIdFor(candidate.uprn)))
+    : fresh;
   return { profile, candidates: resolved.candidates, step: resolved.step };
 }
 

@@ -11,7 +11,7 @@ import type { EpcCertificate } from "@/lib/site-intel/epc";
 import type { MeesScreening } from "@/lib/site-intel/mees";
 import type { GridProfile } from "@/lib/site-intel/grid";
 import type { CertificateAge, Intensity, RatingReading } from "@/lib/site-intel/performance";
-import { TIER_LABEL } from "@/lib/site-intel/types";
+import { TIER_LABEL, buildingIdFor } from "@/lib/site-intel/types";
 
 /**
  * S-01 "Is this the building?" step.
@@ -50,7 +50,7 @@ export interface SiteMapApi {
   cancelDraw(): void;
   /** Closes the ring. Null below three points, which is not an area. */
   finishDraw(): GeoJSON.Polygon | null;
-  /** Snap new and dragged vertices to nearby corners. */
+  /** Snap new and dragged vertices to nearby corners and walls. */
   setSnap(on: boolean): void;
   /** Neighbouring polygons: context to draw against, and snap targets. */
   showNeighbours(buildings: { geometry: GeoJSON.Geometry; label: string }[]): void;
@@ -946,7 +946,7 @@ export default function SitePanel({ mapApi }: Props) {
   /** PATCHes a footprint override, or reverts one, then refreshes the profile. */
   const patchFootprint = useCallback(
     async (body: Record<string, unknown>) => {
-      const buildingId = selected?.uprn ? `UPRN-${selected.uprn}` : null;
+      const buildingId = selected?.uprn ? buildingIdFor(selected.uprn) : null;
       if (!buildingId) {
         setError("This site has no UPRN, so there is nothing to save the drawing against.");
         return;
@@ -993,7 +993,7 @@ export default function SitePanel({ mapApi }: Props) {
     setBusy(true);
     try {
       const res = await fetch(
-        `/api/site-intel/profile?building_id=UPRN-${encodeURIComponent(selected.uprn)}&constraints=1`,
+        `/api/site-intel/profile?building_id=${encodeURIComponent(buildingIdFor(selected.uprn))}&constraints=1`,
       );
       const data = (await res.json()) as { constraints?: ConstraintScreening; error?: string };
       if (data.constraints) {
@@ -1012,7 +1012,7 @@ export default function SitePanel({ mapApi }: Props) {
 
   const confirm = useCallback(async () => {
     if (!selected?.uprn) return;
-    const buildingId = `UPRN-${selected.uprn}`;
+    const buildingId = buildingIdFor(selected.uprn);
     setBusy(true);
     try {
       await fetch("/api/site-intel/profile", {
@@ -1224,15 +1224,17 @@ export default function SitePanel({ mapApi }: Props) {
                   checked={snapOn}
                   onChange={(e) => { setSnapOn(e.target.checked); mapApi.setSnap(e.target.checked); }}
                 />
-                Snap to nearby corners
+                Snap to nearby corners and walls
                 {neighbours?.nearby === 0 &&
                   (neighbours.loaded === 0
                     ? " — no building polygons are loaded, so nothing to snap to"
                     : " — none within 150 m of this site, so nothing to snap to")}
               </label>
               <p className="site-snap-note">
-                A snapped corner takes the neighbour&rsquo;s exact coordinate. That does
-                not make the shape source data — it is still your drawing.
+                A snapped corner takes the neighbour&rsquo;s exact coordinate, and a
+                snapped wall puts the point exactly on it — which is how a party wall
+                ends up agreeing with the building next door. That does not make the
+                shape source data — it is still your drawing.
                 {drawPoints === 3 &&
                   " At three points a corner cannot be removed: it would leave no area."}
               </p>

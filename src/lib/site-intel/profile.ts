@@ -239,6 +239,47 @@ export async function buildProfile(
 }
 
 /**
+ * Carries a stored profile's USER OVERRIDES onto a freshly resolved one.
+ *
+ * A fresh resolve is built from source data and knows nothing about what the
+ * user has done to this building. Without this the override is effectively
+ * write-only: search the site again and the panel shows the published polygon,
+ * the "your drawing" badge is gone, and so is "Revert to published" — so the
+ * drawing cannot even be undone. Confirming then destroys it outright, because
+ * the POST re-saves whatever the resolve produced.
+ *
+ * ONLY THE OVERRIDES TRAVEL. Everything else is re-resolved on purpose:
+ * addresses, LPA, screening states and lineage are what the sources say now,
+ * not what they said when the drawing was made. Re-applying the drawing
+ * through `applyOverride` rather than copying fields keeps the T4 lineage
+ * record, the `footprint_overridden` flag and the dropped `footprint_inferred`
+ * flag consistent with a drawing made today.
+ */
+export function withStoredOverrides(fresh: SiteProfile, stored: SiteProfile | null): SiteProfile {
+  if (!stored) return fresh;
+
+  let next = fresh;
+
+  if (stored.footprintOriginal && stored.footprint.geometry) {
+    next = applyOverride(next, { footprint: stored.footprint.geometry });
+    /*
+     * `applyOverride` has just captured TODAY's published polygon as the
+     * original, with today's timestamp. That is right for a drawing made now
+     * and wrong for one made last month: what the audit trail needs is the
+     * shape that was there when the user drew over it, and when. The stored
+     * record wins.
+     */
+    next.footprintOriginal = stored.footprintOriginal;
+  }
+
+  // A confirmation is a person saying "this is the right building". The
+  // building has not changed — it is the same UPRN — so it still holds.
+  if (stored.userConfirmed && !next.userConfirmed) next = { ...next, userConfirmed: true };
+
+  return next;
+}
+
+/**
  * Applies a user override - a confirmed pin or a redrawn footprint. The
  * original is not discarded; the override is added as a T4 source alongside it.
  */
