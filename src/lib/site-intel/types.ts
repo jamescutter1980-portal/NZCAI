@@ -94,6 +94,22 @@ export interface Footprint {
   method: FootprintMethod;
 }
 
+/**
+ * What the source published, kept when a user redraws over it.
+ *
+ * Brief §3.2: "Store that as an override tier and keep the original." Keeping
+ * it is the point — an override that destroys the published polygon cannot be
+ * undone, and the original's provenance is what makes the override reviewable.
+ * A second redraw replaces the drawing, never this.
+ */
+export interface FootprintOriginal {
+  geometry: GeoJSON.Geometry | null;
+  areaM2: number | null;
+  method: FootprintMethod;
+  /** When the first override was applied. */
+  overriddenAt: string;
+}
+
 /** Brief section 3.3. */
 export interface SiteProfile {
   uprn: string | null;
@@ -111,6 +127,8 @@ export interface SiteProfile {
   lpaName: string | null;
   titleExtents: TitleExtent[];
   footprint: Footprint;
+  /** Present only once a user has redrawn. Null means the footprint is source data. */
+  footprintOriginal: FootprintOriginal | null;
   matchConfidence: MatchConfidence;
   userConfirmed: boolean;
   /** Screening flags, e.g. multi_title, footprint_inferred. */
@@ -132,6 +150,7 @@ export function emptyProfile(): SiteProfile {
     lpaName: null,
     titleExtents: [],
     footprint: { geometry: null, areaM2: null, method: "unavailable" },
+    footprintOriginal: null,
     matchConfidence: "none",
     userConfirmed: false,
     flags: [],

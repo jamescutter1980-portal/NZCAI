@@ -33,6 +33,14 @@ export interface SiteMapApi {
   showConstraints(screening: ConstraintScreening | null): void;
   /** S-03 layers: supply area, the substations screened against, ECR points. */
   showGrid(grid: GridProfile | null): void;
+
+  /* Redraw (brief §3.2, §3.4). */
+  startDraw(onChange: (count: number) => void): void;
+  undoDrawPoint(): void;
+  cancelDraw(): void;
+  /** Closes the ring. Null below three points, which is not an area. */
+  finishDraw(): GeoJSON.Polygon | null;
+
   clearSite(): void;
 }
 
@@ -673,6 +681,14 @@ export default function SitePanel({ mapApi }: Props) {
   const [epc, setEpc] = useState<EpcReport | null>(null);
   const [performance, setPerformance] = useState<PerformanceReport | null>(null);
   const [grid, setGrid] = useState<GridProfile | null>(null);
+  /* Redraw. `drawPoints` is null when not drawing, a count when drawing. */
+  const [drawPoints, setDrawPoints] = useState<number | null>(null);
+  /*
+   * Set when the footprint changed after the constraints were screened. The
+   * screening ran against the OLD shape, so the panel must say so rather than
+   * show results that no longer describe what is on the map.
+   */
+  const [constraintsStale, setConstraintsStale] = useState(false);
 
   const reset = useCallback(() => {
     setCandidates([]);
@@ -688,6 +704,8 @@ export default function SitePanel({ mapApi }: Props) {
     // building.
     setPerformance(null);
     setGrid(null);
+    setDrawPoints(null);
+    setConstraintsStale(false);
     setStep(null);
     mapApi.clearSite();
   }, [mapApi]);
@@ -745,6 +763,8 @@ export default function SitePanel({ mapApi }: Props) {
       setEpc(null);
       setPerformance(null);
       setGrid(null);
+      setDrawPoints(null);
+      setConstraintsStale(false);
       mapApi.showConstraints(null);
       mapApi.showGrid(null);
       mapApi.showSite(candidate.lat, candidate.lon);
@@ -818,6 +838,73 @@ export default function SitePanel({ mapApi }: Props) {
     },
     [mapApi],
   );
+
+  /** PATCHes a footprint override, or reverts one, then refreshes the profile. */
+  const patchFootprint = useCallback(
+    async (body: Record<string, unknown>) => {
+      const buildingId = selected?.uprn ? `UPRN-${selected.uprn}` : null;
+      if (!buildingId) {
+        setError("This site has no UPRN, so there is nothing to save the drawing against.");
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        // The profile has to exist before it can be overridden. POST is
+        // idempotent on building id, so this is safe whether or not the user
+        // has pressed Confirm.
+        await fetch("/api/site-intel/profile", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ buildingId, uprn: selected?.uprn }),
+        });
+        const res = await fetch("/api/site-intel/profile", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ buildingId, ...body }),
+        });
+        const data = (await res.json()) as { profile?: SiteProfile; error?: string };
+        if (data.profile) {
+          setProfile(data.profile);
+          mapApi.showGeometry(data.profile);
+          // Everything derived from the footprint was computed against the
+          // previous shape. Say so; do not silently re-run, because a redraw
+          // is often followed by another.
+          setConstraintsStale(true);
+        } else if (data.error) {
+          setError(data.error);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not save the footprint");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [selected, mapApi],
+  );
+
+  /** Re-runs S-02 against the footprint now in force. */
+  const rescreen = useCallback(async () => {
+    if (!selected?.uprn) return;
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/site-intel/profile?building_id=UPRN-${encodeURIComponent(selected.uprn)}&constraints=1`,
+      );
+      const data = (await res.json()) as { constraints?: ConstraintScreening; error?: string };
+      if (data.constraints) {
+        setScreening(data.constraints);
+        mapApi.showConstraints(data.constraints);
+        setConstraintsStale(false);
+      } else if (data.error) {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not re-screen");
+    } finally {
+      setBusy(false);
+    }
+  }, [selected, mapApi]);
 
   const confirm = useCallback(async () => {
     if (!selected?.uprn) return;
@@ -926,8 +1013,44 @@ export default function SitePanel({ mapApi }: Props) {
                 : profile?.footprint.method === "unavailable"
                   ? "unavailable"
                   : "—"}
+              {/*
+                * A user drawing is a T4 override, not source data, and the
+                * area it produces feeds the constraint screen. Label it on the
+                * figure itself rather than only in the lineage list.
+                */}
+              {profile?.footprint.method === "user_drawn" && (
+                <span className="fp-drawn">your drawing</span>
+              )}
             </dd>
           </dl>
+
+          {profile?.footprintOriginal && (
+            <div className="fp-override">
+              <p className="fp-override-head">Footprint overridden</p>
+              <p>
+                You redrew this footprint. The published polygon —{" "}
+                {profile.footprintOriginal.areaM2
+                  ? `${profile.footprintOriginal.areaM2.toLocaleString()} m²`
+                  : "no area"}{" "}
+                from <code>{profile.footprintOriginal.method.replace(/_/g, " ")}</code> — is kept
+                and can be restored. Redrawing again replaces your shape, never the original.
+              </p>
+              {profile.footprint.areaM2 !== null &&
+                profile.footprintOriginal.areaM2 !== null && (
+                  <p className="fp-delta">
+                    Your shape is{" "}
+                    {Math.abs(
+                      Math.round(
+                        ((profile.footprint.areaM2 - profile.footprintOriginal.areaM2) /
+                          profile.footprintOriginal.areaM2) * 100,
+                      ),
+                    )}
+                    % {profile.footprint.areaM2 >= profile.footprintOriginal.areaM2 ? "larger" : "smaller"}.
+                    Anything computed from floor area uses this figure now.
+                  </p>
+                )}
+            </div>
+          )}
 
           {profile && Object.keys(profile.states).length > 0 && (
             <ul className="site-states">
@@ -944,6 +1067,23 @@ export default function SitePanel({ mapApi }: Props) {
             <p className="site-flags">{profile.flags.join(" · ")}</p>
           )}
 
+          {/*
+            * Screened against a footprint that has since changed. Showing the
+            * results without saying so would attach findings for one shape to
+            * a different one on the map.
+            */}
+          {constraintsStale && screening && (
+            <div className="fp-stale">
+              <p>
+                The footprint changed after these constraints were screened, so they
+                describe the <strong>previous</strong> shape.
+              </p>
+              <button type="button" onClick={() => void rescreen()} disabled={busy}>
+                Re-screen against the current footprint
+              </button>
+            </div>
+          )}
+
           {screening && <ConstraintList screening={screening} />}
 
           {epc && <EpcPanel report={epc} />}
@@ -957,12 +1097,69 @@ export default function SitePanel({ mapApi }: Props) {
           {ownership && <OwnershipList report={ownership} />}
 
           <div className="site-actions">
-            {!confirmed && selected.uprn && (
+            {!confirmed && selected.uprn && drawPoints === null && (
               <button type="button" className="primary" onClick={() => void confirm()} disabled={busy}>
                 Confirm
               </button>
             )}
-            <button type="button" onClick={() => { setSelected(null); setProfile(null); mapApi.clearSite(); }}>
+
+            {/* Brief §3.4 asks for a Redraw control beside Confirm. */}
+            {drawPoints === null ? (
+              <button
+                type="button"
+                onClick={() => mapApi.startDraw(setDrawPoints)}
+                disabled={busy || !selected.uprn}
+                title={selected.uprn ? undefined : "A drawing needs a UPRN to be saved against"}
+              >
+                Redraw footprint
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy || drawPoints < 3}
+                  onClick={() => {
+                    const polygon = mapApi.finishDraw();
+                    setDrawPoints(null);
+                    if (polygon) void patchFootprint({ footprint: polygon });
+                  }}
+                >
+                  Save shape
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || drawPoints === 0}
+                  onClick={() => mapApi.undoDrawPoint()}
+                >
+                  Undo point
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { mapApi.cancelDraw(); setDrawPoints(null); }}
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+
+            {profile?.footprintOriginal && drawPoints === null && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void patchFootprint({ revertFootprint: true })}
+              >
+                Revert to published
+              </button>
+            )}
+
+            <button type="button" onClick={() => {
+              mapApi.cancelDraw();
+              setDrawPoints(null);
+              setSelected(null);
+              setProfile(null);
+              mapApi.clearSite();
+            }}>
               {candidates.length > 1 ? "Back to matches" : "Clear"}
             </button>
           </div>

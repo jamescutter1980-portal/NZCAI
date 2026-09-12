@@ -261,7 +261,27 @@ body {
 
 /* ---- S-01 site resolution panel ------------------------------------------ */
 
-.site { border-bottom: 1px solid var(--rule); }
+/*
+ * The site panel scrolls itself.
+ *
+ * It grew a section per slice - facts, states, constraints, EPC, performance,
+ * grid, ownership, VOA - and with nothing bounding its height it pushed the
+ * whole page past 100dvh. The document then scrolled and took the MAP with it,
+ * which only became obvious when the redraw tool needed the map to be on
+ * screen: draw mode engaged, cursor turned to a crosshair, and there was
+ * nothing visible to click.
+ *
+ * `min-height: 0` is the load-bearing half. Without it a flex item refuses to
+ * shrink below its content and `overflow-y` never engages.
+ */
+.site {
+  border-bottom: 1px solid var(--rule);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* The results list keeps its own scroll, but must not fight the panel for room. */
+.results { flex: 0 1 auto; }
 
 .site-search { padding: 14px 18px 12px; display: flex; flex-direction: column; gap: 7px; }
 .site-row { display: flex; gap: 7px; }
@@ -985,3 +1005,35 @@ body {
   font: inherit; font-size: 11px; line-height: 1.35; text-align: left; cursor: pointer;
 }
 .g-zoom:hover { background: var(--accent-soft); }
+
+/* --------------------------------------------- S-01 footprint override --- */
+
+/* A drawing is a T4 override, not source data — label it on the figure. */
+.fp-drawn {
+  margin-left: 6px; padding: 1px 5px; border-radius: 2px;
+  background: var(--risk-soft); color: var(--risk);
+  font-family: var(--f-body); font-size: 10px;
+  letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
+}
+
+.fp-override {
+  padding: 8px 10px; border-radius: 3px;
+  background: var(--risk-soft); border-left: 2px solid var(--risk);
+}
+.fp-override-head { margin: 0; font-size: 12px; font-weight: 600; color: var(--risk); }
+.fp-override p { margin: 4px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
+.fp-override code { font-family: var(--f-mono); font-size: 11px; }
+.fp-delta { color: var(--ink) !important; }
+
+/* The screening ran against a shape that is no longer on the map. */
+.fp-stale {
+  padding: 8px 10px; border-radius: 3px;
+  background: var(--warn-soft); border-left: 2px solid var(--warn);
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+}
+.fp-stale p { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--warn); }
+.fp-stale button {
+  padding: 5px 9px; border: 1px solid var(--warn); border-radius: 3px;
+  background: var(--surface); color: var(--warn);
+  font: inherit; font-size: 11.5px; cursor: pointer;
+}

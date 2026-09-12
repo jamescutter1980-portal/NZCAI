@@ -1324,6 +1324,112 @@ the override reviewable. The columns exist; the redraw UI does not (below).
   is tested directly and works; it has no data to work on.
 - **No spatial index beyond the bbox btree.** Fine at this scale. A national
   load would want either PostGIS or a coarse grid key.
+## 2m. S-01 redraw
+
+Brief §3.2: *"Users can redraw the footprint on the map. Store that as an
+override tier and keep the original."* §3.4 asks for the control beside Confirm.
+
+The PATCH route already accepted a `footprint` and `applyOverride` already set
+`user_drawn` at T4. Two things were missing: the original was **discarded**, and
+there was no way to draw one.
+
+### Keeping the original, and only the original
+
+Migration 011 added `footprint_original`, `footprint_original_method` and
+`footprint_overridden_at`. Nothing wrote them. Now the first override captures
+what the source published, and a **second redraw replaces the drawing, never the
+original**.
+
+That distinction is the whole point. If each redraw overwrote the stored
+original, "revert to the OS polygon" would quietly become "revert to my last
+shape" — the button would still be there, still work, and no longer do what it
+says.
+
+Reverting also restores `footprint_inferred` when the original carried it.
+That flag described the *source* polygon's provenance — it was found by
+intersecting a title extent, not by containing the UPRN. Dropping it while a
+drawing is in force is right; failing to bring it back would make the restored
+polygon look better sourced than it is.
+
+### The drawing tool is hand-rolled
+
+No draw library. This map has already burned two dependencies — MapLibre v4's
+XSS in the popup sanitiser, and the v6 worker that never loaded — and a
+polygon-by-clicks tool is about eighty lines. Fewer moving parts beats fewer
+lines here.
+
+Click to place a vertex, Undo point, Cancel, Save. Below three points the line
+layer draws a **LineString, not a closed polygon**: showing a closed shape with
+two points would misrepresent what has been placed. Save is disabled below three,
+and `finishDraw()` checks again — a two-point "polygon" would be stored as a
+footprint with no area.
+
+Draw state lives in refs, not React state: the map's click handler binds once on
+load and would otherwise close over a stale snapshot. The panel learns the vertex
+count through a callback.
+
+The draw handler is registered **first**, and every other click handler bails
+while drawing. Without that, a click placing a corner would also open a
+constraint popup over the shape being drawn.
+
+### The stale-screening problem
+
+S-02 screens against the footprint. Redraw it and the constraints on screen were
+computed for a **different shape** — findings for one polygon, attached to
+another on the map.
+
+The panel now says so, above the constraint list, and offers to re-screen. It
+does **not** re-screen automatically: a redraw is usually followed by another,
+and each automatic re-run is a round of calls to planning.data. Saying the
+results are stale is both cheaper and more honest than silently refreshing.
+
+### Saying it is a drawing
+
+A user polygon is T4, and its area feeds the constraint screen and anything
+reading floor area. So the figure itself carries a **"your drawing"** badge — not
+just a line in the lineage list — and the panel states the published area, the
+method it came from, and how much bigger or smaller the drawing is:
+
+> Your shape is 66% smaller. Anything computed from floor area uses this figure now.
+
+### A layout bug the tool exposed
+
+The panel grew a section per slice — facts, states, constraints, EPC,
+performance, grid, ownership, VOA — and nothing bounded its height. It pushed the
+page past `100dvh`, the **document** scrolled, and the map went with it.
+
+Invisible until the redraw tool needed the map on screen: draw mode engaged, the
+cursor turned to a crosshair, and there was nothing visible to click. The panel
+now scrolls itself. `min-height: 0` is the load-bearing half — without it a flex
+item refuses to shrink below its content and `overflow-y` never engages.
+
+This had been broken for several slices and no screenshot caught it, because
+every previous browser check drove the panel from the top.
+
+### What was built
+
+| file | role |
+|---|---|
+| `types.ts` | `FootprintOriginal` on the profile |
+| `profile.ts` | capture-once, revert, flag handling in `applyOverride` |
+| `service.ts` | the original round-trips through `site_profile` |
+| `LandMap.tsx` | draw layers, `startDraw` / `undoDrawPoint` / `cancelDraw` / `finishDraw` |
+| `SitePanel.tsx` | the controls, the override note, the stale-screening warning |
+| `globals.css` | the panel scroll fix |
+
+**13 tests**, 380 across the suite.
+
+### Not done
+
+- **No vertex editing.** Points are placed and undone in order; an existing
+  shape cannot be nudged. Redrawing from scratch is the only edit.
+- **No snapping** to the source polygon or to other buildings.
+- **No "Move pin".** Brief §3.4 lists it beside Confirm and Redraw.
+  `applyOverride` already handles `point` at T4 and the resolution chain has the
+  map-click step; only the control is missing.
+- **The override is not re-screened automatically**, by design (above) — but
+  nothing forces the user to press the button, so a stale screening can be left
+  on screen. It is labelled the whole time it is stale.
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)

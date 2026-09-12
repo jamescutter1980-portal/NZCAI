@@ -28,7 +28,7 @@ export const DATASETS = {
   lad: "local-authority-district",
 } as const;
 
-/** OS OpenMap Local building polygons. Needs PostGIS; optional until then. */
+/** OS OpenMap Local building polygons. Served without PostGIS - see stores.ts. */
 export interface FootprintStore {
   /** Building polygon containing the point, if any. */
   containing(point: LatLon): Promise<GeoJSON.Geometry | null>;
@@ -244,7 +244,13 @@ export async function buildProfile(
  */
 export function applyOverride(
   profile: SiteProfile,
-  override: { confirmed?: boolean; footprint?: GeoJSON.Geometry; point?: LatLon },
+  override: {
+    confirmed?: boolean;
+    footprint?: GeoJSON.Geometry;
+    point?: LatLon;
+    /** Discards a user drawing and restores what the source published. */
+    revertFootprint?: boolean;
+  },
 ): SiteProfile {
   const next: SiteProfile = {
     ...profile,
@@ -267,17 +273,62 @@ export function applyOverride(
   }
 
   if (override.footprint) {
+    /*
+     * Capture the original ONCE, on the first override.
+     *
+     * A second redraw replaces the drawing, never the original - the thing
+     * worth keeping is what the SOURCE published, not the user's previous
+     * attempt. Overwriting it on every redraw would quietly turn "revert to
+     * the OS polygon" into "revert to my last shape".
+     */
+    if (!next.footprintOriginal && next.footprint.method !== "user_drawn") {
+      next.footprintOriginal = {
+        geometry: next.footprint.geometry,
+        areaM2: next.footprint.areaM2,
+        method: next.footprint.method,
+        overriddenAt: new Date().toISOString(),
+      };
+    }
+
     next.footprint = {
       geometry: override.footprint,
       areaM2: areaM2(override.footprint),
       method: "user_drawn",
     };
+    // The inference flag described the SOURCE polygon's provenance. It says
+    // nothing about a shape the user drew, so it goes.
     next.flags = next.flags.filter((f) => f !== "footprint_inferred");
+    // Anything derived from the footprint was computed against the old shape.
+    if (!next.flags.includes("footprint_overridden")) next.flags.push("footprint_overridden");
+
     next.sources.push(
       lineage({
         sourceId: "os-openmap-local",
         entityRef: null,
         method: "user redrew the footprint",
+        tier: "T4",
+      }),
+    );
+  }
+
+  if (override.revertFootprint && next.footprintOriginal) {
+    const original = next.footprintOriginal;
+    next.footprint = {
+      geometry: original.geometry,
+      areaM2: original.areaM2,
+      method: original.method,
+    };
+    next.footprintOriginal = null;
+    next.flags = next.flags.filter((f) => f !== "footprint_overridden");
+    // Restore the flag the source polygon carried, if it was an inference.
+    if (original.method === "title_intersect" && !next.flags.includes("footprint_inferred")) {
+      next.flags.push("footprint_inferred");
+    }
+    next.sources.push(
+      lineage({
+        sourceId: "os-openmap-local",
+        entityRef: null,
+        method: "user reverted to the published footprint",
         tier: "T4",
       }),
     );

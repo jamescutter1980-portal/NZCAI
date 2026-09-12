@@ -393,6 +393,31 @@ wins — where a unit sits inside a larger terrace outline, the unit is the
 answer. `largestIntersecting()` orders **descending** and returns the first
 exact hit.
 
+### Redrawing a footprint
+
+`/land` has a **Redraw footprint** control beside Confirm. Click to place
+corners, Undo point, Cancel, Save shape (enabled at three points — fewer is not
+an area).
+
+The published polygon is **kept**, and a second redraw replaces your shape, not
+the original. That distinction matters: if each redraw overwrote the stored
+original, "Revert to published" would quietly become "revert to my last shape" —
+still there, still working, no longer doing what it says.
+
+A drawing is a **T4 override**, and its area feeds the constraint screen and
+anything reading floor area. So the figure carries a "your drawing" badge, and
+the panel states what was published, where it came from, and how far the drawing
+departs from it.
+
+**Constraints screened before a redraw describe the previous shape**, so the
+panel says so and offers to re-screen. It does not re-screen automatically — a
+redraw is usually followed by another, and each re-run is a round of calls to
+planning.data.
+
+Reverting restores `footprint_inferred` if the original carried it: that flag
+described the source polygon's provenance, and losing it would make the restored
+polygon look better sourced than it is.
+
 ### Reproject first — the loader will stop you
 
 OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.

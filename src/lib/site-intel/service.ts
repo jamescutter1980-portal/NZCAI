@@ -5,7 +5,7 @@ import { resolve, type ResolveDeps, type ResolveInput, type ResolveResult } from
 import { footprintStore, postcodeStore, uprnStore } from "./stores";
 import { epcAddressRegister } from "./epc";
 import type { Candidate, SiteProfile, SourceRecord } from "./types";
-import type { LatLon } from "./geo";
+import { areaM2, type LatLon } from "./geo";
 import { screenConstraints, type ConstraintScreening } from "./constraints";
 import { eaFloodCheck, noFloodCheck } from "./flood";
 
@@ -127,6 +127,9 @@ interface ProfileRow {
   footprint: GeoJSON.Geometry | null;
   footprint_method: SiteProfile["footprint"]["method"] | null;
   footprint_area_m2: string | null;
+  footprint_original: GeoJSON.Geometry | null;
+  footprint_original_method: SiteProfile["footprint"]["method"] | null;
+  footprint_overridden_at: string | Date | null;
   match_confidence: SiteProfile["matchConfidence"];
   user_confirmed: boolean;
   flags: string[];
@@ -149,6 +152,16 @@ function rowToProfile(row: ProfileRow, sources: SourceRecord[]): SiteProfile {
       areaM2: row.footprint_area_m2 === null ? null : Number(row.footprint_area_m2),
       method: row.footprint_method ?? "unavailable",
     },
+    footprintOriginal: row.footprint_original
+      ? {
+          geometry: row.footprint_original,
+          areaM2: areaM2(row.footprint_original),
+          method: row.footprint_original_method ?? "unavailable",
+          overriddenAt: row.footprint_overridden_at
+            ? new Date(row.footprint_overridden_at).toISOString()
+            : new Date(0).toISOString(),
+        }
+      : null,
     matchConfidence: row.match_confidence,
     userConfirmed: row.user_confirmed,
     flags: row.flags ?? [],
@@ -166,8 +179,10 @@ export async function saveProfile(
     `INSERT INTO site_profile
        (building_id, uprn, lat, lng, postcode, address, country, lpa_code, lpa_name,
         title_extents, footprint, footprint_method, footprint_area_m2,
+        footprint_original, footprint_original_method, footprint_overridden_at,
         match_confidence, user_confirmed, flags, states, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17::jsonb, now())
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,
+             $14::jsonb,$15,$16,$17,$18,$19,$20::jsonb, now())
      ON CONFLICT (building_id) DO UPDATE SET
        uprn = EXCLUDED.uprn, lat = EXCLUDED.lat, lng = EXCLUDED.lng,
        postcode = EXCLUDED.postcode, address = EXCLUDED.address,
@@ -176,6 +191,9 @@ export async function saveProfile(
        title_extents = EXCLUDED.title_extents, footprint = EXCLUDED.footprint,
        footprint_method = EXCLUDED.footprint_method,
        footprint_area_m2 = EXCLUDED.footprint_area_m2,
+       footprint_original = EXCLUDED.footprint_original,
+       footprint_original_method = EXCLUDED.footprint_original_method,
+       footprint_overridden_at = EXCLUDED.footprint_overridden_at,
        match_confidence = EXCLUDED.match_confidence,
        user_confirmed = EXCLUDED.user_confirmed, flags = EXCLUDED.flags,
        states = EXCLUDED.states, updated_at = now()
@@ -186,6 +204,11 @@ export async function saveProfile(
       JSON.stringify(profile.titleExtents),
       profile.footprint.geometry ? JSON.stringify(profile.footprint.geometry) : null,
       profile.footprint.method, profile.footprint.areaM2,
+      profile.footprintOriginal?.geometry
+        ? JSON.stringify(profile.footprintOriginal.geometry)
+        : null,
+      profile.footprintOriginal?.method ?? null,
+      profile.footprintOriginal?.overriddenAt ?? null,
       profile.matchConfidence, profile.userConfirmed, profile.flags,
       JSON.stringify(profile.states),
     ],
@@ -241,7 +264,12 @@ export async function loadProfile(buildingId: string): Promise<SiteProfile | nul
 /** PATCH .../override - a confirmed pin or a redrawn footprint. */
 export async function overrideProfile(
   buildingId: string,
-  override: { confirmed?: boolean; footprint?: GeoJSON.Geometry; point?: LatLon },
+  override: {
+    confirmed?: boolean;
+    footprint?: GeoJSON.Geometry;
+    point?: LatLon;
+    revertFootprint?: boolean;
+  },
 ): Promise<SiteProfile | null> {
   const existing = await loadProfile(buildingId);
   if (!existing) return null;

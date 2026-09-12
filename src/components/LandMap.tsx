@@ -79,6 +79,17 @@ const GRID_SUPPLY_AREA = "grid-supply-area";
 const GRID_SITE_SUBS = "grid-site-substations";
 const GRID_ECR = "grid-ecr";
 
+/*
+ * The redraw tool (brief §3.2, §3.4).
+ *
+ * Hand-rolled rather than pulled from a draw library. This map has burned two
+ * dependencies already - MapLibre v4's XSS in the popup sanitiser and the v6
+ * worker that never loaded - and a polygon-by-clicks tool is about eighty
+ * lines. Fewer moving parts beats fewer lines here.
+ */
+const DRAW_LINE = "site-draw-line";
+const DRAW_POINTS = "site-draw-points";
+
 interface ApiResponse {
   substations: Substation[];
   count: number;
@@ -596,6 +607,34 @@ export default function LandMap({
         paint: { "fill-color": "#1B4DD1", "fill-opacity": 0.28, "fill-outline-color": "#1B4DD1" },
       });
 
+      // Above everything: while drawing, the drawing is the subject.
+      m.addSource(DRAW_LINE, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: `${DRAW_LINE}-fill`,
+        type: "fill",
+        source: DRAW_LINE,
+        paint: { "fill-color": "#A32F24", "fill-opacity": 0.18 },
+      });
+      m.addLayer({
+        id: DRAW_LINE,
+        type: "line",
+        source: DRAW_LINE,
+        paint: { "line-color": "#A32F24", "line-width": 2, "line-dasharray": [2, 1] },
+      });
+
+      m.addSource(DRAW_POINTS, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: DRAW_POINTS,
+        type: "circle",
+        source: DRAW_POINTS,
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#ffffff",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#A32F24",
+        },
+      });
+
       m.addSource(SITE_PIN, { type: "geojson", data: emptyCollection() });
       m.addLayer({
         id: SITE_PIN,
@@ -635,6 +674,7 @@ export default function LandMap({
     ];
 
     instance.on("click", (e: MapMouseEvent) => {
+      if (drawActive.current) return;
       const layers = CONSTRAINT_FILL_LAYERS.filter((id) => instance.getLayer(id));
       if (!layers.length) return;
 
@@ -697,10 +737,25 @@ export default function LandMap({
     });
 
     /*
+     * Draw-mode clicks add a vertex and nothing else.
+     *
+     * Registered FIRST and every other click handler bails while drawing, so a
+     * click meant to place a corner cannot also open a constraint popup over
+     * the shape being drawn.
+     */
+    instance.on("click", (e: MapMouseEvent) => {
+      if (!drawActive.current) return;
+      drawing.current = [...drawing.current, [e.lngLat.lng, e.lngLat.lat]];
+      renderDrawing();
+      onDrawChange.current?.(drawing.current.length);
+    });
+
+    /*
      * ECR popups. Each one repeats what a register entry IS, because the dots
      * are the part of this map most likely to be misread as available capacity.
      */
     instance.on("click", GRID_ECR, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+      if (drawActive.current) return;
       const props = e.features?.[0]?.properties as Record<string, string> | undefined;
       if (!props) return;
 
@@ -722,6 +777,7 @@ export default function LandMap({
     });
 
     instance.on("click", GRID_SITE_SUBS, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+      if (drawActive.current) return;
       const props = e.features?.[0]?.properties as Record<string, string> | undefined;
       if (!props) return;
 
@@ -759,6 +815,7 @@ export default function LandMap({
     }
 
     instance.on("click", LAYER_ID, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+        if (drawActive.current) return;
         const id = e.features?.[0]?.properties?.id as number | undefined;
         if (id === undefined) return;
         const s = byId.current.get(Number(id));
@@ -802,6 +859,53 @@ export default function LandMap({
     },
     [openPopup],
   );
+
+  /**
+   * Paints the in-progress drawing.
+   *
+   * Fewer than three points cannot be a polygon, so the line layer carries a
+   * LineString until then and a Polygon after. Showing a closed shape with two
+   * points would misrepresent what has actually been placed.
+   */
+  const renderDrawing = useCallback(() => {
+    const points = drawing.current;
+    const m = map.current;
+    if (!m) return;
+
+    const line = m.getSource(DRAW_LINE) as GeoJSONSource | undefined;
+    const dots = m.getSource(DRAW_POINTS) as GeoJSONSource | undefined;
+
+    line?.setData(
+      points.length >= 3
+        ? {
+            type: "FeatureCollection",
+            features: [{
+              type: "Feature",
+              geometry: { type: "Polygon", coordinates: [[...points, points[0]]] },
+              properties: {},
+            }],
+          }
+        : points.length >= 2
+          ? {
+              type: "FeatureCollection",
+              features: [{
+                type: "Feature",
+                geometry: { type: "LineString", coordinates: points },
+                properties: {},
+              }],
+            }
+          : emptyCollection(),
+    );
+
+    dots?.setData({
+      type: "FeatureCollection",
+      features: points.map((c) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: c },
+        properties: {},
+      })),
+    });
+  }, []);
 
   const setSiteData = useCallback((id: string, data: GeoJSON.FeatureCollection) => {
     const source = map.current?.getSource(id) as GeoJSONSource | undefined;
@@ -915,20 +1019,69 @@ export default function LandMap({
             : null,
         );
       },
+      startDraw(onChange: (count: number) => void) {
+        drawing.current = [];
+        drawActive.current = true;
+        onDrawChange.current = onChange;
+        renderDrawing();
+        onChange(0);
+        const canvas = map.current?.getCanvas();
+        if (canvas) canvas.style.cursor = "crosshair";
+      },
+
+      undoDrawPoint() {
+        drawing.current = drawing.current.slice(0, -1);
+        renderDrawing();
+        onDrawChange.current?.(drawing.current.length);
+      },
+
+      cancelDraw() {
+        drawing.current = [];
+        drawActive.current = false;
+        onDrawChange.current = null;
+        renderDrawing();
+        const canvas = map.current?.getCanvas();
+        if (canvas) canvas.style.cursor = "";
+      },
+
+      /**
+       * Closes the ring and returns it, or null if it is not a polygon.
+       *
+       * Three points is the minimum for an area. The caller keeps the button
+       * disabled below that, but the check is here too - a two-point "polygon"
+       * would be stored as a footprint with no area.
+       */
+      finishDraw(): GeoJSON.Polygon | null {
+        const points = drawing.current;
+        if (points.length < 3) return null;
+        const ring = [...points, points[0]];
+        drawing.current = [];
+        drawActive.current = false;
+        onDrawChange.current = null;
+        renderDrawing();
+        const canvas = map.current?.getCanvas();
+        if (canvas) canvas.style.cursor = "";
+        return { type: "Polygon", coordinates: [ring] };
+      },
+
       clearSite() {
         for (const id of [
           SITE_PIN, SITE_TITLE, SITE_FOOTPRINT,
           CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
           GRID_SUPPLY_AREA, GRID_SITE_SUBS, GRID_ECR,
+          DRAW_LINE, DRAW_POINTS,
         ]) {
           setSiteData(id, emptyCollection());
         }
+        drawing.current = [];
+        drawActive.current = false;
+        onDrawChange.current = null;
         setCoverage(null);
         setGridCoverage(null);
         gridBounds.current = null;
       },
     }),
-    [setSiteData],
+    [setSiteData, renderDrawing],
   );
 
   /* S-02 layer state. `hidden` is per category; the coverage strip is what
@@ -942,6 +1095,15 @@ export default function LandMap({
    * are kept here so the legend can offer to go to them.
    */
   const gridBounds = useRef<[[number, number], [number, number]] | null>(null);
+
+  /*
+   * Redraw state lives in refs, not React state: the map's click handler is
+   * bound once on load and would otherwise close over a stale snapshot. The
+   * panel is told the vertex count through the callback instead.
+   */
+  const drawing = useRef<[number, number][]>([]);
+  const drawActive = useRef(false);
+  const onDrawChange = useRef<((count: number) => void) | null>(null);
   const [hiddenCategories, setHiddenCategories] = useState<Set<ConstraintCategory>>(
     () => new Set(),
   );

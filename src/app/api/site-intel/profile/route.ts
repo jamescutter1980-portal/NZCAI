@@ -142,6 +142,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
       buildingId?: string;
       confirmed?: boolean;
       footprint?: GeoJSON.Geometry;
+      revertFootprint?: boolean;
       lat?: number;
       lon?: number;
     };
@@ -152,6 +153,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     const profile = await overrideProfile(body.buildingId, {
       confirmed: body.confirmed,
       footprint: body.footprint,
+      revertFootprint: body.revertFootprint,
       point: body.lat !== undefined && body.lon !== undefined
         ? { lat: body.lat, lon: body.lon }
         : undefined,
