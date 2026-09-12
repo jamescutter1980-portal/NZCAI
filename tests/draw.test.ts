@@ -7,7 +7,7 @@ import {
   MIN_VERTICES,
   SNAP_EDGE_PX,
   SNAP_PX,
-  SQUARE_PX,
+  ALIGN_PX,
   candidatesFrom,
   edgeAt,
   edgesFrom,
@@ -25,6 +25,7 @@ import {
   toPolygon,
   vertexAt,
   type Project,
+  type AlignHinge,
   type SnapCandidate,
   type SnapEdge,
   type SnapTargets,
@@ -202,7 +203,7 @@ describe("snapping", () => {
       kind: "none",
       target: null,
       edge: null,
-      square: null,
+      align: null,
       source: null,
     });
   });
@@ -559,18 +560,20 @@ describe("snapping a wall that is being dragged", () => {
  * screen distance is a real one. The latitude case is covered separately.
  */
 describe("squaring a corner", () => {
-  // A wall running east from the origin to the pivot at (0.001, 0).
+  // A wall running east from the origin to the pivot at (0.001, 0). The wall
+  // already standing at the pivot runs back to the origin, so `adjoining` and
+  // the reference are the same vertex: the square-to-the-wall-beside-it case.
   const pivot: Vertex = [0.001, 0];
-  const reference: Vertex = [0, 0];
-  const hinge = { pivot, reference };
+  const origin: Vertex = [0, 0];
+  const hinge: AlignHinge = { pivot, reference: [pivot, origin], adjoining: origin };
   const square = (v: Vertex) => snap(v, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
 
   test("a corner a little off square is pulled square", () => {
     // Almost due north of the pivot, leaning 4 px east.
     const result = square([0.001004, 0.0001]);
     assert.equal(result.snapped, true);
-    assert.equal(result.kind, "square");
-    assert.deepEqual(result.square, hinge);
+    assert.equal(result.kind, "align");
+    assert.deepEqual(result.align, hinge);
     // Due north of the pivot: the wall now meets the reference wall at 90°.
     assert.ok(Math.abs(result.vertex[0] - pivot[0]) < 1e-15, "same longitude as the pivot");
   });
@@ -610,15 +613,15 @@ describe("squaring a corner", () => {
   });
 
   test("both square corners are offered, not just the first", () => {
-    assert.equal(square([0.001004, 0.0001]).kind, "square", "north of the pivot");
-    assert.equal(square([0.001004, -0.0001]).kind, "square", "south of it");
+    assert.equal(square([0.001004, 0.0001]).kind, "align", "north of the pivot");
+    assert.equal(square([0.001004, -0.0001]).kind, "align", "south of it");
   });
 
   test("two walls running straight on is a right angle's half turn", () => {
     // Continuing east past the pivot: a legitimate shape, and the vertex is
     // still placed exactly on the line.
     const result = square([0.002, 0.000004]);
-    assert.equal(result.kind, "square");
+    assert.equal(result.kind, "align");
     assert.ok(Math.abs(result.vertex[1]) < 1e-15, "back on the reference wall's line");
   });
 
@@ -635,7 +638,7 @@ describe("squaring a corner", () => {
   });
 
   test("a reference wall of no length squares nothing", () => {
-    const degenerate = { pivot, reference: pivot };
+    const degenerate: AlignHinge = { pivot, reference: [pivot, pivot], adjoining: origin };
     const raw: Vertex = [0.001004, 0.0001];
     assert.equal(
       snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [degenerate]).snapped,
@@ -653,9 +656,9 @@ describe("squaring a corner", () => {
     const west: Vertex = [0, 53.5];
     const result = snap(
       [0.001004, 53.50006], corners(), project, SNAP_PX, SNAP_EDGE_PX,
-      [{ pivot: north, reference: west }],
+      [{ pivot: north, reference: [north, west], adjoining: west }],
     );
-    assert.equal(result.kind, "square");
+    assert.equal(result.kind, "align");
     assert.ok(
       Math.abs(result.vertex[0] - north[0]) < 1e-15,
       "due north of the pivot, whatever the longitude scale",
@@ -663,9 +666,10 @@ describe("squaring a corner", () => {
   });
 });
 
-describe("right angles never outrank published data", () => {
+describe("alignment never outranks published data", () => {
   const pivot: Vertex = [0.001, 0];
-  const hinge = { pivot, reference: [0, 0] as Vertex };
+  const origin: Vertex = [0, 0];
+  const hinge: AlignHinge = { pivot, reference: [pivot, origin], adjoining: origin };
   // The raw point is 4 px off square, and a published corner sits 9 px away -
   // further, but real.
   const raw: Vertex = [0.001004, 0.0001];
@@ -694,46 +698,223 @@ describe("right angles never outrank published data", () => {
   });
 
   test("the threshold sits below the corner one, deliberately", () => {
-    assert.equal(SQUARE_PX, 8);
-    assert.ok(SQUARE_PX < SNAP_PX);
+    assert.equal(ALIGN_PX, 8);
+    assert.ok(ALIGN_PX < SNAP_PX);
   });
 });
 
-describe("which corners a vertex can be squared against", () => {
+describe("which walls a moving vertex can be aligned to", () => {
   const ring: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
 
-  test("both walls that meet at the vertex, and neither of them moves", () => {
+  test("one pivot on each side of the vertex", () => {
     const hinges = hingesForVertex(ring, 0);
-    assert.equal(hinges.length, 2);
-    assert.deepEqual(hinges[0], { pivot: ring[3], reference: ring[2] });
-    assert.deepEqual(hinges[1], { pivot: ring[1], reference: ring[2] });
+    assert.deepEqual(new Set(hinges.map((h) => h.pivot)), new Set([ring[3], ring[1]]));
+  });
+
+  test("the wall beside the pivot comes first, so ties report it", () => {
+    // Every wall of a rectangle carries one of two bearings, so several
+    // references give the same answer. The nearby one is the relationship the
+    // user can actually see, so it is the one kept.
+    const hinges = hingesForVertex(ring, 0);
+    const first = hinges.find((h) => h.pivot === ring[3]);
+    assert.deepEqual(first?.reference, [ring[3], ring[2]]);
+    assert.deepEqual(first?.adjoining, ring[2]);
+  });
+
+  test("the far walls are offered too, which is what parallel needs", () => {
+    /*
+     * Dragging vertex 0 moves walls 3 (v3->v0) and 0 (v0->v1). The walls that
+     * stand still are 1 (v1->v2) and 2 (v2->v3). For the pivot at v3, wall 2
+     * IS the adjoining wall — offered first, and not offered twice — so the
+     * far wall 1 is the one this adds.
+     */
+    const forPivot3 = hingesForVertex(ring, 0).filter((h) => h.pivot === ring[3]);
+    const refs = forPivot3.map((h) => `${h.reference[0]}|${h.reference[1]}`);
+    assert.deepEqual(refs, [`${ring[3]}|${ring[2]}`, `${ring[1]}|${ring[2]}`]);
+  });
+
+  test("a reference is never listed twice, whichever way round it runs", () => {
+    // The adjoining wall reaches the builder once as [pivot, adjoining] and
+    // again walking the ring as [adjoining, pivot]. It is one wall.
+    for (const index of [0, 1, 2, 3]) {
+      const seen = hingesForVertex(ring, index).map(
+        (h) => `${h.pivot}::${[h.reference[0], h.reference[1]].sort().join("|")}`,
+      );
+      assert.equal(new Set(seen).size, seen.length, `duplicate reference at ${index}`);
+    }
+  });
+
+  test("the two walls touching the dragged vertex are never references", () => {
+    // They are the ones moving: their bearing is the answer, not the question.
+    for (const h of hingesForVertex(ring, 0)) {
+      const pair = [h.reference[0], h.reference[1]];
+      assert.ok(!(pair.includes(ring[0])), "no reference touches the dragged vertex");
+    }
   });
 
   test("the ring wraps, so the first vertex is not a special case", () => {
     const hinges = hingesForVertex(ring, 2);
-    assert.deepEqual(hinges[0], { pivot: ring[1], reference: ring[0] });
-    assert.deepEqual(hinges[1], { pivot: ring[3], reference: ring[0] });
+    assert.deepEqual(new Set(hinges.map((h) => h.pivot)), new Set([ring[1], ring[3]]));
+    for (const h of hinges) assert.ok(![h.reference[0], h.reference[1]].includes(ring[2]));
   });
 
-  test("a triangle squares against its one unmoving wall", () => {
+  test("a triangle aligns against its one standing wall", () => {
     const tri: Vertex[] = [[0, 0], [0.001, 0], [0, 0.001]];
     const hinges = hingesForVertex(tri, 0);
-    assert.deepEqual(hinges[0], { pivot: tri[2], reference: tri[1] });
-    assert.deepEqual(hinges[1], { pivot: tri[1], reference: tri[2] });
+    assert.deepEqual(new Set(hinges.map((h) => h.pivot)), new Set([tri[2], tri[1]]));
+    for (const h of hinges) assert.ok(![h.reference[0], h.reference[1]].includes(tri[0]));
   });
 
-  test("below three vertices there is no corner to square", () => {
+  test("below three vertices there is nothing to align to", () => {
     assert.deepEqual(hingesForVertex([[0, 0], [1, 1]], 0), []);
     assert.deepEqual(hingesForVertex(ring, 9), []);
   });
 
-  test("placing a corner squares against the wall running back from the last", () => {
-    const hinges = hingesForAppend([[0, 0], [0.001, 0]]);
-    assert.deepEqual(hinges, [{ pivot: [0.001, 0], reference: [0, 0] }]);
+  test("placing a corner aligns to every wall already drawn", () => {
+    const placed: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001]];
+    const hinges = hingesForAppend(placed);
+    assert.ok(hinges.every((h) => h.pivot === placed[2] && h.adjoining === placed[1]));
+    assert.deepEqual(hinges[0].reference, [placed[2], placed[1]], "the last wall first");
+    assert.deepEqual(hinges[1].reference, [placed[0], placed[1]], "and the one before it");
   });
 
-  test("the first two points have no wall to square to", () => {
+  test("the first two points have only the wall between them", () => {
+    const hinges = hingesForAppend([[0, 0], [0.001, 0]]);
+    assert.equal(hinges.length, 1);
+    assert.deepEqual(hinges[0].reference, [[0.001, 0], [0, 0]]);
+  });
+
+  test("nothing to align to below two points", () => {
     assert.deepEqual(hingesForAppend([]), []);
     assert.deepEqual(hingesForAppend([[0, 0]]), []);
+  });
+});
+
+/* --------------------------------------------------- parallel alignment --- */
+
+describe("aligning a wall parallel to a distant one", () => {
+  /*
+   * The case square-to-the-neighbour cannot reach. Drag the north-west corner
+   * of a rectangle and there is no way to ask for the west wall to stay
+   * parallel to the EAST one — they share no corner, so no right angle between
+   * adjoining walls expresses it.
+   */
+  const pivot: Vertex = [0, 0];            // the corner the moving wall turns on
+  const adjoining: Vertex = [0.001, 0];    // the wall already standing there
+
+  // A wall somewhere else entirely, running north-north-east.
+  const far: [Vertex, Vertex] = [[0.005, 0.005], [0.0051, 0.006]];
+  const hinge: AlignHinge = { pivot, reference: far, adjoining };
+
+  const bearing = (a: Vertex, b: Vertex) => Math.atan2(b[1] - a[1], b[0] - a[0]);
+  const parallelish = (a: number, b: number) => {
+    const d = Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+    return Math.min(d, Math.PI - d) < 1e-12;
+  };
+
+  test("the moved wall comes out exactly parallel to the reference", () => {
+    // Aimed roughly along the far wall's bearing, a few pixels off.
+    const raw: Vertex = [0.00011, 0.001];
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+
+    assert.equal(result.snapped, true);
+    assert.equal(result.kind, "align");
+    assert.ok(
+      parallelish(bearing(pivot, result.vertex), bearing(far[0], far[1])),
+      "the two walls now carry the same bearing",
+    );
+  });
+
+  test("the reference wall comes back, so the indicator can show what to", () => {
+    const result = snap([0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    assert.deepEqual(result.align?.reference, far);
+  });
+
+  test("the reference's position is irrelevant, only its bearing", () => {
+    // The same wall translated far away gives the same answer.
+    const moved: [Vertex, Vertex] = [[9, 9], [9.0001, 9.001]];
+    const a = snap([0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    const b = snap(
+      [0.00011, 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX,
+      [{ pivot, reference: moved, adjoining }],
+    );
+    close(a.vertex, b.vertex);
+  });
+
+  test("perpendicular to a distant wall works the same way", () => {
+    // A quarter turn from the far wall rather than none.
+    const raw: Vertex = [0.001, -0.00009];
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    assert.equal(result.kind, "align");
+    const between = Math.abs(bearing(pivot, result.vertex) - bearing(far[0], far[1]));
+    assert.ok(
+      Math.abs((between % (Math.PI / 2))) < 1e-12,
+      "a whole number of quarter turns from the reference",
+    );
+  });
+
+  test("the wall keeps its length here too", () => {
+    const raw: Vertex = [0.00011, 0.001];
+    const before = Math.hypot(raw[0] - pivot[0], raw[1] - pivot[1]);
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, [hinge]);
+    const after = Math.hypot(result.vertex[0] - pivot[0], result.vertex[1] - pivot[1]);
+    assert.ok(Math.abs(after - before) < 1e-15);
+  });
+
+  test("a far wall can never re-admit the folded-back bearing", () => {
+    /*
+     * The real reason the fold-back check is geometric. In a rectilinear
+     * building the wall opposite is parallel to the wall beside, so it offers
+     * the very same four bearings — including the one that lays the moving
+     * wall on top of the wall already at the pivot. A rule about which
+     * reference was used would not catch it; a rule about where the point ends
+     * up does.
+     */
+    const opposite: [Vertex, Vertex] = [[0.002, 0.001], [0.003, 0.001]];  // parallel to adjoining
+    const foldedBack: Vertex = [0.0005, 0.000002];   // straight along pivot -> adjoining
+    const result = snap(
+      foldedBack, corners(), project, SNAP_PX, SNAP_EDGE_PX,
+      [{ pivot, reference: opposite, adjoining }],
+    );
+    assert.equal(result.snapped, false, "refused, whichever wall offered the bearing");
+  });
+
+  test("parallel is defined in ONE frame, the pivot's", () => {
+    /*
+     * The longitude scale is cos(latitude), so it differs very slightly
+     * between two walls at different latitudes. The code uses the PIVOT's
+     * scale for both the moving wall and the reference, which makes the
+     * comparison self-consistent: "parallel" does not depend on which end you
+     * measure from. Measuring each wall in its own frame instead disagrees by
+     * around 1e-4 degrees over a building — under a fifth of a millimetre on a
+     * 100 m wall, and the wrong question besides.
+     */
+    const atLat = 53.5;
+    const pv: Vertex = [0, atLat];
+    const adj: Vertex = [0.001, atLat];
+    const ref: [Vertex, Vertex] = [[0.005, atLat + 0.002], [0.0051, atLat + 0.003]];
+    const result = snap(
+      [0.00011, atLat + 0.001], corners(), project, SNAP_PX, SNAP_EDGE_PX,
+      [{ pivot: pv, reference: ref, adjoining: adj }],
+    );
+    assert.equal(result.kind, "align");
+
+    const k = Math.cos((pv[1] * Math.PI) / 180);
+    const inPivotFrame = (a: Vertex, b: Vertex) => Math.atan2(b[1] - a[1], (b[0] - a[0]) * k);
+    const apart = Math.abs(
+      inPivotFrame(pv, result.vertex) - inPivotFrame(ref[0], ref[1]),
+    ) % Math.PI;
+    assert.ok(Math.min(apart, Math.PI - apart) < 1e-12, `off by ${apart}`);
+  });
+
+  test("a whole rectangle can be kept parallel by dragging one corner", () => {
+    // v0 dragged: with the east wall as reference the west wall comes out
+    // parallel to it, which is the shape staying a parallelogram.
+    const ring: Vertex[] = [[0, 0], [0.001, 0], [0.0011, 0.001], [0.0001, 0.001]];
+    const hinges = hingesForVertex(ring, 0);
+    const raw: Vertex = [0.00006, -0.0004];
+    const result = snap(raw, corners(), project, SNAP_PX, SNAP_EDGE_PX, hinges);
+    assert.equal(result.snapped, true);
+    assert.equal(result.kind, "align");
   });
 });

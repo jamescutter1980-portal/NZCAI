@@ -36,7 +36,7 @@ import {
   DRAG_START_PX,
   SNAP_EDGE_PX,
   SNAP_PX,
-  SQUARE_PX,
+  ALIGN_PX,
   edgeAt,
   hingesForAppend,
   hingesForVertex,
@@ -51,8 +51,8 @@ import {
   targetsFrom,
   toPolygon,
   vertexAt,
+  type AlignHinge,
   type SnapTargets,
-  type SquareHinge,
   type Vertex,
 } from "@/lib/site-intel/draw";
 import {
@@ -1236,7 +1236,7 @@ export default function LandMap({
   const showSnap = useCallback((
     vertex: Vertex | null,
     wall: [Vertex, Vertex] | null = null,
-    squared: [Vertex, Vertex, Vertex] | null = null,
+    aligned: [[Vertex, Vertex], [Vertex, Vertex]] | null = null,
   ) => {
     const point = map.current?.getSource(DRAW_SNAP) as GeoJSONSource | undefined;
     point?.setData(
@@ -1267,18 +1267,21 @@ export default function LandMap({
     );
 
     /*
-     * Both arms of the right angle, so the user can see WHAT it was squared
-     * against - the pivot alone would not say which wall the 90° is measured
-     * from, and with two walls meeting there it is a real question.
+     * The wall that was aligned AND the wall its bearing came from. Lighting
+     * only the moved wall would not say what it is now parallel or square to,
+     * and with a whole building's worth of walls that is a real question. The
+     * two meet at the pivot when the reference adjoins it, which draws the
+     * familiar elbow; otherwise they are two separate strokes, which is what
+     * a parallel actually looks like.
      */
     const square = map.current?.getSource(DRAW_SQUARE) as GeoJSONSource | undefined;
     square?.setData(
-      squared
+      aligned
         ? {
             type: "FeatureCollection",
             features: [{
               type: "Feature",
-              geometry: { type: "LineString", coordinates: squared },
+              geometry: { type: "MultiLineString", coordinates: aligned },
               properties: {},
             }],
           }
@@ -1296,7 +1299,7 @@ export default function LandMap({
    * thresholds are screen pixels at whatever zoom is in force.
    */
   const withSnap = useCallback(
-    (lngLat: Vertex, hinges: SquareHinge[] = []): Vertex => {
+    (lngLat: Vertex, hinges: AlignHinge[] = []): Vertex => {
       const m = map.current;
       const wantSquare = squareOn.current && hinges.length > 0;
       if (!m || (!snapOn.current && !wantSquare)) {
@@ -1315,15 +1318,15 @@ export default function LandMap({
         SNAP_PX,
         SNAP_EDGE_PX,
         wantSquare ? hinges : [],
-        SQUARE_PX,
+        ALIGN_PX,
       );
       showSnap(
-        // The blue ring means "this point is on published data". A squared
-        // corner is not, so it gets the amber arms and no ring — and those
-        // arms end at the vertex, so the jump is still explained.
-        result.snapped && result.kind !== "square" ? result.vertex : null,
+        // The blue ring means "this point is on published data". An aligned
+        // wall is not, so it gets the amber pair and no ring — and one of
+        // those two walls IS the moved wall, so the jump is still explained.
+        result.snapped && result.kind !== "align" ? result.vertex : null,
         result.edge ? [result.edge.a, result.edge.b] : null,
-        result.square ? [result.square.reference, result.square.pivot, result.vertex] : null,
+        result.align ? [result.align.reference, [result.align.pivot, result.vertex]] : null,
       );
       return result.vertex;
     },

@@ -2026,7 +2026,7 @@ squares the hinge, which is the corner the user is not touching.
   bearing but changes its two neighbours', and correcting those would constrain
   the translation — a different problem, not attempted.
 - **No parallel alignment.** A wall clicks square to the wall beside it; two
-  walls that should be collinear but share no corner are still lined up by eye.
+  walls that should be collinear but share no corner are still lined up by eye. *(Done in §2r.)*
 - **Nothing squares a shape after the fact.** There is no "regularise this
   polygon" action, only help while a point is moving.
 - **The assist is on by default**, which means a corner that genuinely is not
@@ -2034,6 +2034,130 @@ squares the hinge, which is the corner the user is not touching.
   correction never exceeds 8 px, but it is an assumption applied unasked.
 - **Neighbours are still the 120 largest in the bbox**, holes are still
   dropped, and nothing is touch-tested.
+
+## 2r. S-01 parallel alignment
+
+§2q squared a wall to the one beside it. That keeps a corner honest and says
+nothing about the rest of the building: drag the north-west corner of a
+rectangle and there was no way to ask for the west wall to stay parallel to the
+east one, because they share no corner and no angle between adjoining walls
+expresses the relationship.
+
+### It is the same mechanism, not a second one
+
+Squaring already fixes the **bearing** of the moving wall to a quarter turn from
+a reference wall. Parallel is the same operation with the reference taken from a
+wall elsewhere on the building instead of the one adjoining the pivot. The
+arithmetic cannot tell them apart and neither should the code, so there is one
+function and one toggle rather than two of each.
+
+The hinge type carries that: a `pivot` the wall turns on, a `reference` **wall**
+whose bearing is copied — only its direction matters, so it need not touch
+anything — and the pivot's `adjoining` vertex.
+
+Naming followed: `SquareHinge` became `AlignHinge`, `SQUARE_PX` became
+`ALIGN_PX`, and the result kind `"square"` became `"align"`. Calling a parallel
+a square would have been wrong in the one place a reader looks to find out what
+happened.
+
+### The fold-back check had to become geometric
+
+§2q refused a zero turn from the reference, which laid the moving wall on top of
+the wall already at the pivot. That rule worked while the reference *was* that
+wall. It breaks the moment other walls are offered, and breaks in the commonest
+case of all: **in a rectilinear building the wall opposite is parallel to the
+wall beside**, so it carries the very same four bearings — including the folded
+back one. A different reference would have quietly re-admitted the spike.
+
+So the check now asks where the point ends up, not which reference produced it:
+refuse if the resulting bearing is within a thousandth of a radian of the
+direction from the pivot to its other neighbour.
+
+### Which walls are references, and which are not
+
+For each of the two pivots, **every wall of the shape that is standing still**.
+The two walls touching the dragged vertex are excluded: they are the ones
+moving, so their bearing is the answer, not the question.
+
+The wall adjoining the pivot is offered **first**, and `snap` keeps the first of
+equal candidates. That matters because in a rectilinear building several
+references give the same bearing, and the one worth reporting and drawing is the
+relationship the user can actually see.
+
+A reference reaches the builder twice — once as the adjoining wall and again
+walking the ring in the other direction — and is de-duplicated, so a rectangle
+yields two references per pivot rather than three.
+
+### Neighbours' walls are deliberately not offered
+
+The terrace case — my wall parallel to theirs — is reachable already and by a
+better route: §2o snaps a vertex onto a neighbour's wall, so putting both ends
+of a wall on theirs makes the two collinear, from published data rather than
+from a guess. Once one wall is flush, the shape's own grain carries the rest.
+
+Offering every neighbour's bearing would also make the tool sticky for no gain:
+in a mixed street it would click to bearings that mean nothing to this building.
+As built, **the assist can only ever align the shape to its own grain**, which is
+a limit worth having.
+
+### One frame, the pivot's
+
+The longitude scale is cos(latitude), so it differs very slightly between two
+walls at different latitudes. Both the moving wall and the reference are read in
+the **pivot's** frame, so "parallel" does not depend on which end you measure
+from.
+
+This showed up in verification: measured in a single frame the two walls came
+out parallel to **3.3e-12 degrees**, floating-point exact; measured with each
+wall in its own frame, 1.1e-4 degrees. The second number is the wrong question,
+and in any case is under a fifth of a millimetre on a 100 m wall.
+
+### The indicator became two strokes
+
+§2q drew an elbow — reference wall, pivot, moved wall — which only reads as an
+elbow when the reference touches the pivot. For a parallel it does not. The
+indicator is now the **moved wall and the reference wall** as two amber strokes,
+which degenerates to the old elbow when they happen to meet, and otherwise looks
+like what a parallel is.
+
+### Verified in the browser
+
+A quadrilateral with four distinct bearings, so that "parallel to the wall
+opposite" and "square to the wall beside" give different answers and the result
+says which happened. Three corners placed with both assists off, then the
+alignment toggle turned on and the fourth placed 5 px off parallel with the
+first wall:
+
+- reference wall `11.3100°`, moved wall `-168.6900°` — **off parallel by
+  3.3e-12 degrees**;
+- and **5.79° off any quarter turn of the adjoining wall**, so it is not the §2q
+  behaviour wearing a new name;
+- 562 px of amber drawn while placing;
+- the identical clicks with the assist off left the wall **0.88° crooked**.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `AlignHinge`, `alignPosition`, the geometric fold-back check, hinge builders over every standing wall; `SQUARE_PX`/`"square"` renamed to `ALIGN_PX`/`"align"` |
+| `LandMap.tsx` | the indicator as two strokes rather than an elbow |
+| `SitePanel.tsx` | "Keep walls square and parallel", and the note saying the reference wall is lit too |
+
+**13 more tests**, 479 across the suite.
+
+### Not done
+
+- **Neighbours' bearings are not references**, by the reasoning above. A terrace
+  whose party wall is shorter than yours cannot be matched by edge snapping
+  alone, and that case is still eye-work.
+- **No collinear alignment.** A wall can be made parallel to a distant one but
+  not put on the same line as it — "line up with the building line" is not
+  expressible.
+- **A dragged WALL is still not aligned**, only a dragged or placed vertex.
+- **Nothing regularises a shape after the fact**; the assists only help while a
+  point is moving.
+- **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
+  and nothing is touch-tested.
 
 ## 3. Blockers and conflicts — need James's decision
 

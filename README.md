@@ -541,29 +541,48 @@ Snapping does **not** change provenance. A shape built entirely from OS
 vertices and walls is still a user drawing at T4, because you chose which ones
 and in what order. The panel says so under the checkbox.
 
-### Keeping corners square
+### Keeping walls square and parallel
 
 A separate toggle, because it aligns the shape to a different thing. Snapping
-puts a point on something a source published; **squaring puts it where no
-source says anything**, on the grounds that buildings are usually rectilinear —
+puts a point on something a source published; **alignment puts it where no
+source says anything**, on the grounds that buildings are usually regular —
 usually, and this one may not be.
 
-It can only mean square **to the wall beside it**. Constraining to horizontal
-and vertical would help with nothing: a building sits at whatever bearing its
-street does, and almost none are aligned to north. So a moving vertex slides
-along an arc centred on the corner it hinges on, to the nearest right-angled
-bearing. Its distance from that corner is untouched, so the wall length you
-chose survives and only the bearing is corrected. Dragging a vertex offers both
-walls that meet at it; placing a corner squares against the wall running back
-from the last point.
+Square and parallel are **one mechanism**, not two. Both fix the *bearing* of
+the wall being moved to a quarter turn from some reference wall; all that
+differs is which wall the reference is. Square-to-the-wall-beside-it is the case
+where the reference happens to adjoin the pivot; parallel-to-the-wall-opposite
+is the case where it does not.
+
+Square can only mean square **to the wall beside it**. Constraining to
+horizontal and vertical would help with nothing: a building sits at whatever
+bearing its street does, and almost none are aligned to north. So a moving
+vertex slides along an arc centred on the corner it hinges on, to the nearest
+right-angled bearing. Its distance from that corner is untouched, so the wall
+length you chose survives and only the bearing is corrected.
+
+The references offered are **every wall of the shape that is standing still** —
+not only the one beside the pivot. That is what parallel needs: drag the
+north-west corner of a rectangle and the west wall can be kept parallel to the
+east one, which no angle between *adjoining* walls can express. The walls
+touching the vertex you are dragging are excluded, because they are the ones
+moving: their bearing is the answer, not the question.
+
+Neighbours' bearings are deliberately **not** offered. The terrace case — my
+wall parallel to theirs — is already reachable by a better route: snap a vertex
+onto their wall, and putting both ends of a wall there makes the two collinear
+from published data rather than from a guess. Offering every bearing in a mixed
+street would also make the tool sticky for nothing. As built, the assist can
+only ever align the shape to **its own grain**.
 
 Because it is a guess rather than data, three things follow. It is **last in
 precedence and never on distance** — where a published corner or wall is also
-in range, that wins however much nearer the right angle happens to be. It has
-its **own toggle**, so you are not turning off alignment-to-data in order to
-turn off geometry-guessing. And it is drawn in its **own colour: blue means
-published, amber means inferred**, with both arms of the angle shown, because
-with two walls meeting at the corner "square to what?" is a real question.
+in range, that wins however much nearer the alignment happens to be. It has its
+**own toggle**, so you are not turning off alignment-to-data in order to turn
+off geometry-guessing. And it is drawn in its **own colour: blue means
+published, amber means inferred**. The moved wall *and* the wall its bearing
+came from are both lit, because with a building's worth of walls "square or
+parallel to what?" is a real question.
 
 The tolerance is 8 px of **correction**, not a fixed number of degrees, which
 follows from the screen-pixel rule above. So a long wall has to be aimed more
@@ -573,7 +592,18 @@ cannot judge the angle by eye at all.
 
 Two walls running straight on through a corner is a legitimate shape and is
 offered. Folding a wall back along the one beside it is not — it would give the
-shape a zero-area spike — so it is refused outright.
+shape a zero-area spike — so it is refused outright. That refusal is
+**geometric**, testing where the point ends up rather than which reference
+produced it: in a rectilinear building the wall opposite is parallel to the wall
+beside, so it offers the very same bearings, and a rule about references would
+let a different one quietly re-admit the spike.
+
+"Parallel" is judged in **one frame, the pivot's**. The longitude scale is
+cos(latitude) and differs slightly between walls at different latitudes, so
+reading each in its own frame would make parallel depend on which end you
+measured from. In one frame two aligned walls come out parallel to ~1e-12
+degrees; in two, to ~1e-4 — under a fifth of a millimetre on a 100 m wall, and
+the wrong question besides.
 
 Note that one corner of a rectangle cannot be moved with every angle preserved.
 The assist squares the **hinge**, the corner you are not touching.

@@ -53,8 +53,9 @@ export interface SiteMapApi {
   /** Snap new and dragged vertices to nearby corners and walls. */
   setSnap(on: boolean): void;
   /**
-   * Pull corners square to the wall beside them. SEPARATE from snapping: that
-   * aligns the shape to published data, this to an assumption about buildings.
+   * Pull walls square or parallel to the shape's other walls. SEPARATE from
+   * snapping: that aligns the shape to published data, this to an assumption
+   * about buildings.
    */
   setSquare(on: boolean): void;
   /** Neighbouring polygons: context to draw against, and snap targets. */
@@ -1243,7 +1244,7 @@ export default function SitePanel({ mapApi }: Props) {
                   checked={squareOn}
                   onChange={(e) => { setSquareOn(e.target.checked); mapApi.setSquare(e.target.checked); }}
                 />
-                Keep corners square
+                Keep walls square and parallel
               </label>
               <p className="site-snap-note">
                 A snapped corner takes the neighbour&rsquo;s exact coordinate, and a
@@ -1252,9 +1253,11 @@ export default function SitePanel({ mapApi }: Props) {
                 shape source data — it is still your drawing.
               </p>
               <p className="site-snap-note">
-                A squared corner is different again: nothing published says the corner
-                is 90°, only that buildings usually are. It is drawn in amber rather
-                than blue for that reason — blue is data, amber is our assumption.
+                An aligned wall is different again: nothing published says it is square
+                to the wall beside it or parallel to the one opposite, only that
+                buildings usually are. Amber marks it for that reason — blue is data,
+                amber is our assumption — and the wall it was lined up with is lit
+                too, so you can see what to.
                 {drawPoints === 3 &&
                   " At three points a corner cannot be removed: it would leave no area."}
               </p>

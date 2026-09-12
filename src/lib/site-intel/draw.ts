@@ -18,12 +18,18 @@
  * A shape built entirely from OS vertices is still a user drawing at T4,
  * because the user chose which vertices and in what order.
  *
- * A RIGHT ANGLE IS AN ASSUMPTION, NOT EVIDENCE. Snapping to a corner or a wall
- * puts the point on something a source published. Squaring a corner puts it
- * where no source says anything, on the grounds that buildings are usually
- * rectilinear — usually, and this one may not be. So it is last in precedence,
- * it has its own toggle rather than riding on the snap one, and it is drawn in
- * its own colour: blue means published, amber means inferred.
+ * ALIGNMENT IS AN ASSUMPTION, NOT EVIDENCE. Snapping to a corner or a wall puts
+ * the point on something a source published. Aligning a wall — square or
+ * parallel to another one — puts it where no source says anything, on the
+ * grounds that buildings are usually regular: usually, and this one may not be.
+ * So it is last in precedence, it has its own toggle rather than riding on the
+ * snap one, and it is drawn in its own colour: blue means published, amber
+ * means inferred.
+ *
+ * SQUARE AND PARALLEL ARE ONE MECHANISM, not two. Both fix the BEARING of the
+ * wall being moved to a quarter turn from some reference wall; all that differs
+ * is which wall the reference is. Square-to-the-wall-beside-it is the case
+ * where the reference happens to adjoin the pivot.
  *
  * CORNERS AND WALLS ARE DIFFERENT TARGETS. A corner is a point you aim at; a
  * wall is a line you cross. Walls are continuous and cover far more of the map
@@ -42,8 +48,9 @@ export type Project = (vertex: Vertex) => ScreenPoint;
 export const SNAP_PX = 12;
 
 /**
- * Screen distance at which a corner is pulled square. Below SNAP_PX, because
- * a published coordinate is better evidence than a guess about buildings.
+ * Screen distance at which a wall is pulled into alignment. Below SNAP_PX,
+ * because a published coordinate is better evidence than a guess about
+ * buildings.
  *
  * A DISTANCE, not an angle, and that has a consequence worth knowing: the same
  * angular error is a bigger correction further from the pivot, so a long wall
@@ -51,7 +58,7 @@ export const SNAP_PX = 12;
  * — on a short wall the angle cannot be judged by eye anyway, and on a long
  * one it can.
  */
-export const SQUARE_PX = 8;
+export const ALIGN_PX = 8;
 
 /**
  * Screen distance at which the shape's OWN wall can be grabbed and dragged.
@@ -179,28 +186,32 @@ export interface SnapTargets {
 }
 
 /**
- * A corner a moving vertex can be squared against.
+ * One way a moving vertex can be brought into alignment.
  *
- * `pivot` is the corner the moving wall hinges on; `reference` is the far end
- * of the wall the right angle is measured FROM. Both belong to the shape being
- * edited and neither moves.
+ * `pivot` is the fixed end of the wall being moved — the vertex slides along an
+ * arc around it. `reference` is the wall whose bearing is copied; only its
+ * DIRECTION is used, so it need not touch the pivot, and that is exactly what
+ * makes parallel-to-a-distant-wall the same operation as square-to-the-one-
+ * beside-it. `adjoining` is the pivot's other neighbour: the wall already
+ * running out of the pivot, which the moving wall must never be laid on top of.
  */
-export interface SquareHinge {
+export interface AlignHinge {
   pivot: Vertex;
-  reference: Vertex;
+  reference: [Vertex, Vertex];
+  adjoining: Vertex;
 }
 
 export interface SnapResult {
   vertex: Vertex;
   snapped: boolean;
   /** What was taken. The indicator draws each of these differently. */
-  kind: "none" | "vertex" | "edge" | "square";
+  kind: "none" | "vertex" | "edge" | "align";
   /** The corner taken, when `kind` is "vertex". */
   target: SnapCandidate | null;
   /** The wall taken, when `kind` is "edge". Drawn, so the jump is explained. */
   edge: SnapEdge | null;
-  /** The corner squared, when `kind` is "square". Drawn, in its own colour. */
-  square: SquareHinge | null;
+  /** The alignment taken, when `kind` is "align". Drawn, in its own colour. */
+  align: AlignHinge | null;
   /** Whatever was taken belongs to this, for a label. */
   source: string | null;
 }
@@ -211,13 +222,18 @@ const NO_SNAP = (vertex: Vertex): SnapResult => ({
   kind: "none",
   target: null,
   edge: null,
-  square: null,
+  align: null,
   source: null,
 });
 
 /**
- * Where `moving` would have to be for the wall pivot→moving to meet the wall
- * reference→pivot at a right angle, keeping the distance the user chose.
+ * Where `moving` would have to be for the wall pivot→moving to run at a quarter
+ * turn from the hinge's reference wall, keeping the distance the user chose.
+ *
+ * This is the whole of both assists. A quarter turn from the wall beside it is
+ * "square"; a half turn or none from a wall elsewhere on the building is
+ * "parallel". The arithmetic does not distinguish them and neither should the
+ * code — what varies is only which wall the bearing is copied from.
  *
  * WORKED IN A LOCAL FLAT FRAME, NOT IN RAW DEGREES. A degree of longitude is
  * about six tenths of a degree of latitude on the ground here, so a corner
@@ -227,36 +243,57 @@ const NO_SNAP = (vertex: Vertex): SnapResult => ({
  * is conformal, so it preserves angles — but that would need an unprojection
  * this module deliberately does not have.)
  *
+ * ONE FRAME FOR BOTH WALLS, the pivot's. The longitude scale differs very
+ * slightly between two walls at different latitudes, so measuring each in its
+ * own frame would make "parallel" depend on which end you measured from. Using
+ * the pivot's scale throughout keeps the comparison self-consistent; the two
+ * readings differ by around 1e-4 degrees over a building, which is under a
+ * fifth of a millimetre on a 100 m wall.
+ *
  * The vertex slides along an arc centred on the pivot: its distance from the
  * pivot is preserved, so the wall length the user chose survives and only its
  * bearing is corrected.
  *
- * Returns null when there is no angle to speak of: a moving point sitting on
- * the pivot, a reference wall of no length, or a correction that would fold
- * the wall back along the reference wall and give the shape a zero-area spike.
+ * Returns null when there is no angle to speak of — a moving point sitting on
+ * the pivot, or a reference wall of no length — and when the result would lay
+ * the moving wall on top of the wall already running out of the pivot, giving
+ * the shape a zero-area spike.
+ *
+ * That last check is GEOMETRIC rather than a rule about which reference was
+ * used, and it has to be. In a rectilinear building the wall opposite is
+ * parallel to the wall beside, so it offers the very same bearings — including
+ * the folded-back one. Excluding it per-reference would let a different
+ * reference quietly re-admit it.
  */
-function squarePosition(moving: Vertex, pivot: Vertex, reference: Vertex): Vertex | null {
+function alignPosition(moving: Vertex, hinge: AlignHinge): Vertex | null {
+  const { pivot, reference, adjoining } = hinge;
+
   const k = Math.cos((pivot[1] * Math.PI) / 180);
   if (k === 0) return null;
+  const flat = (v: Vertex, from: Vertex = pivot) =>
+    ({ x: (v[0] - from[0]) * k, y: v[1] - from[1] });
 
-  const rx = (reference[0] - pivot[0]) * k;
-  const ry = reference[1] - pivot[1];
-  const mx = (moving[0] - pivot[0]) * k;
-  const my = moving[1] - pivot[1];
+  const m = flat(moving);
+  const radius = Math.hypot(m.x, m.y);
+  if (radius === 0) return null;
 
-  const radius = Math.hypot(mx, my);
-  if (radius === 0 || Math.hypot(rx, ry) === 0) return null;
+  const ref = flat(reference[1], reference[0]);
+  if (Math.hypot(ref.x, ref.y) === 0) return null;
 
   const QUARTER = Math.PI / 2;
-  const referenceAngle = Math.atan2(ry, rx);
-  const turns = Math.round((Math.atan2(my, mx) - referenceAngle) / QUARTER);
-
-  // Turn 0 points the moving wall back along the reference wall, laying one on
-  // top of the other. A quarter turn either way is a corner; a half turn is
-  // two walls running straight on, which is a legitimate shape.
-  if (((turns % 4) + 4) % 4 === 0) return null;
-
+  const referenceAngle = Math.atan2(ref.y, ref.x);
+  const turns = Math.round((Math.atan2(m.y, m.x) - referenceAngle) / QUARTER);
   const angle = referenceAngle + turns * QUARTER;
+
+  const back = flat(adjoining);
+  if (Math.hypot(back.x, back.y) > 0) {
+    const backAngle = Math.atan2(back.y, back.x);
+    // Within a thousandth of a radian of the wall already there: the two would
+    // be one line, and the shape would gain a spike of no area.
+    const apart = Math.abs(Math.atan2(Math.sin(angle - backAngle), Math.cos(angle - backAngle)));
+    if (apart < 1e-3) return null;
+  }
+
   return [pivot[0] + (radius * Math.cos(angle)) / k, pivot[1] + radius * Math.sin(angle)];
 }
 
@@ -314,11 +351,11 @@ function footOnSegment(
  * would have the point stick to the wall a hair short of the corner — which is
  * precisely the corner the user was aiming at. A corner in range settles it.
  *
- * RIGHT ANGLES LAST, and never on distance. A corner or a wall is somewhere a
- * source published; a right angle is a guess about how buildings are usually
- * built. Where both are in range the published one wins however much nearer
- * the guess happens to be, because taking the guess would quietly move the
- * point off real data.
+ * ALIGNMENT LAST, and never on distance. A corner or a wall is somewhere a
+ * source published; square and parallel are guesses about how buildings are
+ * usually built. Where both are in range the published one wins however much
+ * nearer the guess happens to be, because taking the guess would quietly move
+ * the point off real data.
  */
 export function snap(
   vertex: Vertex,
@@ -326,8 +363,8 @@ export function snap(
   project: Project,
   thresholdPx: number = SNAP_PX,
   edgeThresholdPx: number = SNAP_EDGE_PX,
-  hinges: SquareHinge[] = [],
-  squareThresholdPx: number = SQUARE_PX,
+  hinges: AlignHinge[] = [],
+  alignThresholdPx: number = ALIGN_PX,
 ): SnapResult {
   const at = project(vertex);
 
@@ -349,7 +386,7 @@ export function snap(
       kind: "vertex",
       target: bestCorner,
       edge: null,
-      square: null,
+      align: null,
       source: bestCorner.source,
     };
   }
@@ -379,32 +416,39 @@ export function snap(
       kind: "edge",
       target: null,
       edge: bestEdge,
-      square: null,
+      align: null,
       source: bestEdge.source,
     };
   }
 
-  let bestSquare: { vertex: Vertex; hinge: SquareHinge } | null = null;
-  let bestSquareDist = Infinity;
+  /*
+   * Strictly nearer wins, so where several references offer the same bearing -
+   * which is the normal case in a rectilinear building, where every wall is
+   * parallel or square to every other - the FIRST one offered is kept. The
+   * builders below put the wall adjoining the pivot first for that reason: it
+   * is the one the user can see the relationship to.
+   */
+  let bestAlign: { vertex: Vertex; hinge: AlignHinge } | null = null;
+  let bestAlignDist = Infinity;
   for (const hinge of hinges) {
-    const squared = squarePosition(vertex, hinge.pivot, hinge.reference);
-    if (!squared) continue;
-    const p = project(squared);
+    const aligned = alignPosition(vertex, hinge);
+    if (!aligned) continue;
+    const p = project(aligned);
     const d = Math.hypot(p.x - at.x, p.y - at.y);
-    if (d < bestSquareDist) {
-      bestSquareDist = d;
-      bestSquare = { vertex: squared, hinge };
+    if (d < bestAlignDist) {
+      bestAlignDist = d;
+      bestAlign = { vertex: aligned, hinge };
     }
   }
 
-  if (bestSquare && bestSquareDist <= squareThresholdPx) {
+  if (bestAlign && bestAlignDist <= alignThresholdPx) {
     return {
-      vertex: bestSquare.vertex,
+      vertex: bestAlign.vertex,
       snapped: true,
-      kind: "square",
+      kind: "align",
       target: null,
       edge: null,
-      square: bestSquare.hinge,
+      align: bestAlign.hinge,
       source: null,
     };
   }
@@ -413,32 +457,73 @@ export function snap(
 }
 
 /**
- * The corners a vertex being dragged can be squared against.
+ * Every alignment a vertex being dragged can be brought into.
  *
- * Both walls that meet at it: one hinging on the vertex before, measured from
- * the one before that, and the mirror image on the other side. Neither hinge
- * moves, so both are stable references while the drag is in flight.
+ * Two walls move when a vertex does — the one on each side of it — and each
+ * turns on the vertex beyond. For each of those two pivots, the bearing can be
+ * copied from ANY wall of the shape that is standing still.
+ *
+ * WHY EVERY FIXED WALL, not just the one beside the pivot. Square-to-the-
+ * neighbour keeps a corner honest but says nothing about the rest of the
+ * building: drag the north-west corner of a rectangle and there is no way to
+ * ask for the west wall to stay parallel to the east one. Offering the far
+ * walls too costs nothing, because in a rectilinear building they carry the
+ * bearings the near ones already have — the extra references only bite on a
+ * building that genuinely has more than two bearings, which is when they are
+ * wanted. The assist is self-limiting: it can only ever align the shape to its
+ * own grain.
+ *
+ * The two walls touching the dragged vertex are excluded — they are the ones
+ * moving, so their bearings are not a reference, they are the answer.
+ *
+ * The wall adjoining each pivot comes FIRST, so that where several references
+ * offer the same bearing it is the one reported and drawn.
  */
-export function hingesForVertex(vertices: Vertex[], index: number): SquareHinge[] {
+export function hingesForVertex(vertices: Vertex[], index: number): AlignHinge[] {
   const n = vertices.length;
   if (n < 3 || index < 0 || index >= n) return [];
   const at = (i: number) => vertices[((i % n) + n) % n];
-  return [
-    { pivot: at(index - 1), reference: at(index - 2) },
-    { pivot: at(index + 1), reference: at(index + 2) },
-  ];
+
+  const hinges: AlignHinge[] = [];
+  for (const step of [-1, 1]) {
+    const pivot = at(index + step);
+    const adjoining = at(index + 2 * step);
+
+    // The wall beside the pivot first, then the rest of the standing walls.
+    const references: [Vertex, Vertex][] = [[pivot, adjoining]];
+    for (let w = 0; w < n; w += 1) {
+      // Wall w runs from vertex w to w + 1. The two touching the dragged
+      // vertex are moving, so they cannot be references.
+      if (w === index || w === ((index - 1) % n + n) % n) continue;
+      const a = at(w);
+      const b = at(w + 1);
+      if (a === pivot && b === adjoining) continue;   // already first
+      if (a === adjoining && b === pivot) continue;
+      references.push([a, b]);
+    }
+
+    for (const reference of references) hinges.push({ pivot, reference, adjoining });
+  }
+  return hinges;
 }
 
 /**
- * The corner a vertex being PLACED can be squared against: the wall running
- * back from the last point placed. Nothing to square to below two points.
+ * Every alignment a vertex being PLACED can be brought into: the bearing of
+ * any wall already drawn, hinging on the last point placed. Nothing to align
+ * to below two points.
  */
-export function hingesForAppend(vertices: Vertex[]): SquareHinge[] {
-  if (vertices.length < 2) return [];
-  return [{
-    pivot: vertices[vertices.length - 1],
-    reference: vertices[vertices.length - 2],
-  }];
+export function hingesForAppend(vertices: Vertex[]): AlignHinge[] {
+  const n = vertices.length;
+  if (n < 2) return [];
+  const pivot = vertices[n - 1];
+  const adjoining = vertices[n - 2];
+
+  const references: [Vertex, Vertex][] = [[pivot, adjoining]];
+  // The shape is still open while drawing, so the walls are just the
+  // consecutive pairs - there is no closing one yet.
+  for (let w = 0; w < n - 2; w += 1) references.push([vertices[w], vertices[w + 1]]);
+
+  return references.map((reference) => ({ pivot, reference, adjoining }));
 }
 
 /**
