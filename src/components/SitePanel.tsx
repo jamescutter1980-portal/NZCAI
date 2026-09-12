@@ -31,6 +31,8 @@ export interface SiteMapApi {
    * longer on screen.
    */
   showConstraints(screening: ConstraintScreening | null): void;
+  /** S-03 layers: supply area, the substations screened against, ECR points. */
+  showGrid(grid: GridProfile | null): void;
   clearSite(): void;
 }
 
@@ -744,6 +746,7 @@ export default function SitePanel({ mapApi }: Props) {
       setPerformance(null);
       setGrid(null);
       mapApi.showConstraints(null);
+      mapApi.showGrid(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -785,7 +788,9 @@ export default function SitePanel({ mapApi }: Props) {
           void fetch(`/api/site-intel/grid?uprn=${encodeURIComponent(candidate.uprn)}`)
             .then((r) => r.json())
             .then((report: GridProfile & { error?: string }) => {
-              if (!report.error) setGrid(report);
+              if (report.error) return;
+              setGrid(report);
+              mapApi.showGrid(report);
             })
             .catch(() => undefined);
 

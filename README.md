@@ -457,6 +457,44 @@ Every grid output carries it, last and unconditionally, from the config:
 > Indicative only — based on published DNO data dated [date]. Not a connection
 > offer. A connection application to [DNO] is required.
 
+### Map layers
+
+Three, alongside the S-02 constraint layers (brief §5.5):
+
+| layer | meaning |
+|---|---|
+| supply area | the DNO's own polygon, where one is published — usually absent |
+| register entries | ECR generators, coloured by technology, sized by export capacity |
+| substation ring | which substations this site's screening actually used |
+
+**Connected is filled, accepted is hollow.** An accepted connection is not
+generating yet, and drawing them alike states something false about the network
+as it stands — the same rule as `present` vs `proximity` in S-02.
+
+The legend leads with what a register entry *is*, and every ECR popup repeats it:
+
+> These are generators already connected or accepted for connection. They show
+> what the network has absorbed, **not what is left** — a cluster is not evidence
+> of available capacity.
+
+That sentence is duplicated on purpose. Dots around a site invite two wrong
+readings — "there's capacity here" and "others got connected, so I can" — and
+the first is close to the opposite of what the data says.
+
+Two things are deliberately **not** drawn: the DNO licence-area boundary (county
+-sized, so at building zoom it is an edge-to-edge wash carrying no information —
+the panel states it in words), and any "capacity available" layer, because no
+such figure exists in this data.
+
+The S-02 fit is a ~50 m envelope and the register radius is 2 km, so one frame
+cannot serve both. The site fit wins and the grid legend offers **"Zoom to the N
+register entries — most sit outside this view"**: saying they are off-screen beats
+letting their absence read as "none nearby".
+
+Entries the publisher left without coordinates are counted separately and named
+— they are invisible to every radius search, so deriving that count from the
+search results would give a number that is structurally always zero.
+
 ### G98/G99 are null on purpose
 
 Brief §5.4 requires the threshold values in config. They are there as `null`,
@@ -548,7 +586,8 @@ src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      mees_rules.yaml + MEES screening
                      S-07: query parser, SQL executor, run description
                      S-08: prospect cohorts, dedupe, coverage
-                     S-03: grid_rules.yaml, screening, site grid lookup
+                     S-03: grid_rules.yaml, screening, site grid lookup,
+                     grid-layers (map technologies + coverage)
                      Task 0: EPC register client and cache
 PRELAUNCH.md         tickets that block a client release
 tests/               unit tests + fixtures (constructed, not recorded)

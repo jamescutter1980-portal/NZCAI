@@ -1077,6 +1077,111 @@ rule has an explicit category, so a new constraint cannot fall silently into
 - **S-03's map layers are still not drawn** (supply-area polygon, ECR by
   technology). The pattern here ports directly to them.
 
+## 2k. S-03 map layers
+
+Brief §5.5 asks for three: substations coloured by RAG (already there), the
+**supply-area polygon**, and **ECR generators by technology**. This adds the two
+missing ones, plus a ring marking which substations the screening actually used.
+
+### The reading this layer must not invite
+
+An Embedded Capacity Register entry is generation **already connected or
+accepted**. Drawn as dots around a site it invites two wrong readings:
+
+- "there is capacity here" — it is closer to the opposite; the register records
+  what the network has *absorbed*
+- "others got connected, so I can" — a queue position is not a precedent
+
+So `ECR_MEANING` is a single exported sentence, it appears in the legend with
+the warning treatment, and it repeats inside **every** ECR popup. It is the only
+string in this module that is duplicated on purpose.
+
+### Connected and accepted are drawn differently
+
+Same rule as `present` and `proximity` in S-02, for the same reason: an accepted
+connection **is not generating yet**, and showing the two alike states something
+false about the network as it stands today.
+
+| | fill |
+|---|---|
+| connected | 0.75 |
+| accepted | **0.18** (hollow) |
+| status not stated | 0.35 |
+
+Dot radius scales with export capacity, because a 40 MVA wind farm and a 60 kW
+rooftop array are different facts about the network and equal dots would deny it.
+
+### Two things deliberately not drawn
+
+**The DNO licence-area boundary.** It is county-sized and the map frames a
+building, so it would be an edge-to-edge wash carrying no information. The panel
+states which area the site is in, and the overlap case, in words.
+
+**A "capacity available" layer.** There is no such figure in this data. Headroom
+is a substation attribute, already on the rings and in the panel.
+
+### The counter that could never fire
+
+The first version derived "features with no coordinates" from the returned
+lists. That number is **structurally always zero**: a radius query filters on
+coordinates, so an entry without them can never appear in the result to be
+counted. Shipping a counter that cannot fire is worse than not having one — it
+reads as a checked-and-clear.
+
+It now comes from a separate count, scoped to the DNO: *"1 register entry for
+this DNO published no coordinates and cannot be placed"*. That is a real
+coverage gap — those entries are invisible to every radius search — and it is
+the direct analogue of S-02's "flagged but published no extent to draw".
+
+### One frame cannot serve both layer sets
+
+S-02 fits the map to the constraint search envelope, about 50 m across. The ECR
+radius is 2 km. Fitting the wider one makes the building a dot and the
+constraints invisible; fitting the tighter one puts most register entries
+off-screen, where their absence reads as "none nearby".
+
+The site fit wins, and the grid legend carries a **"Zoom to the 3 register
+entries — most sit outside this view"** button. Saying they are outside the view
+and offering to go there beats either bad frame.
+
+### Legends
+
+Two legends plus the headroom key filled the right-hand side. Both now collapse
+their swatches behind a `Key` summary, and S-02's not-established list behind its
+own. What stays visible is the honesty-critical part: each coverage line, and
+for S-03 what a register entry means. Reference material can be asked for; a
+caveat cannot.
+
+### One bug found in the browser
+
+The constraint click handler is map-level, so clicking an ECR dot inside a green
+belt opened **two** popups — the specific thing the reader aimed at, and the area
+they happened to be standing in. The handler now defers when a point layer is
+under the cursor. Verified: clicking a dot opens exactly one popup, and it is the
+dot's.
+
+### What was built
+
+| file | role |
+|---|---|
+| `site-intel/grid-layers.ts` | technologies, statuses, `ECR_MEANING`, coverage. Leaf module |
+| `site-intel/grid.ts` | substations now carry `areaGeom`; profile carries `placement` counts |
+| `LandMap.tsx` | supply-area, ECR and site-substation layers, popups, legend, zoom action |
+| `SitePanel.tsx` | `showGrid` on the map API |
+
+**16 tests**, 350 across the suite.
+
+### Not done
+
+- **No live DNO or register call.** Verified against the invented sample rows
+  seeded in the dev database; every one is prefixed `SAMPLE-`.
+- **No clustering.** A dense urban ECR area will overplot. The register is
+  radius-limited to 2 km so the counts stay small, but a city-centre site will
+  look crowded.
+- **The supply-area polygon is rarely populated.** Most portals publish headroom
+  as points; the sample data carries one so the layer is exercised. When absent
+  the substation method falls back to `nearest_by_distance` and both the panel
+  and the map legend say so.
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -1229,6 +1334,11 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
   margin is my judgement, not a published tolerance — confirm it is the right
   width, or replace it with a rule about which area sources may be trusted for
   the threshold at all.
+- **S-03 map technology colours.** Seven technology groups in
+  `grid-layers.ts`, with a colour each and a `solar-wins` rule where a register
+  string names more than one (a "Solar PV with battery storage" connection is
+  drawn as solar). Presentational, but it decides what a prospecting reader
+  sees first.
 - **S-02 map colours and grouping.** Five categories in
   `constraint-layers.ts` (heritage, designated land, ecology, flood, other),
   with a colour each. Presentational, deliberately not in the YAML so the

@@ -31,6 +31,15 @@ import {
   type ConstraintCategory,
   type LayerCoverage,
 } from "@/lib/site-intel/constraint-layers";
+import type { GridProfile } from "@/lib/site-intel/grid";
+import {
+  ECR_MEANING,
+  STATUS_LABEL,
+  TECHNOLOGIES,
+  summariseGridLayers,
+  technologyOf,
+  type GridLayerCoverage,
+} from "@/lib/site-intel/grid-layers";
 
 const GB_CENTRE: [number, number] = [-2.0, 53.2];
 const GB_ZOOM = 5.2;
@@ -56,6 +65,19 @@ const SITE_FOOTPRINT = "site-footprint";
 const CONSTRAINT_PRESENT = "constraint-present";
 const CONSTRAINT_PROXIMITY = "constraint-proximity";
 const CONSTRAINT_SEARCH = "constraint-search";
+
+/*
+ * S-03 grid layers (brief §5.5).
+ *
+ * The DNO licence-area boundary is deliberately NOT drawn. It is county-sized
+ * and the map frames a building, so it would be an edge-to-edge wash carrying
+ * no information; the panel states which area the site is in, and the overlap
+ * case, in words. What is drawn is the SUPPLY AREA, which is the
+ * operationally meaningful polygon and usually absent.
+ */
+const GRID_SUPPLY_AREA = "grid-supply-area";
+const GRID_SITE_SUBS = "grid-site-substations";
+const GRID_ECR = "grid-ecr";
 
 interface ApiResponse {
   substations: Substation[];
@@ -152,6 +174,81 @@ function constraintFeatures(
         },
       });
     }
+  }
+  return { type: "FeatureCollection", features };
+}
+
+
+/** Colour an ECR point by technology, built from TECHNOLOGIES so the legend agrees. */
+function technologyColourExpression(): unknown[] {
+  const match: unknown[] = ["match", ["get", "technology"]];
+  for (const t of TECHNOLOGIES) match.push(t.key, t.color);
+  match.push(TECHNOLOGIES[TECHNOLOGIES.length - 1].color);
+  return match;
+}
+
+/** Supply-area polygons for the substations returned for a site. */
+function supplyAreaFeatures(grid: GridProfile | null): GeoJSON.FeatureCollection {
+  if (!grid) return emptyCollection();
+  const features: GeoJSON.Feature[] = [];
+  for (const s of grid.substations.substations) {
+    if (!s.areaGeom) continue;
+    features.push({
+      type: "Feature",
+      geometry: s.areaGeom,
+      properties: { name: s.name ?? s.sourceRef, dno: s.dnoName },
+    });
+  }
+  return { type: "FeatureCollection", features };
+}
+
+/** The substations this site's screening actually used. */
+function siteSubstationFeatures(grid: GridProfile | null): GeoJSON.FeatureCollection {
+  if (!grid) return emptyCollection();
+  const features: GeoJSON.Feature[] = [];
+  for (const s of grid.substations.substations) {
+    if (s.lat === null || s.lng === null) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [s.lng, s.lat] },
+      properties: {
+        name: s.name ?? s.sourceRef,
+        rag: s.generationRag ?? "unknown",
+        gen: s.generationHeadroomMva,
+        dem: s.demandHeadroomMva,
+        distance: s.distanceM,
+        stale: s.freshness.stale ? "1" : "",
+        ragPublished: s.ragPublished ? "1" : "",
+      },
+    });
+  }
+  return { type: "FeatureCollection", features };
+}
+
+/**
+ * ECR entries as points.
+ *
+ * Radius scales with export capacity because a 40 MVA wind farm and a 60 kW
+ * rooftop array are not the same fact about the network, and identical dots
+ * would say they were.
+ */
+function ecrFeatures(grid: GridProfile | null): GeoJSON.FeatureCollection {
+  if (!grid) return emptyCollection();
+  const features: GeoJSON.Feature[] = [];
+  for (const e of grid.ecr.entries) {
+    if (e.lat === null || e.lng === null) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [e.lng, e.lat] },
+      properties: {
+        name: e.siteName ?? e.sourceRef ?? "Register entry",
+        technology: technologyOf(e.technology),
+        technologyRaw: e.technology ?? "",
+        status: e.status,
+        exportMva: e.exportMva ?? 0,
+        distance: e.distanceM,
+      },
+    });
   }
   return { type: "FeatureCollection", features };
 }
@@ -412,6 +509,76 @@ export default function LandMap({
         },
       });
 
+      /*
+       * S-03 grid layers (brief §5.5). Below the S-01 site layers, above the
+       * constraint fills, so the site stays readable and the grid features are
+       * not buried under a green belt wash.
+       */
+      m.addSource(GRID_SUPPLY_AREA, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: `${GRID_SUPPLY_AREA}-fill`,
+        type: "fill",
+        source: GRID_SUPPLY_AREA,
+        paint: { "fill-color": "#1B4DD1", "fill-opacity": 0.06 },
+      });
+      m.addLayer({
+        id: `${GRID_SUPPLY_AREA}-line`,
+        type: "line",
+        source: GRID_SUPPLY_AREA,
+        paint: { "line-color": "#1B4DD1", "line-width": 1.5, "line-dasharray": [6, 3] },
+      });
+
+      m.addSource(GRID_ECR, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: GRID_ECR,
+        type: "circle",
+        source: GRID_ECR,
+        paint: {
+          // Radius by export capacity: a 40 MVA wind farm and a 60 kW rooftop
+          // array are different facts, and equal dots would deny it.
+          "circle-radius": [
+            "interpolate", ["linear"], ["get", "exportMva"],
+            0, 4,
+            1, 6,
+            10, 11,
+            50, 18,
+          ],
+          "circle-color": technologyColourExpression() as never,
+          // Connected is filled; accepted is hollow. An accepted connection is
+          // not generating yet, and drawing them alike states something false
+          // about the network as it stands.
+          "circle-opacity": [
+            "match", ["get", "status"],
+            "connected", 0.75,
+            "accepted", 0.18,
+            0.35,
+          ],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": technologyColourExpression() as never,
+        },
+      });
+
+      m.addSource(GRID_SITE_SUBS, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: GRID_SITE_SUBS,
+        type: "circle",
+        source: GRID_SITE_SUBS,
+        paint: {
+          // A ring, not a fill: the background substation layer already draws
+          // these, and this marks WHICH ones the screening used.
+          "circle-radius": 13,
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": [
+            "match", ["get", "rag"],
+            "green", RAG_COLOR.green,
+            "amber", RAG_COLOR.amber,
+            "red", RAG_COLOR.red,
+            RAG_COLOR.unknown,
+          ],
+        },
+      });
+
       // S-01 layers: title extent outlined, footprint filled, resolved pin on top.
       m.addSource(SITE_TITLE, { type: "geojson", data: emptyCollection() });
       m.addLayer({
@@ -471,6 +638,19 @@ export default function LandMap({
       const layers = CONSTRAINT_FILL_LAYERS.filter((id) => instance.getLayer(id));
       if (!layers.length) return;
 
+      /*
+       * Defer to the point layers. This handler is map-level, so a click on an
+       * ECR dot inside a green belt would otherwise open two popups - the
+       * specific thing the reader aimed at, and the area they were standing
+       * in. The dot is what they clicked.
+       */
+      const pointLayers = [GRID_ECR, GRID_SITE_SUBS, LAYER_ID].filter((id) =>
+        instance.getLayer(id),
+      );
+      if (pointLayers.length && instance.queryRenderedFeatures(e.point, { layers: pointLayers }).length) {
+        return;
+      }
+
       const hits = instance.queryRenderedFeatures(e.point, { layers });
       if (!hits.length) return;
 
@@ -515,6 +695,59 @@ export default function LandMap({
         )
         .addTo(instance);
     });
+
+    /*
+     * ECR popups. Each one repeats what a register entry IS, because the dots
+     * are the part of this map most likely to be misread as available capacity.
+     */
+    instance.on("click", GRID_ECR, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+      const props = e.features?.[0]?.properties as Record<string, string> | undefined;
+      if (!props) return;
+
+      const mva = Number(props.exportMva);
+      new Popup({ closeButton: true, maxWidth: "300px" })
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div class="ml-popup">
+             <p class="ml-title">${escapeHtml(props.name ?? "Register entry")}</p>
+             <p class="ml-where">${escapeHtml(STATUS_LABEL[props.status] ?? props.status ?? "")}</p>
+             <p class="ml-sub">${escapeHtml(props.technologyRaw || "Technology not stated")}${
+               Number.isFinite(mva) && mva > 0 ? ` · ${mva} MVA export` : ""
+             }</p>
+             ${props.distance ? `<p class="ml-ref">${Math.round(Number(props.distance))} m away</p>` : ""}
+             <p class="ml-note">${escapeHtml(ECR_MEANING)}</p>
+           </div>`,
+        )
+        .addTo(instance);
+    });
+
+    instance.on("click", GRID_SITE_SUBS, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+      const props = e.features?.[0]?.properties as Record<string, string> | undefined;
+      if (!props) return;
+
+      new Popup({ closeButton: true, maxWidth: "300px" })
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div class="ml-popup">
+             <p class="ml-title">${escapeHtml(props.name ?? "Substation")}</p>
+             <p class="ml-where">Used for this site's screening</p>
+             <p class="ml-sub">Generation ${escapeHtml(props.gen ?? "—")} MVA · Demand ${escapeHtml(props.dem ?? "—")} MVA</p>
+             ${props.distance ? `<p class="ml-ref">${Math.round(Number(props.distance))} m away</p>` : ""}
+             ${props.ragPublished ? "" : `<p class="ml-note">RAG is our screening band, not the DNO's.</p>`}
+             ${props.stale ? `<p class="ml-note">Past the staleness window.</p>` : ""}
+           </div>`,
+        )
+        .addTo(instance);
+    });
+
+    for (const layerId of [GRID_ECR, GRID_SITE_SUBS]) {
+      instance.on("mouseenter", layerId, () => {
+        instance.getCanvas().style.cursor = "pointer";
+      });
+      instance.on("mouseleave", layerId, () => {
+        instance.getCanvas().style.cursor = "";
+      });
+    }
 
     for (const layerId of CONSTRAINT_FILL_LAYERS) {
       instance.on("mouseenter", layerId, () => {
@@ -645,14 +878,54 @@ export default function LandMap({
             : null,
         );
       },
+      showGrid(grid: GridProfile | null) {
+        setSiteData(GRID_SUPPLY_AREA, supplyAreaFeatures(grid));
+        setSiteData(GRID_SITE_SUBS, siteSubstationFeatures(grid));
+        setSiteData(GRID_ECR, ecrFeatures(grid));
+
+        const points: [number, number][] = [];
+        for (const s of grid?.substations.substations ?? []) {
+          if (s.lat !== null && s.lng !== null) points.push([s.lng, s.lat]);
+        }
+        for (const e of grid?.ecr.entries ?? []) {
+          if (e.lat !== null && e.lng !== null) points.push([e.lng, e.lat]);
+        }
+        gridBounds.current = points.length
+          ? [
+              [Math.min(...points.map((p) => p[0])), Math.min(...points.map((p) => p[1]))],
+              [Math.max(...points.map((p) => p[0])), Math.max(...points.map((p) => p[1]))],
+            ]
+          : null;
+        setGridCoverage(
+          grid
+            ? summariseGridLayers({
+                substations: grid.substations.substations.map((x) => ({
+                  lat: x.lat,
+                  lng: x.lng,
+                  stale: x.freshness.stale,
+                  hasArea: Boolean(x.areaGeom),
+                })),
+                ecr: grid.ecr.entries.map((e) => ({ lat: e.lat, lng: e.lng })),
+                method: grid.substations.method,
+                unplaceable: {
+                  substations: grid.placement.substationsWithoutPoint,
+                  ecr: grid.placement.ecrWithoutPoint,
+                },
+              })
+            : null,
+        );
+      },
       clearSite() {
         for (const id of [
           SITE_PIN, SITE_TITLE, SITE_FOOTPRINT,
           CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
+          GRID_SUPPLY_AREA, GRID_SITE_SUBS, GRID_ECR,
         ]) {
           setSiteData(id, emptyCollection());
         }
         setCoverage(null);
+        setGridCoverage(null);
+        gridBounds.current = null;
       },
     }),
     [setSiteData],
@@ -661,6 +934,14 @@ export default function LandMap({
   /* S-02 layer state. `hidden` is per category; the coverage strip is what
      stops an empty map reading as an all-clear. */
   const [coverage, setCoverage] = useState<LayerCoverage | null>(null);
+  const [gridCoverage, setGridCoverage] = useState<GridLayerCoverage | null>(null);
+  /*
+   * The S-02 fit is the ~50 m constraint envelope; the ECR radius is 2 km. One
+   * frame cannot serve both - fitting the wider one makes the building a dot
+   * and the constraints invisible. So the site fit wins, and the grid bounds
+   * are kept here so the legend can offer to go to them.
+   */
+  const gridBounds = useRef<[[number, number], [number, number]] | null>(null);
   const [hiddenCategories, setHiddenCategories] = useState<Set<ConstraintCategory>>(
     () => new Set(),
   );
@@ -828,6 +1109,69 @@ export default function LandMap({
             * it, because hiding a layer must never change what the map claims
             * was checked.
             */}
+          {/*
+            * S-03 grid legend. Sits under the S-02 one, and leads with what an
+            * ECR entry means — the dots are the part of this map most likely
+            * to be read as available capacity, which is close to the opposite
+            * of what they are.
+            */}
+          {ready && gridCoverage && (
+            <div className="g-legend">
+              <span className="eyebrow">Grid (S-03)</span>
+              <p className="g-coverage">{gridCoverage.statement}</p>
+              <p className="g-meaning">{ECR_MEANING}</p>
+
+              {/*
+                * The map is framed on the site (the constraint envelope is
+                * ~50 m, the register radius 2 km), so register entries are
+                * usually outside the view. Saying so and offering to go there
+                * beats leaving a reader to conclude there are none.
+                */}
+              {gridCoverage.ecrDrawn > 0 && (
+                <button
+                  type="button"
+                  className="g-zoom"
+                  onClick={() => {
+                    if (gridBounds.current) {
+                      map.current?.fitBounds(gridBounds.current, {
+                        padding: 70,
+                        maxZoom: 16,
+                        duration: 600,
+                      });
+                    }
+                  }}
+                >
+                  Zoom to the {gridCoverage.ecrDrawn} register{" "}
+                  {gridCoverage.ecrDrawn === 1 ? "entry" : "entries"} — most sit
+                  outside this view
+                </button>
+              )}
+
+              <details className="g-keys">
+                <summary>Key</summary>
+                <div className="g-techs">
+                  {TECHNOLOGIES.filter((t) => t.key !== "unknown").map((t) => (
+                    <span key={t.key} className="g-tech">
+                      <span className="g-swatch" style={{ background: t.color }} />
+                      {t.label}
+                    </span>
+                  ))}
+                </div>
+
+                <span className="row g-key">
+                  <span className="g-dot connected" /> Connected — generating
+                </span>
+                <span className="row g-key">
+                  <span className="g-dot accepted" /> Accepted — not yet connected
+                </span>
+                <span className="row g-key">
+                  <span className="g-ring" /> Substation used for this screening
+                </span>
+                <span className="g-note">Dot size is export capacity.</span>
+              </details>
+            </div>
+          )}
+
           {ready && coverage && (
             <div className="c-legend">
               <span className="eyebrow">Planning &amp; environmental (S-02)</span>
@@ -839,9 +1183,12 @@ export default function LandMap({
               </p>
 
               {coverage.couldNotCheckDatasets.length > 0 && (
-                <p className="c-gaps">
-                  Not established: {coverage.couldNotCheckDatasets.join(", ")}
-                </p>
+                <details className="c-gap-list">
+                  <summary>
+                    Name the {coverage.couldNotCheckDatasets.length} not established
+                  </summary>
+                  <p className="c-gaps">{coverage.couldNotCheckDatasets.join(", ")}</p>
+                </details>
               )}
 
               {coverage.flaggedWithoutGeometry > 0 && (
@@ -879,16 +1226,19 @@ export default function LandMap({
               </div>
 
               {/* Solid vs dashed is the load-bearing distinction on this map. */}
-              <span className="row c-key">
-                <span className="c-sample present" /> On the site
-              </span>
-              <span className="row c-key">
-                <span className="c-sample proximity" /> Nearby, not on it
-              </span>
-              <span className="row c-key">
-                <span className="c-sample search" /> Area searched (a bounding box,
-                so its corners reach further than the buffer)
-              </span>
+              <details className="c-keys">
+                <summary>Key</summary>
+                <span className="row c-key">
+                  <span className="c-sample present" /> On the site
+                </span>
+                <span className="row c-key">
+                  <span className="c-sample proximity" /> Nearby, not on it
+                </span>
+                <span className="row c-key">
+                  <span className="c-sample search" /> Area searched (a bounding box,
+                  so its corners reach further than the buffer)
+                </span>
+              </details>
             </div>
           )}
         </div>

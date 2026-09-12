@@ -160,6 +160,14 @@ export interface NearbySubstation {
   constraintNote: string | null;
   distanceM: number | null;
   freshness: Freshness;
+  /**
+   * The DNO's published supply area, where it publishes one.
+   *
+   * Carried so the map can draw it. Null is the common case — most portals
+   * publish headroom as points — and the map has to say that rather than
+   * leaving a reader to assume no polygon means no supply area exists.
+   */
+  areaGeom: GeoJSON.Geometry | null;
 }
 
 export interface SubstationLookup {
@@ -222,6 +230,7 @@ export async function substationsForSite(
       ragPublished: Boolean(publishedGenRag || publishedDemRag),
       constraintNote: (r.constraint_note as string) ?? null,
       distanceM,
+      areaGeom: asAreaGeometry(r.area_geom) as GeoJSON.Geometry | null,
       freshness: freshness(
         r.source_date ? new Date(r.source_date as string).toISOString() : null,
         r.ingested_at ? new Date(r.ingested_at as string).toISOString() : null,
@@ -338,11 +347,28 @@ export async function ecrNearSite(
 
 /* --------------------------------------------------------------- profile --- */
 
+/**
+ * Features that exist in the data but cannot be placed on a map.
+ *
+ * A radius query filters on coordinates, so anything the publisher left
+ * without a point is invisible to it BY CONSTRUCTION - it can never appear in
+ * the results and be counted there. These counts are taken separately, scoped
+ * to the DNO, so "nothing nearby" can be distinguished from "nothing nearby
+ * that we could place".
+ */
+export interface Placement {
+  substationsWithoutPoint: number;
+  ecrWithoutPoint: number;
+  /** Null when no DNO was matched, so the counts have no meaningful scope. */
+  dnoId: string | null;
+}
+
 export interface GridProfile {
   dno: DnoMatch;
   substations: SubstationLookup;
   ecr: EcrSummary;
   ecrState: ResultState;
+  placement: Placement;
   screens: Screen[];
   /** Brief §5.4 step 4. Fixed, and on every output. */
   caveat: string;
@@ -392,6 +418,7 @@ export async function gridProfile(
     substations,
     ecr: summary,
     ecrState,
+    placement: await unplaceable(dno.dnoId),
     screens: [
       screen("pv_export", best.gen, inputs.proposedExportMva ?? null),
       screen("electrification", best.dem, inputs.addedLoadMva ?? null),
@@ -402,6 +429,28 @@ export async function gridProfile(
     ),
     networkVsSite: networkVsSiteNote(),
     wordingUnapproved: unapprovedGridRules(),
+  };
+}
+
+/** Rows the publisher left without coordinates, and so unplottable. */
+async function unplaceable(dnoId: string | null): Promise<Placement> {
+  if (!dnoId) return { substationsWithoutPoint: 0, ecrWithoutPoint: 0, dnoId: null };
+
+  const [subs] = await query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM substation
+      WHERE dno_id = $1 AND (lat IS NULL OR lng IS NULL)`,
+    [dnoId],
+  );
+  const [ecr] = await query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM ecr_record
+      WHERE dno_id = $1 AND (lat IS NULL OR lng IS NULL)`,
+    [dnoId],
+  );
+
+  return {
+    substationsWithoutPoint: Number(subs?.n ?? 0),
+    ecrWithoutPoint: Number(ecr?.n ?? 0),
+    dnoId,
   };
 }
 

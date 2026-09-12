@@ -921,3 +921,67 @@ body {
 /* Present and proximity are the load-bearing distinction; colour them apart. */
 .ml-popup .ml-where.present { color: var(--risk); }
 .ml-popup .ml-where.proximity { color: var(--warn); }
+
+/* ----------------------------------------------- S-03 grid map legend --- */
+
+/*
+ * Bottom-right, so it clears the S-02 legend (top-right) and the headroom
+ * legend (bottom-left).
+ */
+.g-legend {
+  position: absolute; right: 12px; bottom: 12px; z-index: 2;
+  max-width: 290px;
+  background: var(--surface); border: 1px solid var(--rule);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+  font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.g-legend .row { display: flex; align-items: center; gap: 8px; }
+
+.g-coverage { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
+
+/*
+ * The sentence that stops a cluster of dots reading as spare capacity. Given
+ * the warning treatment because that misreading is the expensive one.
+ */
+.g-meaning {
+  margin: 0; padding: 5px 8px; border-radius: 3px;
+  background: var(--warn-soft); color: var(--warn);
+  font-size: 11px; line-height: 1.4;
+}
+
+.g-techs { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.g-tech { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink-2); }
+.g-swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+
+.g-key { font-size: 11px; color: var(--ink-2); }
+.g-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1.5px solid var(--ink-3); }
+/* Filled vs hollow is the load-bearing distinction: generating vs not. */
+.g-dot.connected { background: var(--ink-3); }
+.g-dot.accepted { background: transparent; }
+.g-ring {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  border: 2.5px solid var(--good); background: transparent;
+}
+.g-note { font-size: 10.5px; color: var(--ink-3); }
+
+@media (max-width: 820px) {
+  .g-legend { right: 8px; bottom: 8px; max-width: 62vw; font-size: 11px; }
+}
+
+/*
+ * Both legends collapse their keys. What stays visible is the honesty-critical
+ * part — the coverage line, and for S-03 what a register entry means. The
+ * swatches are reference material and can be asked for.
+ */
+.c-keys, .g-keys, .c-gap-list { font-size: 11px; }
+.c-keys summary, .g-keys summary, .c-gap-list summary { cursor: pointer; color: var(--ink-3); }
+.c-keys[open], .g-keys[open] { display: flex; flex-direction: column; gap: 6px; }
+.c-gap-list[open] { display: block; }
+.c-gap-list .c-gaps { margin-top: 4px; }
+
+.g-zoom {
+  padding: 5px 8px; border: 1px solid var(--accent); border-radius: 3px;
+  background: var(--surface); color: var(--accent);
+  font: inherit; font-size: 11px; line-height: 1.35; text-align: left; cursor: pointer;
+}
+.g-zoom:hover { background: var(--accent-soft); }
