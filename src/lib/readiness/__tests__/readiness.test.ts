@@ -10,6 +10,7 @@ import type { ConsentRecord } from "@/lib/consent/types";
 import { testContext, routedFetch } from "@/lib/integrations/testing";
 import type { MeterReading } from "@/lib/integrations/n3rgy";
 import { assessReadiness, setEmissionsLoader, type ReadinessCheck, type ReadinessReport, summarise } from "..";
+import { CounterpartyRepository, EmissionsReportRepository, EngagementRepository, transition } from "@/lib/value-chain";
 
 /**
  * Factor values in this file are SYNTHETIC (0.1 / 0.01 / 0.2 and a 300 gCO2/kWh
@@ -248,5 +249,43 @@ describe("summary honesty", () => {
       period,
     );
     expect(clean).toMatch(/ready to file/);
+  });
+});
+
+describe("value chain checks", () => {
+  const byId = (r: ReadinessReport, id: string) => r.checks.find((c) => c.id === id)!;
+
+  it("flags an empty register as a gap on both checks", async () => {
+    const db = openDatabase(":memory:");
+    const r = await assessReadiness(db, ctx(), period(), { consents: [] });
+    expect(byId(r, "scope.s3_value_chain_engagement")).toMatchObject({ group: "Scope coverage", severity: "gap", status: "attention", count: 0 });
+    expect(byId(r, "scope.s3_value_chain_data").detail).toMatch(/No counterparties are recorded/);
+  });
+
+  it("names the counterparties not yet asked, by value, and those with no data", async () => {
+    const db = openDatabase(":memory:");
+    const cps = new CounterpartyRepository(db);
+    const big = cps.create({ name: "Big Supplier", roles: ["supplier"], annualValueGbp: 900_000, ask: "annual_ghg_report", status: "active" });
+    cps.create({ name: "Small Supplier", roles: ["supplier"], annualValueGbp: 1_000, ask: "annual_ghg_report", status: "active" });
+    const done = cps.create({ name: "Done Tenant", roles: ["tenant"], annualValueGbp: 50_000, ask: "annual_ghg_report", status: "active" });
+    const eng = new EngagementRepository(db);
+    const e = eng.ensure(done.id, 2025, "annual_ghg_report");
+    eng.applyTransition(e, transition(e, { reportingYear: 2025, action: "request_sent", on: "2026-01-05" }, "2026-01-05"), { action: "request_sent", at: "2026-01-05" });
+    new EmissionsReportRepository(db).create({ counterpartyId: done.id, reportingYear: 2025, periodStart: "2025-01-01", periodEnd: "2025-12-31", scope1Tco2e: 12, allocationMethod: "supplier_total", methodology: "ghg_protocol", boundary: "unknown", assurance: "none", basis: "supplier_reported", evidence: "email" });
+
+    const r = await assessReadiness(db, ctx(), period(), { consents: [] });
+    const engagement = byId(r, "scope.s3_value_chain_engagement");
+    expect(engagement.status).toBe("attention");
+    expect(engagement.detail).toMatch(/2 of 3 active counterparties have not been asked for 2025 data: Big Supplier and Small Supplier/);
+    const data = byId(r, "scope.s3_value_chain_data");
+    expect(data.detail).toMatch(/2 of 3 active counterparties have returned no 2025 data, so returned data covers 5\.258% of the annual value recorded: Big Supplier and Small Supplier/);
+    expect(data.fix?.href).toBe("/value-chain");
+
+    for (const c of [big]) {
+      const x = eng.ensure(c.id, 2025, "annual_ghg_report");
+      eng.applyTransition(x, transition(x, { reportingYear: 2025, action: "request_sent", on: "2026-01-05" }, "2026-01-05"), { action: "request_sent", at: "2026-01-05" });
+    }
+    const r2 = await assessReadiness(db, ctx(), period(), { consents: [] });
+    expect(byId(r2, "scope.s3_value_chain_engagement").detail).toMatch(/1 of 3 active counterparties have not been asked/);
   });
 });

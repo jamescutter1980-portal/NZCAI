@@ -231,6 +231,137 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       CREATE INDEX site_activity_asset ON site_activity(asset_id);
     `,
   },
+  {
+    id: "0010_value_chain",
+    sql: `
+      CREATE TABLE counterparties (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        company_number TEXT,
+        sector TEXT,
+        country TEXT,
+        roles TEXT NOT NULL,
+        ghg_categories TEXT NOT NULL,
+        annual_value_gbp REAL,
+        contact_name TEXT,
+        contact_email TEXT,
+        escalation_name TEXT,
+        escalation_email TEXT,
+        ask TEXT NOT NULL,
+        status TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX counterparties_name ON counterparties(name);
+      CREATE TABLE counterparty_engagements (
+        id TEXT PRIMARY KEY,
+        counterparty_id TEXT NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+        reporting_year INTEGER NOT NULL,
+        state TEXT NOT NULL,
+        ask TEXT NOT NULL,
+        due_on TEXT,
+        last_contact_on TEXT,
+        reminders_sent INTEGER NOT NULL DEFAULT 0,
+        escalated INTEGER NOT NULL DEFAULT 0,
+        decline_reason TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (counterparty_id, reporting_year)
+      );
+      CREATE TABLE counterparty_engagement_events (
+        id TEXT PRIMARY KEY,
+        engagement_id TEXT NOT NULL REFERENCES counterparty_engagements(id) ON DELETE CASCADE,
+        at TEXT NOT NULL,
+        action TEXT NOT NULL,
+        from_state TEXT NOT NULL,
+        to_state TEXT NOT NULL,
+        channel TEXT,
+        detail TEXT,
+        actor TEXT
+      );
+      CREATE INDEX counterparty_engagement_events_engagement ON counterparty_engagement_events(engagement_id, at);
+      CREATE TABLE counterparty_emissions (
+        id TEXT PRIMARY KEY,
+        counterparty_id TEXT NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+        reporting_year INTEGER NOT NULL,
+        period_start TEXT NOT NULL,
+        period_end TEXT NOT NULL,
+        scope1_tco2e REAL,
+        scope2_location_tco2e REAL,
+        scope2_market_tco2e REAL,
+        scope3_tco2e REAL,
+        allocation_method TEXT NOT NULL,
+        allocated_tco2e REAL,
+        supplier_revenue_gbp REAL,
+        methodology TEXT NOT NULL,
+        boundary TEXT NOT NULL,
+        assurance TEXT NOT NULL,
+        assurance_provider TEXT,
+        basis TEXT NOT NULL,
+        evidence TEXT,
+        document_date TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX counterparty_emissions_year ON counterparty_emissions(counterparty_id, reporting_year);
+      CREATE TABLE counterparty_activity (
+        id TEXT PRIMARY KEY,
+        counterparty_id TEXT NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+        reporting_year INTEGER NOT NULL,
+        label TEXT NOT NULL,
+        activity_type TEXT NOT NULL,
+        period_start TEXT NOT NULL,
+        period_end TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        factor_id TEXT,
+        factor_year INTEGER,
+        declared_kgco2e REAL,
+        share_pct REAL NOT NULL DEFAULT 100,
+        basis TEXT NOT NULL,
+        evidence TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX counterparty_activity_year ON counterparty_activity(counterparty_id, reporting_year);
+    `,
+  },
+  {
+    id: "0011_value_chain_spend_factor",
+    sql: `
+      ALTER TABLE counterparties ADD COLUMN spend_factor_kgco2e_per_gbp REAL;
+      ALTER TABLE counterparties ADD COLUMN spend_factor_source TEXT;
+    `,
+  },
+  {
+    id: "0012_value_chain_inbox",
+    sql: `
+      CREATE TABLE inbound_requests (
+        id TEXT PRIMARY KEY,
+        counterparty_id TEXT NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        reporting_year INTEGER NOT NULL,
+        period_start_month INTEGER NOT NULL DEFAULT 1,
+        template TEXT,
+        fields TEXT NOT NULL,
+        due_on TEXT,
+        owner TEXT,
+        cadence TEXT NOT NULL,
+        state TEXT NOT NULL,
+        submitted_on TEXT,
+        submitted_figures TEXT,
+        submission_note TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX inbound_requests_year ON inbound_requests(reporting_year, due_on);
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;

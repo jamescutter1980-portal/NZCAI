@@ -14,6 +14,7 @@ import type { CsvValue } from "./csv";
 import { safeFilename } from "./csv";
 import { transportCarbon } from "@/lib/transport";
 import { emissionsCarbon } from "@/lib/emissions";
+import { STATE_LABELS, TIER_LABELS, valueChainReport } from "@/lib/value-chain";
 
 /**
  * Export builders.
@@ -32,7 +33,7 @@ import { emissionsCarbon } from "@/lib/emissions";
  * 2. Dates are ISO 8601 UTC and numbers are unformatted.
  */
 
-export const EXPORT_KINDS = ["readings", "asset-carbon", "portfolio-energy", "portfolio-carbon", "secr-summary", "consents"] as const;
+export const EXPORT_KINDS = ["readings", "asset-carbon", "portfolio-energy", "portfolio-carbon", "secr-summary", "consents", "value-chain"] as const;
 export type ExportKind = (typeof EXPORT_KINDS)[number];
 
 export function isExportKind(value: string): value is ExportKind {
@@ -534,4 +535,60 @@ export function exportHeaders(table: ExportTable): Record<string, string> {
     headers["x-export-total-rows"] = String(table.totalRows);
   }
   return headers;
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. value-chain                                                      */
+/* ------------------------------------------------------------------ */
+
+export const VALUE_CHAIN_COLUMNS = [
+  "counterparty", "roles", "direction", "scope3_categories", "status", "annual_value_gbp", "reporting_year",
+  "engagement_state", "ask", "request_due_on", "last_contact_on", "reminders_sent", "escalated", "decline_reason",
+  "data_source", "reported_total_tco2e", "allocation_method", "allocation_detail", "attributable_tco2e", "tier", "tier_label", "primary_data",
+  "assurance", "methodology", "boundary", "evidence", "ledger_lines", "ledger_unresolved", "next_action", "next_action_reason", "overdue", "warnings",
+];
+
+/**
+ * One row per counterparty for the reporting year: the engagement, what was
+ * returned, the figure attributed to the client with its allocation basis and
+ * tier, and the next step. A counterparty with no data has a blank figure and
+ * the reason in next_action, never a zero.
+ */
+export function buildValueChainExport(db: Db, ctx: OperationContext, year: number): ExportTable {
+  const report = valueChainReport(db, ctx, calendarYear(year));
+  const rows: CsvValue[][] = report.counterparties.map((v) => [
+    v.counterparty.name,
+    v.counterparty.roles.join("; "),
+    v.direction,
+    v.counterparty.ghgCategories.join("; "),
+    v.counterparty.status,
+    nn(v.counterparty.annualValueGbp),
+    report.reportingYear,
+    STATE_LABELS[v.state],
+    v.engagement?.ask ?? v.counterparty.ask,
+    v.engagement?.dueOn ?? "",
+    v.engagement?.lastContactOn ?? "",
+    v.engagement?.remindersSent ?? 0,
+    yesNo(v.engagement?.escalated ?? false),
+    v.engagement?.declineReason ?? "",
+    v.dataSource,
+    nn(v.report?.reportedTotalTco2e),
+    v.report?.allocationMethod ?? (v.dataSource === "ledger" ? "activity_ledger" : v.dataSource === "spend_estimate" ? "spend_based_estimate" : ""),
+    v.report?.allocationDetail ?? (v.dataSource === "ledger" ? `${v.ledger.counts.resolved} of ${v.ledger.counts.lines} ledger lines converted with the share of each line applied.` : v.spendEstimate?.detail ?? ""),
+    nn(v.attributableTco2e),
+    v.tier ?? "",
+    v.tier ? TIER_LABELS[v.tier] : "",
+    yesNo(v.primary),
+    v.report?.assurance ?? "",
+    v.report?.methodology ?? "",
+    v.report?.boundary ?? "",
+    v.report?.evidence ?? "",
+    v.ledger.counts.lines,
+    v.ledger.counts.unresolved,
+    v.next.action,
+    v.next.reason,
+    yesNo(v.next.overdue),
+    v.warnings.join(" | "),
+  ]);
+  return table("value-chain", `value-chain-${year}`, VALUE_CHAIN_COLUMNS, rows, DEFAULT_ROW_LIMIT);
 }
