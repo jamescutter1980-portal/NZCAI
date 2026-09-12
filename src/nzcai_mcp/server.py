@@ -36,8 +36,15 @@ from .reference import (
     load_year,
     resolve_fuel_factors,
 )
-from .tools import carbon, crrem
+from .tools import carbon, crrem, nzcbs
 from .tools.carbon import CalculationError
+from .uk_nzcbs import (
+    ATTRIBUTION as NZCBS_ATTRIBUTION,
+    NzcbsDataError,
+)
+from .uk_nzcbs import available_versions as nzcbs_versions
+from .uk_nzcbs import load_version as load_nzcbs
+from .uk_nzcbs import reference_dir as nzcbs_dir
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +54,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # withholds the text of any other exception from the client and reports a bare
 # "Error executing tool", so these are re-raised as ToolError to keep the detail --
 # the model needs to read "available: example-uk" to correct its own argument.
-EXPECTED_FAILURES = (CalculationError, ReferenceDataError, PathwayDataError)
+EXPECTED_FAILURES = (CalculationError, ReferenceDataError, PathwayDataError, NzcbsDataError)
 
 
 def _report_expected_failures(fn: F) -> F:
@@ -71,8 +78,12 @@ traced back to its published row.
 A factor published as blank means "not available" and is refused rather than
 treated as zero.
 
-CRREM pathways are licensed data supplied per deployment. Pathway results carry
-CRREM's attribution and are `modelled` values, not measurements.
+CRREM pathways and UK NZCBS limits are licensed data supplied per deployment, and
+carry their publishers' attribution.
+
+A UK NZCBS check is indicative only: where the Standard sets no limit or no value
+was supplied, the metric is reported `not_assessable` -- never a pass, and never a
+limit of zero.
 """
 
 
@@ -257,6 +268,129 @@ def build_server(config: Config | None = None) -> MCPServer:
         return result
 
     @server.tool(
+        title="UK NZCBS limits",
+        description=(
+            "Limits and targets from the loaded UK Net Zero Carbon Buildings Standard "
+            "table for a sector, optionally filtered by year and metric. A reference "
+            "table, not a compliance determination."
+        ),
+    )
+    @_report_expected_failures
+    def nzcbs_limits(
+        sector: Annotated[str, Field(description="Sector as named in the file; substring match")],
+        year: Annotated[
+            int | None,
+            Field(default=None, description="Optional. Rows with no year always match."),
+        ] = None,
+        metric: Annotated[
+            str | None, Field(default=None, description="Optional substring filter on the metric key")
+        ] = None,
+        version: Annotated[
+            str | None,
+            Field(default=None, description="Standard version, e.g. v1.0. Defaults to the newest loaded."),
+        ] = None,
+    ) -> dict[str, Any]:
+        index = load_nzcbs(config.reference_dir, version)
+        if index is None:
+            loaded = nzcbs_versions(config.reference_dir)
+            return {
+                "rows": [],
+                "detail": (
+                    f"UK NZCBS version {version} is not loaded (loaded: "
+                    f"{', '.join(loaded) or 'none'})."
+                    if version
+                    else f"No UK NZCBS limit file loaded in {nzcbs_dir(config.reference_dir)}. "
+                    "Transcribe the Standard's limit tables to <version>.csv "
+                    "(docs/integrations/reference-data.md)."
+                ),
+            }
+
+        needle = sector.strip().lower()
+        metric_needle = (metric or "").strip().lower()
+        rows = [
+            r for r in index.rows
+            if needle in r.sector.lower()
+            and (year is None or r.year is None or r.year == year)
+            and (not metric_needle or metric_needle in r.metric.lower())
+        ]
+        unavailable = sum(1 for r in rows if r.limit_value is None)
+        warnings = [
+            "Limits are transcribed from the published Standard; verify against the "
+            "current publication before use in a compliance statement."
+        ]
+        if unavailable:
+            warnings.insert(0, (
+                f"{unavailable} row(s) have no limit set in the Standard for this "
+                "sector/year; shown as unavailable, not 0."
+            ))
+        return {
+            "version": index.version,
+            "file": index.file_name,
+            "sectors_loaded": index.sectors,
+            "total_matching": len(rows),
+            "rows": [
+                {"sector": r.sector, "metric": r.metric, "year": r.year,
+                 "limit_value": r.limit_value, "availability": r.availability,
+                 "unit": r.unit, "notes": r.notes}
+                for r in rows
+            ],
+            "attribution": NZCBS_ATTRIBUTION,
+            "warnings": warnings,
+        }
+
+    @server.tool(
+        title="UK NZCBS indicative check",
+        description=(
+            "Compare a building's values against the loaded UK NZCBS limits for a "
+            "sector and year. Metrics with no limit in the file, or with no value "
+            "supplied, are reported not_assessable -- never a pass. Indicative only: "
+            "not a verified NZCBS assessment."
+        ),
+    )
+    @_report_expected_failures
+    def nzcbs_check(
+        sector: Annotated[str, Field(description="Sector; matched against the file's sector names")],
+        year: Annotated[int, Field(description="Year of completion or reporting")],
+        asset_values: Annotated[
+            dict[str, float] | None,
+            Field(
+                default=None,
+                description=(
+                    "Your building's value per metric, e.g. "
+                    "{'operational_energy_eui': 95}. Metric keys are matched loosely. "
+                    "Omit a metric and it is reported not_assessable."
+                ),
+            ),
+        ] = None,
+        version: Annotated[
+            str | None,
+            Field(default=None, description="Standard version. Defaults to the newest loaded."),
+        ] = None,
+    ) -> dict[str, Any]:
+        index = load_nzcbs(config.reference_dir, version)
+        matched = index.match_sector(sector) if index else None
+        for_sector = [r for r in index.rows if r.sector == matched] if (index and matched) else []
+        for_year = [r for r in for_sector if r.year is None or r.year == year]
+        return nzcbs.check(
+            version=index.version if index else None,
+            file_name=index.file_name if index else None,
+            sector=matched,
+            year=year,
+            limit_rows=[
+                {"metric": r.metric, "limit_value": r.limit_value, "unit": r.unit,
+                 "year": r.year, "notes": r.notes}
+                for r in for_year
+            ],
+            asset_values=asset_values or {},
+            loaded_versions=nzcbs_versions(config.reference_dir),
+            loaded_sectors=index.sectors if index else [],
+            sector_years=[r.year for r in for_sector if r.year is not None],
+            reference_dir=str(nzcbs_dir(config.reference_dir)),
+            requested_sector=sector,
+            requested_version=version,
+        )
+
+    @server.tool(
         title="List reference datasets",
         description=(
             "Report which DESNZ conversion factor years and CRREM pathway versions "
@@ -305,6 +439,7 @@ def build_server(config: Config | None = None) -> MCPServer:
                 ),
             },
             "crrem_pathways": pathways,
+            "uk_nzcbs": _nzcbs_summary(config),
         }
 
     @server.custom_route("/healthz", methods=["GET"], include_in_schema=False)
@@ -346,6 +481,28 @@ def run(config: Config | None = None) -> None:
 
     logging.basicConfig(level=logging.INFO)
     uvicorn.run(build_http_app(config), host=config.host, port=config.port, log_level="info")
+
+
+def _nzcbs_summary(config: Config) -> dict[str, Any]:
+    versions = nzcbs_versions(config.reference_dir)
+    if not versions:
+        return {
+            "versions_loaded": [],
+            "detail": (
+                f"No UK NZCBS limit file loaded. Transcribe the Standard's limit tables "
+                f"to {nzcbs_dir(config.reference_dir)}/<version>.csv "
+                "(docs/integrations/reference-data.md)."
+            ),
+        }
+    newest = load_nzcbs(config.reference_dir, versions[0])
+    return {
+        "versions_loaded": versions,
+        "newest": {
+            "version": newest.version, "file": newest.file_name,
+            "sectors": newest.sectors, "metrics": newest.metrics, "rows": len(newest.rows),
+        },
+        "attribution": NZCBS_ATTRIBUTION,
+    }
 
 
 def _transport_security(config: Config) -> TransportSecuritySettings | None:

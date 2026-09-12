@@ -9,6 +9,7 @@ from nzcai_mcp.config import Config
 from nzcai_mcp.server import build_server
 
 from fixtures.crrem import write_pathways
+from fixtures.nzcbs import write_limits
 from fixtures.desnz import write_flat_file
 
 REPO_DATA = Path(__file__).resolve().parent.parent / "data"
@@ -18,6 +19,7 @@ REPO_DATA = Path(__file__).resolve().parent.parent / "data"
 def server(tmp_path):
     write_flat_file(tmp_path)
     write_pathways(tmp_path)
+    write_limits(tmp_path)
     return build_server(
         Config(
             transport="stdio", host="127.0.0.1", port=8080,
@@ -33,6 +35,8 @@ async def test_expected_tools_are_registered(server):
         "calculate_carbon_intensity",
         "crrem_misalignment_year",
         "list_reference_datasets",
+        "nzcbs_check",
+        "nzcbs_limits",
         "search_emission_factors",
     }
 
@@ -125,6 +129,29 @@ async def test_list_reports_both_reference_sets(server):
     assert payload["desnz_conversion_factors"]["years_loaded"] == [2025]
     assert payload["crrem_pathways"]["versions_loaded"] == ["vTEST"]
     assert payload["crrem_pathways"]["newest"]["property_types"] == ["Office", "Retail, High Street"]
+    assert payload["uk_nzcbs"]["versions_loaded"] == ["vTEST"]
+    assert payload["uk_nzcbs"]["newest"]["sectors"] == ["Office", "Retail"]
+
+
+@pytest.mark.anyio
+async def test_nzcbs_check_reports_not_assessable_rather_than_passing(server):
+    result = await server.call_tool(
+        "nzcbs_check",
+        {"sector": "Office", "year": 2025, "asset_values": {"operational_energy_eui": 95.0}},
+    )
+    payload = result.structured_content
+    assert payload["counts"] == {"pass": 1, "fail": 0, "not_assessable": 2}
+    assert "not a verified NZCBS assessment" in payload["disclaimer"]
+
+
+@pytest.mark.anyio
+async def test_nzcbs_limits_flags_rows_with_no_limit(server):
+    payload = (await server.call_tool(
+        "nzcbs_limits", {"sector": "Office", "year": 2025})).structured_content
+    unavailable = [r for r in payload["rows"] if r["availability"] == "unavailable"]
+    assert [r["metric"] for r in unavailable] == ["onsite_renewables"]
+    assert any("not 0" in w for w in payload["warnings"])
+    assert "UK NZCBS" in payload["attribution"]
 
 
 @pytest.fixture
