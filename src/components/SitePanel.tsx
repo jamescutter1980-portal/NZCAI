@@ -7,6 +7,7 @@ import type { OwnershipResult } from "@/lib/site-intel/ownership";
 import type { CompanyRecord } from "@/lib/site-intel/companies-house";
 import type { AreaComparison, UseClassInference, VoaResult } from "@/lib/site-intel/voa";
 import { AREA_BASIS_LABEL } from "@/lib/site-intel/area-basis";
+import type { EpcCertificate } from "@/lib/site-intel/epc";
 import { TIER_LABEL } from "@/lib/site-intel/types";
 
 /**
@@ -47,6 +48,79 @@ const STATE_COPY: Record<string, string> = {
   not_supported: "not supported here",
   source_error: "source unavailable",
 };
+
+interface EpcReport {
+  certificates: EpcCertificate[];
+  current: EpcCertificate | null;
+  unavailable: string | null;
+  fromCache: boolean;
+}
+
+const UPRN_SOURCE_COPY: Record<string, string> = {
+  address_matched: "UPRN matched by the register",
+  energy_assessor: "UPRN entered by the energy assessor — verify before relying on it",
+  unknown: "UPRN source not stated",
+  none: "No UPRN on this certificate",
+};
+
+/**
+ * EPC certificates for the site.
+ *
+ * The UPRN source is shown because the register does not grade them equally: an
+ * address-matched UPRN is register-grade, one typed in by an assessor is not.
+ */
+function EpcPanel({ report }: { report: EpcReport }) {
+  const { certificates, current, unavailable, fromCache } = report;
+
+  return (
+    <section className="epc">
+      <p className="eyebrow">Energy performance</p>
+
+      {unavailable && <p className="epc-note">{unavailable}</p>}
+
+      {!current && !unavailable && (
+        <p className="epc-note">
+          No EPC found for this postcode in the register.
+        </p>
+      )}
+
+      {current && (
+        <div className="epc-cert">
+          <p className="epc-head">
+            <span className={`epc-band band-${(current.rating ?? "x").toLowerCase()}`}>
+              {current.rating ?? "—"}
+            </span>
+            <span className="epc-register">{current.register}</span>
+          </p>
+          <dl className="epc-facts">
+            <dt>Address</dt>
+            <dd>{current.address || "—"}</dd>
+            <dt>Floor area</dt>
+            <dd>{current.floorAreaM2 ? `${current.floorAreaM2.toLocaleString()} m²` : "—"}</dd>
+            <dt>Inspected</dt>
+            <dd>{current.inspectionDate ?? "—"}</dd>
+            {current.assetRating !== null && (
+              <>
+                <dt>Asset rating</dt>
+                <dd>{current.assetRating}</dd>
+              </>
+            )}
+          </dl>
+          <p className={current.uprnSource === "address_matched" ? "epc-note" : "epc-warn"}>
+            {UPRN_SOURCE_COPY[current.uprnSource]}
+          </p>
+        </div>
+      )}
+
+      {certificates.length > 1 && (
+        <p className="epc-note">
+          {certificates.length} certificates in this postcode
+          {fromCache ? " (from cache)" : ""}.
+        </p>
+      )}
+    </section>
+  );
+}
 
 interface VoaReport {
   voa: VoaResult;
@@ -316,6 +390,7 @@ export default function SitePanel({ mapApi }: Props) {
   const [screening, setScreening] = useState<ConstraintScreening | null>(null);
   const [ownership, setOwnership] = useState<OwnershipReport | null>(null);
   const [voa, setVoa] = useState<VoaReport | null>(null);
+  const [epc, setEpc] = useState<EpcReport | null>(null);
 
   const reset = useCallback(() => {
     setCandidates([]);
@@ -325,6 +400,7 @@ export default function SitePanel({ mapApi }: Props) {
     setScreening(null);
     setOwnership(null);
     setVoa(null);
+    setEpc(null);
     setStep(null);
     mapApi.clearSite();
   }, [mapApi]);
@@ -379,6 +455,7 @@ export default function SitePanel({ mapApi }: Props) {
       setScreening(null);
       setOwnership(null);
       setVoa(null);
+      setEpc(null);
       mapApi.showSite(candidate.lat, candidate.lon);
 
       if (!candidate.uprn) {
@@ -406,6 +483,13 @@ export default function SitePanel({ mapApi }: Props) {
             .then((r) => r.json())
             .then((own: OwnershipReport & { error?: string }) => {
               if (!own.error) setOwnership(own);
+            })
+            .catch(() => undefined);
+
+          void fetch(`/api/site-intel/epc?uprn=${encodeURIComponent(candidate.uprn)}`)
+            .then((r) => r.json())
+            .then((report: EpcReport & { error?: string }) => {
+              if (!report.error) setEpc(report);
             })
             .catch(() => undefined);
 
@@ -513,6 +597,8 @@ export default function SitePanel({ mapApi }: Props) {
           <dl className="site-facts">
             <dt>UPRN</dt>
             <dd>{selected.uprn ?? "—"}</dd>
+            <dt>Address</dt>
+            <dd>{profile?.address ?? selected.address ?? "—"}</dd>
             <dt>Postcode</dt>
             <dd>{profile?.postcode ?? selected.postcode ?? "—"}</dd>
             <dt>Planning authority</dt>
@@ -551,6 +637,8 @@ export default function SitePanel({ mapApi }: Props) {
           )}
 
           {screening && <ConstraintList screening={screening} />}
+
+          {epc && <EpcPanel report={epc} />}
 
           {voa && <VoaPanel report={voa} />}
 

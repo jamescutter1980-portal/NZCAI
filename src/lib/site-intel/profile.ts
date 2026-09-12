@@ -146,6 +146,7 @@ export async function buildProfile(
   profile.lat = candidate.lat;
   profile.lon = candidate.lon;
   profile.postcode = candidate.postcode;
+  profile.address = candidate.address;
   profile.matchConfidence = candidate.confidence;
   profile.userConfirmed = false;
   profile.sources.push(candidate.source);

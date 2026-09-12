@@ -100,6 +100,11 @@ export interface SiteProfile {
   lat: number | null;
   lon: number | null;
   postcode: string | null;
+  /**
+   * Street address, where a register supplied one. This is what lifts the
+   * ownership (S-04) and VOA (S-06) matches out of postcode-only.
+   */
+  address: string | null;
   /** E / W / S / NI, as an ISO-ish single letter. Drives S-02 support. */
   country: string | null;
   lpaCode: string | null;
@@ -121,6 +126,7 @@ export function emptyProfile(): SiteProfile {
     lat: null,
     lon: null,
     postcode: null,
+    address: null,
     country: null,
     lpaCode: null,
     lpaName: null,

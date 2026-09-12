@@ -3,7 +3,7 @@
 Required by `BRIEF.md` §0 ("write `docs/site-intel/PLAN.md` covering what you
 found, the storage decision and anything that blocks you").
 
-Status: **S-01 resolve · S-02 constraints · S-03 grid · S-04 ownership · S-06 VOA.** Updated 12 September 2026.
+Status: **Task 0 · S-01 · S-02 · S-03 · S-04 · S-06.** Updated 12 September 2026.
 
 ---
 
@@ -23,7 +23,7 @@ currently unanswerable from this repository:
 
 | Brief item | Status |
 |---|---|
-| Task 0 — EPC register endpoint check | **Cannot do.** No register retrieval module exists. Carried into §5 below, and it has a live consequence — see §2b. |
+| Task 0 — EPC register endpoint check | **Done.** No module existed, so one was built. See §2a. |
 | Reuse the map component (MapLibre default) | **Cannot do.** None exists. See the conflict in §3. |
 | Reuse W-03 tiers / W-23 lineage | **Cannot do.** Minimal compatible shapes added instead, per the brief's fallback. |
 | Supabase PostGIS + storage check | **Cannot do.** No Supabase project reachable from here. |
@@ -64,6 +64,68 @@ one-command migration when S-01's bulk loads arrive and genuinely need it.
 Revisit when OS OpenMap Local and title-boundary polygons land — those do need
 PostGIS, and at that point the local container becomes the right call.
 
+## 2a. Task 0 — the EPC register
+
+The brief calls this housekeeping. It turned out to be the unlock for three
+other sections.
+
+There was no register retrieval module to check, so one was built:
+`src/lib/site-intel/epc.ts` covers all three registers (domestic, non-domestic,
+display), implements the resolution chain's `AddressRegister` interface, and
+caches certificates per postcode for the source TTL.
+
+### Endpoint
+
+Targets `get-energy-performance-data.communities.gov.uk` by default; the legacy
+`epc.opendatacommunities.org` is reachable via `EPC_API_BASE`. Both speak the
+same API, and the host that answered is reported on every lookup so a silent
+migration is visible. Recorded as **PRELAUNCH TICKET-01**; `npm run epc:verify --
+<postcode>` queries both hosts and compares, breaking the result down per
+register and per UPRN source.
+
+### The thing worth knowing
+
+**The register's UPRN is not uniformly authoritative.** `uprn-source`
+distinguishes one the register matched algorithmically ("Address Matched") from
+one an energy assessor typed into assessment software ("Energy Assessor"). Those
+are not the same grade of identifier, so an address-matched UPRN is treated as
+register-grade (T1) and an assessor-entered one as inferred (T3), with the
+source reported on every certificate. Recorded as **TICKET-02** because it is
+easy to undo by accident — anything that collapses both back to "has a UPRN"
+reintroduces the problem.
+
+### What it unlocked
+
+`exact` is now reachable. Resolving *Unit 3, Carr Hill Industrial Estate,
+Doncaster DN4 8DE* returns confidence `exact` at tier T1 via step (a), with
+coordinates still taken from OS Open UPRN — the rule that Google coordinates are
+never persisted is untouched, and so is the equivalent for the register.
+
+More importantly, the profile now carries a **street address**, which lifts the
+downstream matches out of postcode-only. Measured on the same site:
+
+| | Before | After |
+|---|---|---|
+| Ownership (S-04) | all `postcode_only` | `postcode_and_address`, score 1.00 |
+| VOA (S-06) | `postcode_only` | `postcode_and_address`, score 1.00 |
+| Floor area | VOA only, uncheckable | VOA 1,520.75 m² (T3) vs EPC 1,465 m² (T1), 3.7% apart |
+
+The multi-address title correctly stays at `postcode_only` (score 0.77) — a
+title covering several addresses should not sharpen just because one address is
+known.
+
+One gap had to be closed for that to work: steps (b) to (e) resolve a UPRN
+without ever seeing an address, because OS Open UPRN carries coordinates rather
+than addresses. `profileForCandidate` now backfills the address from a
+certificate matching the same UPRN, so a site resolved by map click or UPRN
+lookup reaches the matchers with something to compare.
+
+### Not verified
+
+No live call has been made to either host — this network reaches neither. The
+request shape follows the documented API and 32 tests cover the parsing,
+selection, failure handling and register behaviour against fixtures.
+
 ## 2b. S-01 — building resolution
 
 Built in `src/lib/site-intel/`:
@@ -88,12 +150,11 @@ mapping, staleness, attribution rendering and the Google-coordinates guard.
 
 ### What is NOT resolvable, and why it matters
 
-**Nothing resolves at `exact` right now.** Step (a) needs the EPC address
-register, which does not exist in this repo (Task 0). Without it every address
-falls through to the geocode or postcode branch, so it resolves at `probable` or
-`approximate` — and both require a human to confirm. That is correct behaviour,
-not a bug, but it means the confirm step is mandatory in practice for every
-address. Wiring up the register is the single highest-value S-01 follow-up.
+**`exact` is now reachable** — see §2a. Step (a) is wired to the EPC register and
+fires when `EPC_API_EMAIL` and `EPC_API_KEY` are set. Without credentials the
+chain still runs and falls through to the geocode or postcode branch, resolving
+at `probable` or `approximate`, both of which require human confirmation. That
+remains correct behaviour rather than a bug.
 
 ### Deviations from the brief, deliberate
 

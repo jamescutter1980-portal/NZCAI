@@ -4,6 +4,7 @@ import type { PostcodeStore, UprnPoint, UprnStore } from "./resolve";
 import type { FootprintStore } from "./profile";
 import type { CorporateTitle, Proprietor } from "./ownership";
 import type { SurveyLine, VoaAssessment } from "./voa";
+import type { EpcCertificate, EpcRegister, UprnSource } from "./epc";
 
 /**
  * Postgres-backed stores for the resolution chain.
@@ -267,4 +268,84 @@ export async function voaCounts(): Promise<{ assessments: number; surveyLines: n
             (SELECT count(*) FROM voa_survey_line)::text AS lines`,
   );
   return { assessments: Number(row.assessments), surveyLines: Number(row.lines) };
+}
+
+/* ---------------------------------------------------- Task 0: EPC cache --- */
+
+/**
+ * Cached certificates for a postcode, if any were retrieved within `ttlDays`.
+ *
+ * Returns null rather than an empty array when nothing is cached, so "we have
+ * looked and this postcode has no certificates" stays distinct from "we have
+ * not looked yet".
+ */
+export async function cachedCertificates(
+  postcode: string,
+  ttlDays: number,
+): Promise<EpcCertificate[] | null> {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT lmk_key, register, address, postcode, uprn, uprn_source, rating,
+            asset_rating, floor_area_m2, inspection_date, lodgement_date,
+            property_type, building_reference
+       FROM epc_certificate
+      WHERE postcode = $1
+        AND retrieved_at > now() - ($2 || ' days')::interval`,
+    [postcode.toUpperCase(), String(ttlDays)],
+  );
+  if (!rows.length) return null;
+
+  const date = (v: unknown): string | null =>
+    v ? new Date(v as string).toISOString().slice(0, 10) : null;
+
+  return rows.map((r) => ({
+    lmkKey: String(r.lmk_key),
+    register: r.register as EpcRegister,
+    address: (r.address as string) ?? "",
+    postcode: (r.postcode as string) ?? null,
+    uprn: (r.uprn as string) ?? null,
+    uprnSource: r.uprn_source as UprnSource,
+    rating: (r.rating as string) ?? null,
+    assetRating: r.asset_rating === null ? null : Number(r.asset_rating),
+    floorAreaM2: r.floor_area_m2 === null ? null : Number(r.floor_area_m2),
+    inspectionDate: date(r.inspection_date),
+    lodgementDate: date(r.lodgement_date),
+    propertyType: (r.property_type as string) ?? null,
+    buildingReference: (r.building_reference as string) ?? null,
+  }));
+}
+
+export async function storeCertificates(certificates: EpcCertificate[]): Promise<void> {
+  for (const c of certificates) {
+    await query(
+      `INSERT INTO epc_certificate
+         (lmk_key, register, address, postcode, uprn, uprn_source, rating,
+          asset_rating, floor_area_m2, inspection_date, lodgement_date,
+          property_type, building_reference, retrieved_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())
+       ON CONFLICT (lmk_key) DO UPDATE SET
+         address = EXCLUDED.address, postcode = EXCLUDED.postcode,
+         uprn = EXCLUDED.uprn, uprn_source = EXCLUDED.uprn_source,
+         rating = EXCLUDED.rating, asset_rating = EXCLUDED.asset_rating,
+         floor_area_m2 = EXCLUDED.floor_area_m2,
+         inspection_date = EXCLUDED.inspection_date,
+         lodgement_date = EXCLUDED.lodgement_date,
+         property_type = EXCLUDED.property_type,
+         building_reference = EXCLUDED.building_reference,
+         retrieved_at = now()`,
+      [
+        c.lmkKey, c.register, c.address, c.postcode, c.uprn, c.uprnSource,
+        c.rating, c.assetRating, c.floorAreaM2, c.inspectionDate,
+        c.lodgementDate, c.propertyType, c.buildingReference,
+      ],
+    );
+  }
+}
+
+export async function epcCounts(): Promise<{ certificates: number; withUprn: number }> {
+  const [row] = await query<{ total: string; with_uprn: string }>(
+    `SELECT count(*)::text AS total,
+            count(*) FILTER (WHERE uprn IS NOT NULL)::text AS with_uprn
+       FROM epc_certificate`,
+  );
+  return { certificates: Number(row.total), withUprn: Number(row.with_uprn) };
 }

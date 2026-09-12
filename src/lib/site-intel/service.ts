@@ -3,6 +3,7 @@ import { applyStaleness } from "./sources";
 import { buildProfile, applyOverride, type ProfileDeps } from "./profile";
 import { resolve, type ResolveDeps, type ResolveInput, type ResolveResult } from "./resolve";
 import { footprintStore, postcodeStore, uprnStore } from "./stores";
+import { epcAddressRegister } from "./epc";
 import type { Candidate, SiteProfile, SourceRecord } from "./types";
 import type { LatLon } from "./geo";
 import { screenConstraints, type ConstraintScreening } from "./constraints";
@@ -12,10 +13,11 @@ import { eaFloodCheck, noFloodCheck } from "./flood";
  * Service layer. `getProfile` is the single entry point skills, reports and the
  * MCP tool call (brief section 7).
  *
- * There is deliberately no address-register dependency wired in: the EPC
- * retrieval module does not exist yet (Task 0), so the `exact` branch of the
- * chain is unreachable and every address resolves at `probable` or worse. That
- * is visible in the result rather than hidden - match_confidence says so.
+ * The EPC register (Task 0) is wired in when EPC_API_EMAIL and EPC_API_KEY are
+ * set, which makes step (a) of the resolution chain reachable - an address can
+ * then resolve at `exact`, and the resulting profile carries a street address
+ * that lifts the ownership and VOA matches out of postcode-only. Without the
+ * credentials the chain still runs and says so through match_confidence.
  */
 
 export interface ResolveOptions {
@@ -25,6 +27,12 @@ export interface ResolveOptions {
 
 async function deps(options: ResolveOptions = {}): Promise<ResolveDeps> {
   const base: ResolveDeps = { uprns: uprnStore, postcodes: postcodeStore };
+
+  // Task 0. With the register wired in, step (a) of the chain is reachable and
+  // an address can resolve at `exact` instead of falling through to a geocode.
+  if (process.env.EPC_API_KEY && process.env.EPC_API_EMAIL) {
+    base.register = epcAddressRegister();
+  }
 
   if (options.allowGeocode && process.env.GOOGLE_MAPS_SERVER_KEY) {
     base.geocoder = {
@@ -59,6 +67,21 @@ export async function resolveCandidates(
 export async function profileForCandidate(candidate: Candidate): Promise<SiteProfile> {
   const profileDeps: ProfileDeps = { footprints: await footprintStore() };
   const profile = await buildProfile(candidate, profileDeps);
+
+  // Steps (b) to (e) of the chain resolve a UPRN without ever seeing a street
+  // address - OS Open UPRN carries coordinates, not addresses. Where the
+  // register holds a certificate for this UPRN, take the address from it, so a
+  // site resolved by map click or UPRN lookup still reaches the ownership and
+  // VOA matchers with something to compare.
+  if (!profile.address && profile.uprn && profile.postcode) {
+    const epc = await epcFor(profile);
+    const forThisUprn = epc.certificates.find((c) => c.uprn === profile.uprn);
+    if (forThisUprn?.address) {
+      profile.address = forThisUprn.address;
+      profile.sources.push(certificateLineage(forThisUprn));
+    }
+  }
+
   profile.sources = profile.sources.map((s) => applyStaleness(s));
   return profile;
 }
@@ -96,6 +119,7 @@ interface ProfileRow {
   lat: number | null;
   lng: number | null;
   postcode: string | null;
+  address: string | null;
   country: string | null;
   lpa_code: string | null;
   lpa_name: string | null;
@@ -115,6 +139,7 @@ function rowToProfile(row: ProfileRow, sources: SourceRecord[]): SiteProfile {
     lat: row.lat,
     lon: row.lng,
     postcode: row.postcode,
+    address: row.address,
     country: row.country,
     lpaCode: row.lpa_code,
     lpaName: row.lpa_name,
@@ -139,13 +164,14 @@ export async function saveProfile(
 ): Promise<number> {
   const [row] = await query<{ id: number }>(
     `INSERT INTO site_profile
-       (building_id, uprn, lat, lng, postcode, country, lpa_code, lpa_name,
+       (building_id, uprn, lat, lng, postcode, address, country, lpa_code, lpa_name,
         title_extents, footprint, footprint_method, footprint_area_m2,
         match_confidence, user_confirmed, flags, states, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12,$13,$14,$15,$16::jsonb, now())
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,$16,$17::jsonb, now())
      ON CONFLICT (building_id) DO UPDATE SET
        uprn = EXCLUDED.uprn, lat = EXCLUDED.lat, lng = EXCLUDED.lng,
-       postcode = EXCLUDED.postcode, country = EXCLUDED.country,
+       postcode = EXCLUDED.postcode, address = EXCLUDED.address,
+       country = EXCLUDED.country,
        lpa_code = EXCLUDED.lpa_code, lpa_name = EXCLUDED.lpa_name,
        title_extents = EXCLUDED.title_extents, footprint = EXCLUDED.footprint,
        footprint_method = EXCLUDED.footprint_method,
@@ -156,7 +182,7 @@ export async function saveProfile(
      RETURNING id`,
     [
       buildingId, profile.uprn, profile.lat, profile.lon, profile.postcode,
-      profile.country, profile.lpaCode, profile.lpaName,
+      profile.address, profile.country, profile.lpaCode, profile.lpaName,
       JSON.stringify(profile.titleExtents),
       profile.footprint.geometry ? JSON.stringify(profile.footprint.geometry) : null,
       profile.footprint.method, profile.footprint.areaM2,
@@ -258,13 +284,11 @@ export async function ownershipFor(
   }
 
   const titles = await titlesInPostcode(profile.postcode);
-  // Pass address: null rather than the postcode. A SiteProfile carries no
-  // free-text address today - that arrives with the EPC register (Task 0) -
-  // and feeding the postcode in as an address produces "tokens agree 0%",
-  // which claims a comparison that never happened. Null makes the match
-  // report honestly that there was no address to compare.
+  // The street address comes from the EPC register (Task 0) where credentials
+  // are set. Without one this stays null, and the match reports honestly that
+  // there was no address to compare rather than claiming a 0% comparison.
   const ownership = buildOwnershipResult(
-    { address: null, postcode: profile.postcode },
+    { address: profile.address, postcode: profile.postcode },
     titles,
   );
 
@@ -336,10 +360,10 @@ export async function voaFor(
     ? await assessmentsInPostcode(profile.postcode)
     : [];
 
-  // As with ownership: pass a null address rather than the postcode, so a
-  // postcode-only match reports itself honestly instead of claiming a 0%
-  // address comparison it never made.
-  const voa = buildVoaResult({ address: null, postcode: profile.postcode }, assessments);
+  // As with ownership, the address is whatever the register supplied; null
+  // when there is none, so a postcode-only match says so rather than claiming
+  // an address comparison it never made.
+  const voa = buildVoaResult({ address: profile.address, postcode: profile.postcode }, assessments);
 
   const estimates: AreaEstimate[] = [...voaAreaEstimates(voa)];
 
@@ -353,11 +377,24 @@ export async function voaFor(
     });
   }
 
-  if (options.epcFloorAreaM2 && options.epcFloorAreaM2 > 0) {
+  // Prefer an explicitly supplied figure; otherwise take it from the register.
+  // The EPC is the only floor area here that comes from a measured assessment
+  // rather than a valuation or a footprint, which is why it is T1.
+  let epcArea = options.epcFloorAreaM2;
+  let epcSource = "EPC total floor area";
+  if (!epcArea) {
+    const epc = await epcFor(profile);
+    if (epc.current?.floorAreaM2) {
+      epcArea = epc.current.floorAreaM2;
+      epcSource = `EPC total floor area (${epc.current.register}, ${epc.current.inspectionDate ?? "date unknown"})`;
+    }
+  }
+
+  if (epcArea && epcArea > 0) {
     estimates.push({
-      areaM2: options.epcFloorAreaM2,
+      areaM2: epcArea,
       basis: "GIA",
-      source: "EPC total floor area",
+      source: epcSource,
       tier: "T1",
     });
   }
@@ -367,4 +404,64 @@ export async function voaFor(
     useClass: inferUseClass(voa.candidates[0]?.assessment.primaryDescription),
     areas: compareAreas(estimates),
   };
+}
+
+/* ------------------------------------------------------ Task 0: EPC data --- */
+
+import {
+  certificatesByPostcode,
+  certificateLineage,
+  currentCertificate,
+  type EpcCertificate,
+  type EpcLookup,
+} from "./epc";
+import { cachedCertificates, storeCertificates } from "./stores";
+import { ttlDays } from "./sources";
+
+export interface EpcReport {
+  certificates: EpcCertificate[];
+  /** The one that best describes the building: newest non-domestic if any. */
+  current: EpcCertificate | null;
+  unavailable: string | null;
+  /** True when served from the local cache rather than the live register. */
+  fromCache: boolean;
+}
+
+/**
+ * Certificates for a site's postcode, cached for the source's TTL.
+ *
+ * The cache returns null when nothing has been stored, which is distinct from
+ * an empty list meaning "looked, and this postcode has none" - so a cold cache
+ * triggers a fetch and a genuinely empty postcode does not.
+ */
+export async function epcFor(profile: SiteProfile): Promise<EpcReport> {
+  if (!profile.postcode) {
+    return { certificates: [], current: null, unavailable: null, fromCache: false };
+  }
+
+  const ttl = ttlDays("epc-register") ?? 30;
+  const cached = await cachedCertificates(profile.postcode, ttl);
+  if (cached) {
+    return {
+      certificates: cached,
+      current: currentCertificate(cached),
+      unavailable: null,
+      fromCache: true,
+    };
+  }
+
+  const lookup: EpcLookup = await certificatesByPostcode(profile.postcode);
+  if (lookup.certificates.length) await storeCertificates(lookup.certificates);
+
+  return {
+    certificates: lookup.certificates,
+    current: currentCertificate(lookup.certificates),
+    unavailable: lookup.unavailable,
+    fromCache: false,
+  };
+}
+
+/** Lineage for whichever certificate is being relied on. */
+export function epcLineage(certificate: EpcCertificate) {
+  return certificateLineage(certificate);
 }

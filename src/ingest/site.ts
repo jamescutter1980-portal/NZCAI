@@ -21,7 +21,7 @@ import { checkSlugs } from "@/lib/site-intel/planning-data";
 import { DATASETS } from "@/lib/site-intel/profile";
 import { loadSources, unverifiedAttributions } from "@/lib/site-intel/sources";
 import { ruleDatasets, unapprovedRules } from "@/lib/site-intel/rules";
-import { referenceDataCounts, titleCounts, voaCounts } from "@/lib/site-intel/stores";
+import { epcCounts, referenceDataCounts, titleCounts, voaCounts } from "@/lib/site-intel/stores";
 import { normalisePostcode } from "@/lib/site-intel/geo";
 
 const GREEN = "\x1b[32m", RED = "\x1b[31m", YELLOW = "\x1b[33m", DIM = "\x1b[2m", OFF = "\x1b[0m";
@@ -323,10 +323,13 @@ async function verify(): Promise<void> {
     console.log(`  ${DIM}attribution_verified: true. Licence conditions, not decoration.${OFF}`);
   }
 
-  const register = !!process.env.EPC_API_KEY;
+  const register = !!(process.env.EPC_API_KEY && process.env.EPC_API_EMAIL);
   console.log("\nresolution chain");
   console.log(`  ${register ? GREEN + "OK" : YELLOW + "ABSENT"}${OFF} address register (EPC)` +
-    (register ? "" : ` ${DIM}- no exact matches possible; addresses resolve at "probable" (Task 0)${OFF}`));
+    (register ? "" : ` ${DIM}- set EPC_API_EMAIL and EPC_API_KEY; without them no address reaches "exact"${OFF}`));
+  const epc = await epcCounts();
+  console.log(`  ${DIM}cached certificates: ${epc.certificates} (${epc.withUprn} with a UPRN)${OFF}`);
+  console.log(`  ${DIM}check the endpoint with: npm run epc:verify -- <postcode>${OFF}`);
   console.log(`  ${process.env.GOOGLE_MAPS_SERVER_KEY ? GREEN + "OK" : DIM + "absent"}${OFF} geocoder fallback`);
 
   await closePool();

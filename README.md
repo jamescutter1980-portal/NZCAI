@@ -31,6 +31,30 @@ optional** — migration `002` adds geography columns where the extension exists
 and no-ops where it doesn't, so plain Postgres (Neon, Supabase, RDS) works
 unchanged. See PLAN.md §2 for why.
 
+## EPC register (Task 0)
+
+```bash
+npm run epc:verify -- DN4 8DE    # checks both hosts, breaks results down per register
+```
+
+Set `EPC_API_EMAIL` and `EPC_API_KEY` (free, register at
+[epc.opendatacommunities.org](https://epc.opendatacommunities.org/login-or-register)).
+`EPC_API_BASE` selects the host: the new
+`get-energy-performance-data.communities.gov.uk` by default, the legacy
+`epc.opendatacommunities.org` if needed. The host that answered is reported on
+every lookup.
+
+**This is what makes `exact` matches possible.** With credentials set, an
+address resolves through the register at tier T1, and the resolved profile
+carries a street address — which lifts the ownership (S-04) and VOA (S-06)
+matches from `postcode only` to `address match`, and puts the EPC floor area
+alongside the VOA one for cross-checking.
+
+**The register's UPRN is not uniformly authoritative.** `uprn-source`
+distinguishes one the register matched from one an energy assessor typed in.
+Address-matched is treated as register-grade (T1), assessor-entered as inferred
+(T3), and the source is shown on every certificate. See PRELAUNCH TICKET-02.
+
 ## Site intelligence (S-01)
 
 Resolve a building from an address, postcode or UPRN, see its title extent,
@@ -50,10 +74,9 @@ the loader a second time against ONSUD to fill those in; the second pass updates
 in place and never clears coordinates. Set `SITE_INGEST_LIMIT` to load a subset
 while testing.
 
-**Nothing resolves at `exact` yet.** That needs the EPC address register, which
-does not exist in this repo (Task 0). Every address currently resolves at
-`probable` or `approximate`, both of which require a human to confirm — which is
-why the "Is this the building?" step is mandatory in practice.
+`exact` matches need the EPC register credentials above. Without them every
+address resolves at `probable` or `approximate`, both of which require a human
+to confirm — which is why the "Is this the building?" step exists.
 
 Building footprints need PostGIS and an OS OpenMap Local load; until both are in
 place the profile reports `unavailable` rather than inventing one.
@@ -129,9 +152,9 @@ title register, never proof of ownership. Matches are labelled `address match`
 or `postcode only`, conflicting building numbers block an address match, and a
 title covering several addresses says so.
 
-Until the EPC register lands (Task 0) a resolved site has no street address, so
-**every match is currently `postcode only`** — several candidates on a shared
-postcode, with no way to choose between them.
+With EPC credentials set the resolved site carries a street address and matches
+reach `address match`. Without them every match is `postcode only` — several
+candidates on a shared postcode, with no way to choose between them.
 
 `?company=` answers the reverse: everything one company owns.
 
@@ -248,6 +271,8 @@ src/lib/site-intel/  S-01: models, sources.yaml, geo, planning.data client,
                      S-02: constraint_rules.yaml, constraints, flood
                      S-04: ownership matching, Companies House
                      S-06: VOA assessments, floor area, use class
+                     Task 0: EPC register client and cache
+PRELAUNCH.md         tickets that block a client release
 tests/               unit tests + fixtures (constructed, not recorded)
 scripts/             MapLibre worker staging
 src/app/api/         /api/substations (bbox + filters), /api/health
@@ -270,6 +295,7 @@ docs/site-intel/     BRIEF.md (spec), PLAN.md (status, blockers, sign-offs)
 | `npm run maplibre:worker` | Re-stage the MapLibre worker into `public/` |
 | `npm test` | Unit tests (no network required) |
 | `npm run site:verify` | S-01 readiness: reference data, slugs, attributions |
+| `npm run epc:verify -- <postcode>` | Task 0: check both EPC hosts |
 | `npm run site:load-uprn -- <csv>` | Load OS Open UPRN or ONSUD |
 | `npm run site:postcodes` | Derive postcode centroids from loaded UPRNs |
 | `npm run site:load-ccod -- <csv>` | Load HMLR CCOD or OCOD ownership data |

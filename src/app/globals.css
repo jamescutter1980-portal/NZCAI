@@ -501,3 +501,32 @@ body {
   margin: 0; padding-top: 8px; border-top: 1px solid var(--rule);
   font-size: 11.5px; line-height: 1.45; color: var(--ink-3);
 }
+
+/* ---- Task 0: EPC ---------------------------------------------------------- */
+
+.epc { padding-top: 10px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 9px; }
+
+.epc-cert { padding: 9px 10px; background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; }
+.epc-head { margin: 0 0 7px; display: flex; align-items: center; gap: 9px; }
+
+.epc-band {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; padding: 3px 8px; border-radius: 3px;
+  font-family: var(--f-mono); font-size: 15px; font-weight: 600;
+  color: #fff; background: var(--ink-3);
+}
+.epc-band.band-a, .epc-band.band-b { background: var(--good); }
+.epc-band.band-c, .epc-band.band-d { background: var(--warn); }
+.epc-band.band-e, .epc-band.band-f, .epc-band.band-g { background: var(--risk); }
+
+.epc-register {
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+
+.epc-facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0 0 7px; font-size: 12.5px; }
+.epc-facts dt { color: var(--ink-3); }
+.epc-facts dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.epc-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
+.epc-warn { margin: 0; font-size: 12px; line-height: 1.45; color: var(--warn); }
