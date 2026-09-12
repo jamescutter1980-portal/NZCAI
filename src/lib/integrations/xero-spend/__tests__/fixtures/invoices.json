@@ -1,0 +1,44 @@
+{
+  "Id": "3f6a2c2e-0000-4000-8000-000000000001",
+  "Status": "OK",
+  "ProviderName": "NZC Portal",
+  "DateTimeUTC": "/Date(1757419200000)/",
+  "pagination": { "page": 1, "pageSize": 100, "pageCount": 1, "itemCount": 2 },
+  "Invoices": [
+    {
+      "Type": "ACCPAY",
+      "InvoiceID": "9a8b7c6d-0000-4000-8000-000000000101",
+      "InvoiceNumber": "INV-4471",
+      "Reference": "PO 118",
+      "Contact": { "ContactID": "bd2270c3-8706-4c11-9cfb-000b551c3f51", "Name": "Acme Facilities Ltd" },
+      "DateString": "2025-06-19T00:00:00",
+      "Date": "/Date(1750291200000+0000)/",
+      "DueDateString": "2025-07-19T00:00:00",
+      "Status": "PAID",
+      "LineAmountTypes": "Exclusive",
+      "LineItems": [
+        { "LineItemID": "l1", "Description": "Cleaning contract June", "Quantity": 1, "UnitAmount": 600, "AccountCode": "429", "TaxType": "INPUT2", "TaxAmount": 120, "LineAmount": 600, "Tracking": [{ "Name": "Site", "Option": "Unit 4" }] },
+        { "LineItemID": "l2", "Description": "Consumables", "Quantity": 10, "UnitAmount": 40, "AccountCode": "461", "TaxType": "INPUT2", "TaxAmount": 80, "LineAmount": 400 }
+      ],
+      "SubTotal": 1000,
+      "TotalTax": 200,
+      "Total": 1200,
+      "CurrencyCode": "GBP",
+      "UpdatedDateUTC": "/Date(1750377600000+0000)/"
+    },
+    {
+      "Type": "ACCPAY",
+      "InvoiceID": "9a8b7c6d-0000-4000-8000-000000000102",
+      "InvoiceNumber": "B-77",
+      "Contact": { "ContactID": "0c1d2e3f-0000-4000-8000-000000000202", "Name": "Beta Stationery" },
+      "Date": "/Date(1751500800000+0000)/",
+      "Status": "AUTHORISED",
+      "LineAmountTypes": "Exclusive",
+      "LineItems": [{ "LineItemID": "l3", "Description": "Paper", "Quantity": 5, "UnitAmount": 60, "AccountCode": "429", "TaxType": "INPUT2", "TaxAmount": 60, "LineAmount": 300 }],
+      "SubTotal": 300,
+      "TotalTax": 60,
+      "Total": 360,
+      "CurrencyCode": "GBP"
+    }
+  ]
+}

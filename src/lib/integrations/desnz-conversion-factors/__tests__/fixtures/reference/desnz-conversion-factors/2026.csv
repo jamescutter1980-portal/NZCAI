@@ -1,0 +1,11 @@
+SYNTHETIC TEST FIXTURE - values are invented (1.111 etc.) and are NOT DESNZ factors,,,,,,,,,
+Mimics the preamble rows of the flat file 'Factors by Category' sheet,,,,,,,,,
+,,,,,,,,,
+ID,Scope,Level 1,Level 2,Level 3,Level 4,Column Text,UOM,GHG/Unit,GHG Conversion Factor 2026
+1001,Scope 2,UK electricity,Electricity generated,Electricity: UK,,,kWh,kg CO2e,1.111
+1002,Scope 2,UK electricity,Electricity generated,Electricity: UK,,,kWh,kg CO2e of CO2 per unit,1.1
+1003,Scope 3,Transmission and distribution,T&D- UK electricity,Electricity: UK,,,kWh,kg CO2e,0.111
+1004,Scope 1,Fuels,Gaseous fuels,Natural gas,,"Gross CV, ""as delivered""",kWh (Gross CV),kg CO2e,2.222
+1005,Scope 3,WTT- pass vehs & travel- land,WTT- cars (by size),Small car,,Plug-in Hybrid Electric Vehicle,km,kg CO2e,
+1006,Outside of scopes,Outside of scopes,Bioenergy,Biogas,,,tonnes,kg CO2e,0
+1007,Scope 3,Hotel stay,Hotel stay,Antarctica,,,Room per night,kg CO2e,N/A

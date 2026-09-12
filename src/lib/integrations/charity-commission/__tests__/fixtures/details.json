@@ -1,0 +1,20 @@
+{
+  "organisation_number": 5012345,
+  "reg_charity_number": 1234567,
+  "group_subsid_suffix": 0,
+  "charity_name": "EXAMPLE COMMUNITY FOUNDATION",
+  "charity_type": "CIO",
+  "reg_status": "Registered",
+  "date_of_registration": "2016-05-10T00:00:00",
+  "date_of_removal": null,
+  "charity_reporting_status": "Received: On Time",
+  "latest_acc_fin_period_start_date": "2024-04-01T00:00:00",
+  "latest_acc_fin_period_end_date": "2025-03-31T00:00:00",
+  "latest_income": 245000,
+  "latest_expenditure": 231500,
+  "charity_contact_postcode": "SW1A 1AA",
+  "charity_contact_web": "https://example.test",
+  "charity_company_registration_number": null,
+  "charitable_objects": "TO PROMOTE THE CONSERVATION OF THE NATURAL ENVIRONMENT.",
+  "trustee_names": [{ "trustee_name": "Jane Smith" }, { "trustee_name": "John Doe" }, { "trustee_name": "Ann Other" }]
+}

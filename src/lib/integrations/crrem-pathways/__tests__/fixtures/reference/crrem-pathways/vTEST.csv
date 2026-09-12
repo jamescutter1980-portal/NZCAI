@@ -1,0 +1,11 @@
+version,country_code,property_type,pathway_type,scenario,year,value,unit
+vTEST,GB,Office,ghg,1.5C,2025,5.555,kgCO2e/m2
+vTEST,GB,Office,ghg,1.5C,2026,4.444,kgCO2e/m2
+vTEST,GB,Office,ghg,1.5C,2027,3.333,kgCO2e/m2
+vTEST,GB,Office,ghg,1.5C,2028,,kgCO2e/m2
+vTEST,GB,Office,ghg,1.5C,2029,1.111,kgCO2e/m2
+vTEST,GB,Office,ghg,2C,2025,6.666,kgCO2e/m2
+vTEST,GB,Office,ghg,2C,2026,6.000,kgCO2e/m2
+vTEST,GB,Office,energy,1.5C,2025,111.1,kWh/m2
+vTEST,GB,Office,energy,1.5C,2026,100.1,kWh/m2
+vTEST,GB,"Retail, High Street",ghg,1.5C,2025,7.777,kgCO2e/m2

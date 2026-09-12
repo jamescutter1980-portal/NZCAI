@@ -1,0 +1,9 @@
+{
+  "_comment": "soda4LCA process list shape; synthetic entries.",
+  "totalCount": 1,
+  "pageSize": 25,
+  "startIndex": 0,
+  "data": [
+    { "uuid": "00000000-0000-4000-8000-000000000001", "name": "Synthetisches Testprodukt", "version": "00.01.000", "classific": "Mineralische Baustoffe / Beton", "geo": "DE", "validUntil": 2029, "refYear": 2024, "owner": "BBSR", "subType": "generic dataset", "nodeid": "OEKOBAU.DAT", "dsType": "Process" }
+  ]
+}

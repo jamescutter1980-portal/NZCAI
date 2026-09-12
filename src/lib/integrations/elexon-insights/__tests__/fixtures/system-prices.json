@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "settlementDate": "2026-09-01", "settlementPeriod": 2, "startTime": "2026-09-01T00:30:00Z", "createdDateTime": "2026-09-02T15:31:12Z", "systemSellPrice": 95.5, "systemBuyPrice": 95.5, "bsadDefaulted": false, "priceDerivationCode": "P", "reserveScarcityPrice": 0, "netImbalanceVolume": -120.4 },
+    { "settlementDate": "2026-09-01", "settlementPeriod": 1, "startTime": "2026-09-01T00:00:00Z", "createdDateTime": "2026-09-02T15:31:12Z", "systemSellPrice": 80, "systemBuyPrice": 80, "bsadDefaulted": false, "priceDerivationCode": "P", "reserveScarcityPrice": 0, "netImbalanceVolume": 55.1 }
+  ]
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
+  <Service><Name>WMS</Name><Title>Road Noise - All Metrics - England Round 4</Title></Service>
+  <Capability>
+    <Layer>
+      <Title>Road Noise - All Metrics - England Round 4</Title>
+      <Layer queryable="1"><Name>Road_Noise_Lden_England_Round_4</Name><Title>Road Noise Lden</Title></Layer>
+      <Layer queryable="1"><Name>Road_Noise_Lnight_England_Round_4</Name><Title>Road Noise Lnight</Title></Layer>
+      <Layer queryable="1"><Name>Road_Noise_LAeq16h_England_Round_4</Name><Title>Road Noise LAeq,16h</Title></Layer>
+      <Layer queryable="0"><Name>Road_Noise_Legend</Name><Title>Legend</Title></Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>

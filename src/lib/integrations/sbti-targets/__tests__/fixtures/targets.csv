@@ -1,0 +1,3 @@
+company_name,isin,lei,country,sector,near_term_status,near_term_target_year,net_zero_status,date
+Example Facilities Group plc,GB00B0EXAMPL1,213800EXAMPLELEI000001,United Kingdom,Commercial services,Targets set,2030,Committed,2026-08-31
+Northern Widgets plc,,,United Kingdom,Manufacturing,Committed,,,2026-08-31

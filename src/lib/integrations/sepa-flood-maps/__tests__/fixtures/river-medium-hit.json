@@ -1,0 +1,4 @@
+{
+  "fields": [{ "name": "OBJECTID", "type": "esriFieldTypeOID" }, { "name": "Likelihood", "type": "esriFieldTypeString" }],
+  "features": [{ "attributes": { "OBJECTID": 501, "Likelihood": "Medium", "Shape__Area": 22.5 } }]
+}

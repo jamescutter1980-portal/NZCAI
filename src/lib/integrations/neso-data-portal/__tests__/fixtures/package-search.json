@@ -1,0 +1,25 @@
+{
+  "help": "https://api.neso.energy/api/3/action/help_show?name=package_search",
+  "success": true,
+  "result": {
+    "count": 2,
+    "results": [
+      {
+        "id": "8f2fe0af-871c-488d-8bad-960426f24601",
+        "name": "historic-demand-data",
+        "title": "Historic Demand Data",
+        "notes": "Half-hourly national demand.",
+        "license_title": "NESO Open Data Licence",
+        "metadata_modified": "2026-09-01T06:00:00.000000",
+        "organization": { "name": "demand", "title": "Demand" },
+        "resources": [
+          { "id": "f6d02c0f-957b-48cb-82ee-09003f2ba759", "name": "Historic Demand Data 2024", "format": "CSV", "url": "https://api.neso.energy/dataset/8f2fe0af/resource/f6d02c0f/download/demanddata_2024.csv", "datastore_active": true, "last_modified": "2025-01-05T10:00:00" },
+          { "id": "bb44a1b5-75b1-4db2-8491-257f23385006", "name": "Historic Demand Data 2025", "format": "CSV", "url": "https://api.neso.energy/dataset/8f2fe0af/resource/bb44a1b5/download/demanddata_2025.csv", "datastore_active": true, "last_modified": "2026-01-05T10:00:00" }
+        ]
+      },
+      {
+        "id": "x", "name": "demand-data-update", "title": "Demand Data Update", "license_title": "NESO Open Data Licence", "metadata_modified": "2026-09-08T00:00:00", "organization": { "title": "Demand" }, "resources": []
+      }
+    ]
+  }
+}

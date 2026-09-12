@@ -1,0 +1,6 @@
+[
+  { "psrType": "Fossil Gas", "halfHourUsage": 4000, "halfHourPercentage": 40, "twentyFourHourUsage": 200000, "twentyFourHourPercentage": 38.5 },
+  { "psrType": "Wind Offshore", "halfHourUsage": 3000, "halfHourPercentage": 30, "twentyFourHourUsage": 150000, "twentyFourHourPercentage": 28.9 },
+  { "psrType": "Nuclear", "halfHourUsage": 2000, "halfHourPercentage": 20, "twentyFourHourUsage": 100000, "twentyFourHourPercentage": 19.2 },
+  { "psrType": "Solar", "halfHourUsage": 1000, "halfHourPercentage": 10, "twentyFourHourUsage": 70000, "twentyFourHourPercentage": 13.4 }
+]

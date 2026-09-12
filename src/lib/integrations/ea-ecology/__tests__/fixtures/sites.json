@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "site_id": 43378, "site_name": "RIVER WANDLE AT MERTON ABBEY", "site_type": "River", "survey_type": "Macroinvertebrate", "water_body": "Wandle", "lat": 51.4142, "lon": -0.1865, "easting": 526200, "northing": 169900 },
+    { "site_id": 12001, "site_name": "BEVERLEY BROOK AT WIMBLEDON COMMON", "site_type": "River", "survey_type": "Fish", "water_body": "Beverley Brook", "lat": 51.43, "lon": -0.24 }
+  ],
+  "total": 2
+}

@@ -1,0 +1,4 @@
+[
+  { "FWACode": "WAF001", "WarningArea": "River Taff at Pontypridd", "Severity": "Flood Warning", "SeverityLevel": 2, "RiverOrSea": "River Taff", "TimeRaised": "2026-09-08T10:15:00", "TimeSeverityChanged": "2026-09-08T10:15:00", "Message": "River levels are rising; flooding of property is expected.", "Latitude": 51.602, "Longitude": -3.342 },
+  { "FWACode": "WAF002", "WarningArea": "Lower Taff catchment", "Severity": "Flood Alert", "SeverityLevel": 3, "RiverOrSea": "River Taff", "TimeRaised": "2026-09-08T08:00:00", "Message": "Flooding of low lying land is possible.", "Latitude": 51.5, "Longitude": -3.2 }
+]

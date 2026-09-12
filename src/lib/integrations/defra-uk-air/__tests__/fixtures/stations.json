@@ -1,0 +1,5 @@
+[
+  { "properties": { "id": 1001, "label": "London Marylebone Road-Nitrogen dioxide (air)" }, "geometry": { "type": "Point", "coordinates": [51.52253, -0.15461, 35] }, "type": "Feature", "id": 1001 },
+  { "properties": { "id": 1002, "label": "London Marylebone Road-Particulate matter < 2.5 um (aerosol)" }, "geometry": { "type": "Point", "coordinates": [51.52253, -0.15461, 35] }, "type": "Feature", "id": 1002 },
+  { "properties": { "id": 2001, "label": "Manchester Piccadilly-Nitrogen dioxide (air)" }, "geometry": { "type": "Point", "coordinates": [53.48152, -2.23747, 44] }, "type": "Feature", "id": 2001 }
+]

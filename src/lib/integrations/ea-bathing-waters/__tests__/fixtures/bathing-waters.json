@@ -1,0 +1,25 @@
+{
+  "format": "linked-data-api",
+  "version": "0.2",
+  "result": {
+    "@id": "http://environment.data.gov.uk/doc/bathing-water.json?district.gssCode=E07000043",
+    "itemsPerPage": 100,
+    "startIndex": 1,
+    "items": [
+      {
+        "@id": "http://environment.data.gov.uk/id/bathing-water/ukk4100-26400",
+        "name": { "_value": "Croyde Bay", "_lang": "en" },
+        "eubwidNotation": "ukk4100-26400",
+        "district": { "_about": "http://statistics.data.gov.uk/id/statistical-geography/E07000043", "name": { "_value": "North Devon", "_lang": "en" } },
+        "county": { "name": { "_value": "Devon", "_lang": "en" } },
+        "country": { "name": { "_value": "England", "_lang": "en" } },
+        "yearDesignated": { "_value": "1988", "_datatype": "gYear" },
+        "waterQualityImpactedByHeavyRain": true,
+        "samplingPoint": { "name": { "_value": "Croyde Bay", "_lang": "en" }, "lat": 51.1319, "long": -4.2367, "easting": 243500, "northing": 139700 },
+        "latestSampleAssessment": { "_about": "http://environment.data.gov.uk/data/bathing-water-quality/in-season/sample/point/26400/date/20260901/time/104500/recordDate/20260903", "sampleClassification": { "name": { "_value": "Excellent", "_lang": "en" } } },
+        "latestComplianceAssessment": { "_about": "http://environment.data.gov.uk/data/bathing-water-quality/compliance/point/26400/year/2025", "complianceClassification": { "name": { "_value": "Excellent", "_lang": "en" } } },
+        "latestRiskPrediction": { "riskLevel": { "name": { "_value": "normal", "_lang": "en" } }, "expiresAt": "2026-09-10T08:30:00" }
+      }
+    ]
+  }
+}

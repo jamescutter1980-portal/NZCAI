@@ -1,0 +1,24 @@
+{
+  "@context": "http://environment.data.gov.uk/hydrology/meta/context.jsonld",
+  "meta": { "publisher": "Environment Agency", "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/", "version": "0.9", "limit": 100 },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/hydrology/id/stations/e8d4c4b1-2b8e-4b0f-9c3b-0f0f6d4e1a11",
+      "notation": "e8d4c4b1-2b8e-4b0f-9c3b-0f0f6d4e1a11",
+      "label": "Kingston",
+      "stationReference": "3400TH",
+      "stationGuid": "e8d4c4b1-2b8e-4b0f-9c3b-0f0f6d4e1a11",
+      "riverName": "River Thames",
+      "catchmentName": "Thames",
+      "town": "Kingston upon Thames",
+      "lat": 51.4149,
+      "long": -0.3086,
+      "easting": 517700,
+      "northing": 169800,
+      "dateOpened": "1883-01-01",
+      "status": { "@id": "http://environment.data.gov.uk/hydrology/def/core/statusActive", "label": "Active" },
+      "observedProperty": [{ "@id": "http://environment.data.gov.uk/reference/def/op/waterFlow" }, { "@id": "http://environment.data.gov.uk/reference/def/op/waterLevel" }],
+      "type": [{ "@id": "http://environment.data.gov.uk/hydrology/def/core/Station" }]
+    }
+  ]
+}

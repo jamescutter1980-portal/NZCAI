@@ -1,0 +1,12 @@
+{
+  "data": {
+    "regionid": 11,
+    "dnoregion": "WPD South West",
+    "shortname": "South West England",
+    "postcode": "BS16",
+    "data": [
+      { "from": "2026-09-09T12:00Z", "to": "2026-09-09T12:30Z", "intensity": { "forecast": 162, "index": "moderate" }, "generationmix": [ { "fuel": "gas", "perc": 32.9 }, { "fuel": "wind", "perc": 21.3 }, { "fuel": "solar", "perc": 10 } ] },
+      { "from": "2026-09-09T12:30Z", "to": "2026-09-09T13:00Z", "intensity": { "forecast": 90, "index": "low" }, "generationmix": [ { "fuel": "gas", "perc": 20 }, { "fuel": "wind", "perc": 40 }, { "fuel": "solar", "perc": 15 } ] }
+    ]
+  }
+}

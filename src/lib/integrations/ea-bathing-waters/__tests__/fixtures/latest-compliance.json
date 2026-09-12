@@ -1,0 +1,14 @@
+{
+  "format": "linked-data-api",
+  "version": "0.2",
+  "result": {
+    "@id": "http://environment.data.gov.uk/doc/bathing-water-quality/compliance/bathing-water/ukk4100-26400/latest.json",
+    "primaryTopic": {
+      "_about": "http://environment.data.gov.uk/data/bathing-water-quality/compliance/point/26400/year/2025",
+      "bathingWater": { "_about": "http://environment.data.gov.uk/id/bathing-water/ukk4100-26400" },
+      "sampleYear": { "_about": "http://reference.data.gov.uk/id/year/2025", "label": { "_value": "2025", "_lang": "en" } },
+      "complianceClassification": { "_about": "http://environment.data.gov.uk/def/bwq-cc-2015/Excellent", "name": { "_value": "Excellent", "_lang": "en" } },
+      "recordDate": "2025-11-27"
+    }
+  }
+}

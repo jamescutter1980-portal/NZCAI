@@ -1,0 +1,4 @@
+{
+  "data": [[0, "2026-09-09T11:30:00Z", 6543.2, 18250.0, 17900.5]],
+  "meta": ["pes_id", "datetime_gmt", "generation_mw", "installedcapacity_mwp", "capacity_mwp"]
+}

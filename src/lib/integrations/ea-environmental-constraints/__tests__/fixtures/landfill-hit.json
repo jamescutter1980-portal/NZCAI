@@ -1,0 +1,4 @@
+{
+  "fields": [{ "name": "site_name", "type": "esriFieldTypeString" }, { "name": "specified_waste", "type": "esriFieldTypeString" }],
+  "features": [{ "attributes": { "OBJECTID": 44, "site_name": "Old Brickworks Tip", "specified_waste": "Inert; Household", "lic_holder": "Example Council", "site_ref": "HLD12345" } }]
+}

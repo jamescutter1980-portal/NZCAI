@@ -1,0 +1,22 @@
+{
+  "count": 3,
+  "entities": [
+    {
+      "entry-date": "2026-04-01", "start-date": "1981-03-27", "end-date": "", "entity": 31537854,
+      "name": "LAMBETH PALACE COTTAGES WALL TO EAST OF LAMBETH PALACE COURTYARD", "dataset": "listed-building", "typology": "geography",
+      "reference": "1080374", "prefix": "listed-building", "organisation-entity": "16", "quality": "some",
+      "documentation-url": "https://historicengland.org.uk/listing/the-list/list-entry/1080374", "listed-building-grade": "II"
+    },
+    {
+      "entry-date": "2025-06-12", "start-date": "1968-10-01", "end-date": "", "entity": 44000123,
+      "name": "Lambeth Palace", "dataset": "conservation-area", "typology": "geography",
+      "reference": "CA12", "prefix": "conservation-area", "organisation-entity": "192", "documentation-url": ""
+    },
+    {
+      "entry-date": "2026-01-15", "start-date": "", "end-date": "", "entity": 65000456,
+      "name": "", "dataset": "flood-risk-zone", "typology": "geography",
+      "reference": "TQ37_3_Z3", "prefix": "flood-risk-zone", "organisation-entity": "600009", "flood-risk-level": "3", "flood-risk-type": "Fluvial Models"
+    }
+  ],
+  "links": { "first": "https://www.planning.data.gov.uk/entity.json?latitude=51.4947&longitude=-0.1204&limit=100" }
+}

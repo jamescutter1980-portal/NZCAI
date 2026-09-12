@@ -1,0 +1,6 @@
+version,sector,metric,year,limit_value,unit,notes
+vTEST,Office,operational_energy_eui,2025,111.1,kWh/m2/yr,"SYNTHETIC value, GIA basis"
+vTEST,Office,operational_energy_eui,2030,99.9,kWh/m2/yr,SYNTHETIC value
+vTEST,Office,embodied_upfront,2025,555.5,kgCO2e/m2,"SYNTHETIC value, A1-A5"
+vTEST,Office,onsite_renewables,,,kWh/m2/yr,SYNTHETIC: no limit set in this fixture
+vTEST,Retail,operational_energy_eui,2025,222.2,kWh/m2/yr,SYNTHETIC value

@@ -1,0 +1,9 @@
+{
+  "@context": "http://environment.data.gov.uk/hydrology/meta/context.jsonld",
+  "meta": { "publisher": "Environment Agency", "version": "0.9", "limit": 20000 },
+  "items": [
+    { "@id": "http://environment.data.gov.uk/hydrology/data/readings/x-flow-m-86400-m3s-qualified/2026-01-01", "date": "2026-01-01", "dateTime": "2026-01-01T00:00:00", "measure": "http://environment.data.gov.uk/hydrology/id/measures/x-flow-m-86400-m3s-qualified", "quality": "Good", "value": 120.5 },
+    { "@id": "http://environment.data.gov.uk/hydrology/data/readings/x-flow-m-86400-m3s-qualified/2026-01-02", "date": "2026-01-02", "dateTime": "2026-01-02T00:00:00", "measure": "http://environment.data.gov.uk/hydrology/id/measures/x-flow-m-86400-m3s-qualified", "quality": "Estimated", "value": 98.1 },
+    { "@id": "http://environment.data.gov.uk/hydrology/data/readings/x-flow-m-86400-m3s-qualified/2026-01-03", "date": "2026-01-03", "dateTime": "2026-01-03T00:00:00", "measure": "http://environment.data.gov.uk/hydrology/id/measures/x-flow-m-86400-m3s-qualified", "quality": "Missing", "value": null }
+  ]
+}

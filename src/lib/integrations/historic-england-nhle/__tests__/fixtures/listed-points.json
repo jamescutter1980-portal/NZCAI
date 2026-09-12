@@ -1,0 +1,13 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "globalIdFieldName": "",
+  "fields": [
+    { "name": "OBJECTID", "type": "esriFieldTypeOID" }, { "name": "ListEntry", "type": "esriFieldTypeInteger" }, { "name": "Name", "type": "esriFieldTypeString" },
+    { "name": "Grade", "type": "esriFieldTypeString" }, { "name": "ListDate", "type": "esriFieldTypeDate" }, { "name": "AmendDate", "type": "esriFieldTypeDate" },
+    { "name": "Location", "type": "esriFieldTypeString" }, { "name": "NGR", "type": "esriFieldTypeString" }, { "name": "hyperlink", "type": "esriFieldTypeString" }
+  ],
+  "features": [
+    { "attributes": { "OBJECTID": 1, "ListEntry": 1357311, "Name": "LAMBETH PALACE", "Grade": "I", "ListDate": -631152000000, "AmendDate": null, "Location": "LAMBETH PALACE ROAD, Lambeth", "NGR": "TQ3060079000", "hyperlink": "https://historicengland.org.uk/listing/the-list/list-entry/1357311" } },
+    { "attributes": { "OBJECTID": 2, "ListEntry": 1080374, "Name": "LAMBETH PALACE COTTAGES WALL", "Grade": "II", "ListDate": 354585600000, "AmendDate": null, "Location": "Lambeth", "NGR": "TQ3062079050", "hyperlink": "https://historicengland.org.uk/listing/the-list/list-entry/1080374" } }
+  ]
+}

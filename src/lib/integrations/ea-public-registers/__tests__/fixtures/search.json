@@ -1,0 +1,26 @@
+{
+  "meta": { "publisher": "Environment Agency", "licence": "https://environment.data.gov.uk/public-register/view/licence", "limit": 100, "offset": 0 },
+  "items": [
+    {
+      "@id": "http://environment.data.gov.uk/public-register/waste-operations/registration/EPR-AB1234CD",
+      "type": ["http://environment.data.gov.uk/public-register/def/registration/RegisterItem"],
+      "register": { "@id": "http://environment.data.gov.uk/public-register/waste-operations/register", "label": "Environmental Permitting Regulations – Waste Operations for England" },
+      "registrationNumber": "EPR-AB1234CD",
+      "holder": { "@id": "http://environment.data.gov.uk/public-register/holder/1", "name": "Example Recycling Ltd" },
+      "registrationType": { "@id": "http://environment.data.gov.uk/public-register/def/registration-type/permit", "label": "Permit" },
+      "registrationDate": "2018-03-12",
+      "localAuthority": { "@id": "http://environment.data.gov.uk/public-register/def/local-authority/E09000033", "label": "Westminster" },
+      "site": { "@id": "http://environment.data.gov.uk/public-register/waste-operations/registration/EPR-AB1234CD/site/0", "siteAddress": { "address": "Unit 1, Example Industrial Estate, London", "postcode": "SW1A 1AA" }, "location": { "easting": 529150, "northing": 179700, "gridReference": "TQ2915079700" } },
+      "distance": 0.08
+    },
+    {
+      "@id": "http://environment.data.gov.uk/public-register/water-discharges/registration/EPR-XY9876ZZ",
+      "register": { "label": "Environmental Permitting Regulations – Discharge Consents" },
+      "registrationNumber": "EPR-XY9876ZZ",
+      "holder": [{ "name": "Thames Water Utilities Ltd" }],
+      "registrationType": { "label": "Permit" },
+      "site": { "siteAddress": { "address": "Outfall, Victoria Embankment", "postcode": "SW1A 2JL" } },
+      "distance": 0.6
+    }
+  ]
+}

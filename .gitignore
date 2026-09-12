@@ -1,7 +1,23 @@
+node_modules/
+.next/
+out/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+# Portal runtime data (SQLite, consents) is ignored; MCP reference datasets are committed.
+data/*
+!data/factors/
+!data/pathways/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# MCP layer (Python)
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
-.env
 dist/
 *.egg-info/

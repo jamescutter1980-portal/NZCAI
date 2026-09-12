@@ -1,0 +1,30 @@
+{
+  "name": "buildings/ChIJ_example",
+  "center": { "latitude": 51.5007, "longitude": -0.1246 },
+  "imageryDate": { "year": 2023, "month": 6, "day": 14 },
+  "imageryProcessedDate": { "year": 2024, "month": 1, "day": 9 },
+  "postalCode": "SW1A 0AA",
+  "administrativeArea": "England",
+  "regionCode": "GB",
+  "imageryQuality": "HIGH",
+  "solarPotential": {
+    "maxArrayPanelsCount": 120,
+    "panelCapacityWatts": 400,
+    "panelHeightMeters": 1.879,
+    "panelWidthMeters": 1.045,
+    "panelLifetimeYears": 20,
+    "maxArrayAreaMeters2": 235.6,
+    "maxSunshineHoursPerYear": 1123.4,
+    "carbonOffsetFactorKgPerMwh": 428.9,
+    "wholeRoofStats": { "areaMeters2": 410.2, "sunshineQuantiles": [400, 700, 900, 1000, 1100, 1150], "groundAreaMeters2": 380.0 },
+    "roofSegmentStats": [
+      { "pitchDegrees": 32.1, "azimuthDegrees": 181.5, "stats": { "areaMeters2": 140.3, "sunshineQuantiles": [600, 900, 1050, 1120, 1150], "groundAreaMeters2": 119.0 }, "center": { "latitude": 51.5007, "longitude": -0.1246 }, "planeHeightAtCenterMeters": 12.4 },
+      { "pitchDegrees": 31.8, "azimuthDegrees": 1.2, "stats": { "areaMeters2": 138.9, "sunshineQuantiles": [300, 500, 650, 700, 760], "groundAreaMeters2": 118.0 }, "center": { "latitude": 51.5008, "longitude": -0.1246 }, "planeHeightAtCenterMeters": 12.4 }
+    ],
+    "solarPanelConfigs": [
+      { "panelsCount": 4, "yearlyEnergyDcKwh": 1610.2, "roofSegmentSummaries": [{ "pitchDegrees": 32.1, "azimuthDegrees": 181.5, "panelsCount": 4, "yearlyEnergyDcKwh": 1610.2, "segmentIndex": 0 }] },
+      { "panelsCount": 5, "yearlyEnergyDcKwh": 2010.9, "roofSegmentSummaries": [{ "pitchDegrees": 32.1, "azimuthDegrees": 181.5, "panelsCount": 5, "yearlyEnergyDcKwh": 2010.9, "segmentIndex": 0 }] },
+      { "panelsCount": 120, "yearlyEnergyDcKwh": 38450.7, "roofSegmentSummaries": [] }
+    ]
+  }
+}

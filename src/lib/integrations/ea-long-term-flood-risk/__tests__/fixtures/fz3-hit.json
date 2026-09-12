@@ -1,0 +1,5 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "fields": [{ "name": "OBJECTID", "type": "esriFieldTypeOID" }, { "name": "type", "type": "esriFieldTypeString" }, { "name": "layer", "type": "esriFieldTypeString" }],
+  "features": [{ "attributes": { "OBJECTID": 12345, "type": "Fluvial Models", "layer": "Flood Zone 3", "Shape__Area": 1234.5 } }]
+}

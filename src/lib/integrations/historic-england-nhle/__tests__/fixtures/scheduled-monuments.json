@@ -1,0 +1,7 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "fields": [ { "name": "OBJECTID", "type": "esriFieldTypeOID" }, { "name": "ListEntry", "type": "esriFieldTypeInteger" }, { "name": "Name", "type": "esriFieldTypeString" }, { "name": "ListDate", "type": "esriFieldTypeDate" }, { "name": "NGR", "type": "esriFieldTypeString" }, { "name": "area_ha", "type": "esriFieldTypeDouble" }, { "name": "Hyperlink", "type": "esriFieldTypeString" } ],
+  "features": [
+    { "attributes": { "OBJECTID": 9, "ListEntry": 1001960, "Name": "Lambeth Palace, Morton's Tower gateway", "ListDate": 1035504000000, "NGR": "TQ3058079020", "area_ha": 0.12, "Hyperlink": "https://historicengland.org.uk/listing/the-list/list-entry/1001960" } }
+  ]
+}

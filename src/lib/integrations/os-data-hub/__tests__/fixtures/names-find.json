@@ -1,0 +1,19 @@
+{
+  "header": { "uri": "https://api.os.uk/search/names/v1/find?query=Norwich&maxresults=2", "query": "Norwich", "format": "JSON", "maxresults": 2, "offset": 0, "totalresults": 2 },
+  "results": [
+    {
+      "GAZETTEER_ENTRY": {
+        "ID": "osgb4000000027463672", "NAMES_URI": "http://data.ordnancesurvey.co.uk/id/4000000027463672", "NAME1": "Norwich Road", "TYPE": "transportNetwork", "LOCAL_TYPE": "Named Road",
+        "GEOMETRY_X": 601732.0, "GEOMETRY_Y": 310753.0, "MOST_DETAIL_VIEW_RES": 14000, "LEAST_DETAIL_VIEW_RES": 20000,
+        "MBR_XMIN": 600486.0, "MBR_YMIN": 310477.0, "MBR_XMAX": 602699.0, "MBR_YMAX": 311363.0,
+        "POSTCODE_DISTRICT": "NR19", "DISTRICT_BOROUGH": "Breckland", "COUNTY_UNITARY": "Norfolk", "REGION": "Eastern", "COUNTRY": "England"
+      }
+    },
+    {
+      "GAZETTEER_ENTRY": {
+        "ID": "79fe4587-24c3-41ae-8adf-0d46e7dc1c45", "NAME1": "Norwich Road", "TYPE": "transportNetwork", "LOCAL_TYPE": "Section Of Named Road",
+        "GEOMETRY_X": 600796.0, "GEOMETRY_Y": 310534.0, "POSTCODE_DISTRICT": "NR19", "POPULATED_PLACE": "Yaxham", "DISTRICT_BOROUGH": "Breckland", "COUNTY_UNITARY": "Norfolk", "REGION": "Eastern", "COUNTRY": "England"
+      }
+    }
+  ]
+}
