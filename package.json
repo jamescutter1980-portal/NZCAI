@@ -1,0 +1,33 @@
+{
+  "name": "nzcai",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx src/ingest/migrate.ts",
+    "db:seed": "tsx src/ingest/seed.ts",
+    "grid:verify": "tsx src/ingest/run.ts verify",
+    "grid:ingest": "tsx src/ingest/run.ts ingest"
+  },
+  "dependencies": {
+    "@googlemaps/js-api-loader": "1.16.8",
+    "@googlemaps/markerclusterer": "2.5.3",
+    "next": "^16.3.5",
+    "pg": "8.13.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/google.maps": "3.58.1",
+    "@types/node": "22.10.2",
+    "@types/pg": "8.11.10",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}
