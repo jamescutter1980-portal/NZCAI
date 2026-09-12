@@ -57,6 +57,28 @@ typecheck, lint, the vitest suite and a production build for the portal, and
 the pytest suite against an installed `nzcai-mcp` wheel. No secrets are
 needed; both jobs are offline.
 
+### Branch protection
+
+CI runs on every pull request, but running is not the same as blocking: until
+`main` is protected, a red pull request can still be merged. The intended rule,
+set under **Settings → Rules → Rulesets** (repository admin only, so it lives
+here as a record rather than as code):
+
+| Setting | Value |
+|---|---|
+| Target | Default branch (`main`) |
+| Enforcement | Active |
+| Require status checks to pass | `Portal`, `MCP layer` |
+| Require branches to be up to date before merging | on |
+| Require a pull request before merging | on (approvals may be 0 while the team is small) |
+| Block force pushes | on |
+| Restrict deletions | off, so merged branches can still be tidied up |
+
+The required checks are named for the **jobs** in `ci.yml`, not the workflow, so
+they are `Portal` and `MCP layer` rather than `CI`. Renaming a job in the
+workflow silently stops the old name from ever reporting, and a rule waiting on
+a check that no longer exists blocks every merge: change both together.
+
 ## MCP layer
 
 `nzcai-mcp` exposes the app's domain calculations to MCP clients (Claude Desktop,
