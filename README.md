@@ -436,6 +436,65 @@ across.
 The mode is one-shot, and Move pin and Redraw disarm each other: one click
 cannot mean both "place a corner" and "pick a building".
 
+### Editing a shape, and snapping
+
+**Edit shape** sits before Redraw, because the common correction is not "draw
+this again" — it is "the published polygon is right except for one corner". It
+seeds the editor from the existing footprint and produces the same T4 override,
+because a footprint with a moved corner is no longer what OS published.
+
+Handles say what they accept. A **solid** handle is a real vertex: drag it to
+move it, alt- or shift-click it to remove it. A **hollow** one is a midpoint —
+a place a vertex could go — and clicking it puts one there. They carry
+different cursors (`move` and `copy`) for the same reason: showing `move` over
+both would promise a drag the midpoint does not accept.
+
+The two modes accept different gestures, so the hint names the one you are in.
+A click on open map places a corner in a fresh drawing, and does **nothing** to
+an existing ring — tacking a corner onto the end of a closed shape is never
+what a click in the middle of the map meant. Undo point is offered only while
+drawing: in edit mode there is nothing of yours to undo, and the button would
+chop a corner off the published ring under a label that says otherwise. A
+corner cannot be removed at three points, and at three points the panel says so
+rather than letting the gesture fail silently.
+
+Clicking a corner you have already placed **grabs** it rather than adding
+another on top. Closing a polygon by clicking its first point is a common
+instinct — in most draw tools it is how you finish — and without the guard it
+left a coincident duplicate.
+
+**Snapping is measured in screen pixels, not metres.** A tolerance in metres is
+generous zoomed out and unusably tight zoomed in: it would take the wrong
+building at one zoom and refuse to snap at all at another. What you are doing
+is "put this handle on that corner", which is a screen-space judgement, so the
+threshold is one too — 12 px at whatever zoom is in force.
+
+Candidates are the corners of **neighbouring buildings**, drawn faintly under
+the shape, fetched from `/api/site-intel/buildings`. Deliberately **not this
+shape's own corners**: dragging one onto the corner beside it collapses the
+edge between them into nothing, and the gesture that would do it — nudging a
+corner a short distance — is the commonest there is. It costs nothing either,
+because the site's own published footprint is in the neighbour list already.
+
+A snapped handle jumps, so the target is **ringed in blue while the snap
+holds** — a handle that moves to a coordinate you did not choose, with no
+explanation, reads as a bug.
+
+Snapping does **not** change provenance. A snapped corner takes the
+neighbour's exact coordinate, which is the point: party walls line up instead
+of disagreeing by half a metre. A shape built entirely from OS vertices is
+still a user drawing at T4, because you chose which vertices and in what order.
+The panel says so under the checkbox.
+
+With nothing to snap to, the reason is given, because "no buildings near this
+site" and "no building polygons loaded at all" call for different things: the
+route reports both the nearby count and the loaded total.
+
+The geometry lives in `src/lib/site-intel/draw.ts` — a leaf module with no
+React and no MapLibre, so rings, midpoints, insertion, removal, snapping and
+hit-testing are tested without a browser. The component owns the pointer
+events and supplies the projection.
+
 ### Reproject first — the loader will stop you
 
 OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.

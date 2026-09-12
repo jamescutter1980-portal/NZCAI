@@ -153,6 +153,47 @@ export async function footprintStore(): Promise<FootprintStore | undefined> {
   };
 }
 
+/**
+ * Building polygons near a point, for context and for snap targets.
+ *
+ * Bounding-box filtered, then trimmed by an exact distance to the box centre
+ * so a corner-of-the-box polygon does not appear "nearby" at 1.4x the radius.
+ * Capped because a dense terrace can run to hundreds and the map only needs
+ * enough to draw the immediate context.
+ */
+export async function buildingsNear(
+  lat: number,
+  lng: number,
+  radiusM = 150,
+  limit = 120,
+): Promise<{ sourceRef: string | null; geometry: GeoJSON.Geometry; areaM2: number | null }[]> {
+  const { bboxForRadius, haversineM } = await import("@/lib/geo-polygon");
+  const { dLat, dLng } = bboxForRadius(lat, radiusM);
+
+  const rows = await query<Record<string, unknown>>(
+    `SELECT source_ref, geometry, area_m2, min_lat, max_lat, min_lng, max_lng
+       FROM os_building
+      WHERE max_lat >= $1 AND min_lat <= $2
+        AND max_lng >= $3 AND min_lng <= $4
+      ORDER BY area_m2 DESC NULLS LAST
+      LIMIT $5`,
+    [lat - dLat, lat + dLat, lng - dLng, lng + dLng, limit],
+  );
+
+  return rows
+    .filter((r) => {
+      // Distance to the polygon's own centre, not its corner.
+      const cLat = (Number(r.min_lat) + Number(r.max_lat)) / 2;
+      const cLng = (Number(r.min_lng) + Number(r.max_lng)) / 2;
+      return haversineM(lat, lng, cLat, cLng) <= radiusM * 1.5;
+    })
+    .map((r) => ({
+      sourceRef: (r.source_ref as string) ?? null,
+      geometry: r.geometry as GeoJSON.Geometry,
+      areaM2: r.area_m2 === null ? null : Number(r.area_m2),
+    }));
+}
+
 /** How many building polygons are loaded, for readiness reporting. */
 export async function buildingCount(): Promise<number> {
   const [row] = await query<{ n: string }>(

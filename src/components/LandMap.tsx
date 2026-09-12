@@ -33,6 +33,19 @@ import {
 } from "@/lib/site-intel/constraint-layers";
 import type { GridProfile } from "@/lib/site-intel/grid";
 import {
+  SNAP_PX,
+  candidatesFrom,
+  insertAfter,
+  midpoints,
+  moveVertex,
+  outerRing,
+  removeVertex,
+  snap,
+  toPolygon,
+  vertexAt,
+  type Vertex,
+} from "@/lib/site-intel/draw";
+import {
   ECR_MEANING,
   STATUS_LABEL,
   TECHNOLOGIES,
@@ -89,6 +102,10 @@ const GRID_ECR = "grid-ecr";
  */
 const DRAW_LINE = "site-draw-line";
 const DRAW_POINTS = "site-draw-points";
+const DRAW_MIDS = "site-draw-midpoints";
+const DRAW_SNAP = "site-draw-snap";
+/** Neighbouring OS polygons: context to draw against, and snap targets. */
+const NEIGHBOURS = "site-neighbours";
 
 interface ApiResponse {
   substations: Substation[];
@@ -607,6 +624,24 @@ export default function LandMap({
         paint: { "fill-color": "#1B4DD1", "fill-opacity": 0.28, "fill-outline-color": "#1B4DD1" },
       });
 
+      /*
+       * Neighbouring buildings, under the drawing. Faint: they are context to
+       * draw against and corners to snap to, not findings about the site.
+       */
+      m.addSource(NEIGHBOURS, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: `${NEIGHBOURS}-fill`,
+        type: "fill",
+        source: NEIGHBOURS,
+        paint: { "fill-color": "#78838E", "fill-opacity": 0.12 },
+      });
+      m.addLayer({
+        id: `${NEIGHBOURS}-line`,
+        type: "line",
+        source: NEIGHBOURS,
+        paint: { "line-color": "#78838E", "line-width": 1 },
+      });
+
       // Above everything: while drawing, the drawing is the subject.
       m.addSource(DRAW_LINE, { type: "geojson", data: emptyCollection() });
       m.addLayer({
@@ -622,6 +657,21 @@ export default function LandMap({
         paint: { "line-color": "#A32F24", "line-width": 2, "line-dasharray": [2, 1] },
       });
 
+      // Midpoints: hollow and smaller than a real vertex, because they are a
+      // place a vertex COULD go rather than one that exists.
+      m.addSource(DRAW_MIDS, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: DRAW_MIDS,
+        type: "circle",
+        source: DRAW_MIDS,
+        paint: {
+          "circle-radius": 3.5,
+          "circle-color": "rgba(255,255,255,0.55)",
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#A32F24",
+        },
+      });
+
       m.addSource(DRAW_POINTS, { type: "geojson", data: emptyCollection() });
       m.addLayer({
         id: DRAW_POINTS,
@@ -632,6 +682,23 @@ export default function LandMap({
           "circle-color": "#ffffff",
           "circle-stroke-width": 2,
           "circle-stroke-color": "#A32F24",
+        },
+      });
+
+      /*
+       * The snap indicator. A handle that jumps to another coordinate without
+       * explanation reads as a bug, so the target is shown while it holds.
+       */
+      m.addSource(DRAW_SNAP, { type: "geojson", data: emptyCollection() });
+      m.addLayer({
+        id: DRAW_SNAP,
+        type: "circle",
+        source: DRAW_SNAP,
+        paint: {
+          "circle-radius": 9,
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#1B4DD1",
         },
       });
 
@@ -737,6 +804,88 @@ export default function LandMap({
     });
 
     /*
+     * Vertex dragging.
+     *
+     * `mousedown` on a handle claims the pointer and disables map panning -
+     * without that the map slides while the vertex stays put, which looks like
+     * the handle is broken. Everything is released on `mouseup` wherever it
+     * lands, including off the canvas, so a drag that ends outside the map
+     * cannot leave panning disabled.
+     */
+    instance.on("mousedown", (e: MapMouseEvent) => {
+      if (!drawActive.current) return;
+      const index = vertexAt(
+        drawing.current as Vertex[],
+        { x: e.point.x, y: e.point.y },
+        (v) => {
+          const p = instance.project({ lng: v[0], lat: v[1] });
+          return { x: p.x, y: p.y };
+        },
+      );
+      if (index === -1) return;
+
+      // Alt- or shift-click removes a vertex instead of dragging it.
+      const original = e.originalEvent as MouseEvent;
+      if (original?.altKey || original?.shiftKey) {
+        e.preventDefault();
+        drawing.current = removeVertex(drawing.current as Vertex[], index);
+        renderDrawing();
+        onDrawChange.current?.(drawing.current.length);
+        return;
+      }
+
+      e.preventDefault();
+      dragging.current = index;
+      instance.dragPan.disable();
+    });
+
+    instance.on("mousemove", (e: MapMouseEvent) => {
+      if (dragging.current === null) return;
+      const vertex = withSnap([e.lngLat.lng, e.lngLat.lat]);
+      drawing.current = moveVertex(drawing.current as Vertex[], dragging.current, vertex);
+      renderDrawing();
+    });
+
+    const endDrag = (): void => {
+      if (dragging.current === null) return;
+      dragging.current = null;
+      instance.dragPan.enable();
+      showSnap(null);
+      onDrawChange.current?.(drawing.current.length);
+    };
+    instance.on("mouseup", endDrag);
+    // A pointer released off the canvas still has to release the map.
+    instance.getCanvas().addEventListener("mouseleave", endDrag);
+
+    /* Clicking a midpoint inserts a vertex there. */
+    instance.on("click", DRAW_MIDS, (e: MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
+      if (!drawActive.current) return;
+      const after = e.features?.[0]?.properties?.after as number | undefined;
+      if (after === undefined) return;
+      drawing.current = insertAfter(
+        drawing.current as Vertex[],
+        after,
+        [e.lngLat.lng, e.lngLat.lat],
+      );
+      renderDrawing();
+      onDrawChange.current?.(drawing.current.length);
+    });
+
+    /*
+     * Different cursors, because they are different gestures. A vertex is
+     * dragged; a midpoint is clicked to add one. Showing "move" over both
+     * promises a drag the midpoint does not accept.
+     */
+    for (const [layerId, cursor] of [[DRAW_POINTS, "move"], [DRAW_MIDS, "copy"]] as const) {
+      instance.on("mouseenter", layerId, () => {
+        if (drawActive.current) instance.getCanvas().style.cursor = cursor;
+      });
+      instance.on("mouseleave", layerId, () => {
+        if (drawActive.current) instance.getCanvas().style.cursor = "crosshair";
+      });
+    }
+
+    /*
      * Draw-mode clicks add a vertex and nothing else.
      *
      * Registered FIRST and every other click handler bails while drawing, so a
@@ -745,8 +894,33 @@ export default function LandMap({
      */
     instance.on("click", (e: MapMouseEvent) => {
       if (drawActive.current) {
-        drawing.current = [...drawing.current, [e.lngLat.lng, e.lngLat.lat]];
+        // In EDIT mode a click on open map must not append a vertex: the ring
+        // already exists, and tacking a corner onto the end of it is never
+        // what a click on the middle of the map meant. Vertices go in through
+        // the midpoint handles instead.
+        if (!appendOnClick.current) return;
+        /*
+         * A click on an existing handle is a grab, never a new corner at the
+         * same spot. Clicking the first point to close the ring is a common
+         * instinct — in most draw tools it is how you finish — and without
+         * this it would silently add a vertex on top of one already there.
+         */
+        if (
+          vertexAt(
+            drawing.current as Vertex[],
+            { x: e.point.x, y: e.point.y },
+            (v) => {
+              const p = instance.project({ lng: v[0], lat: v[1] });
+              return { x: p.x, y: p.y };
+            },
+          ) !== -1
+        ) {
+          return;
+        }
+        const vertex = withSnap([e.lngLat.lng, e.lngLat.lat]);
+        drawing.current = [...drawing.current, vertex];
         renderDrawing();
+        showSnap(null);
         onDrawChange.current?.(drawing.current.length);
         return;
       }
@@ -919,13 +1093,76 @@ export default function LandMap({
 
     dots?.setData({
       type: "FeatureCollection",
-      features: points.map((c) => ({
+      features: points.map((c, i) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: c },
-        properties: {},
+        properties: { index: i },
       })),
     });
+
+    // Midpoints only once there is a shape to insert into.
+    const mids = m.getSource(DRAW_MIDS) as GeoJSONSource | undefined;
+    mids?.setData(
+      points.length >= 3
+        ? {
+            type: "FeatureCollection",
+            features: midpoints(points as Vertex[]).map((mp) => ({
+              type: "Feature",
+              geometry: { type: "Point", coordinates: mp.vertex },
+              properties: { after: mp.after },
+            })),
+          }
+        : emptyCollection(),
+    );
   }, []);
+
+  /** Shows or clears the snap indicator. */
+  const showSnap = useCallback((vertex: Vertex | null) => {
+    const source = map.current?.getSource(DRAW_SNAP) as GeoJSONSource | undefined;
+    source?.setData(
+      vertex
+        ? {
+            type: "FeatureCollection",
+            features: [{
+              type: "Feature",
+              geometry: { type: "Point", coordinates: vertex },
+              properties: {},
+            }],
+          }
+        : emptyCollection(),
+    );
+  }, []);
+
+  /**
+   * Applies snapping to a raw pointer position.
+   *
+   * Candidates are the neighbouring polygons' vertices - not this shape's own,
+   * which would let a corner collapse onto the one beside it. The projection
+   * comes from the map, so the threshold is screen pixels at whatever zoom is
+   * in force.
+   */
+  const withSnap = useCallback(
+    (lngLat: Vertex): Vertex => {
+      const m = map.current;
+      if (!m || !snapOn.current) {
+        showSnap(null);
+        return lngLat;
+      }
+      const candidates = candidatesFrom(neighbours.current);
+      const result = snap(
+        lngLat,
+        candidates,
+        (v) => {
+          const p = m.project({ lng: v[0], lat: v[1] });
+          return { x: p.x, y: p.y };
+        },
+        SNAP_PX,
+      );
+      showSnap(result.snapped ? result.vertex : null);
+      return result.vertex;
+    },
+    [showSnap],
+  );
 
   const setSiteData = useCallback((id: string, data: GeoJSON.FeatureCollection) => {
     const source = map.current?.getSource(id) as GeoJSONSource | undefined;
@@ -1072,11 +1309,57 @@ export default function LandMap({
         onPick.current = null;
         drawing.current = [];
         drawActive.current = true;
+        appendOnClick.current = true;
         onDrawChange.current = onChange;
         renderDrawing();
         onChange(0);
         const canvas = map.current?.getCanvas();
         if (canvas) canvas.style.cursor = "crosshair";
+      },
+
+      /**
+       * Edits the shape already on the profile instead of starting empty.
+       *
+       * This is the common correction - the published polygon is right except
+       * for one corner - and it produces the same T4 override as a redraw,
+       * because a footprint with a moved corner is no longer what OS
+       * published. Returns false when there is nothing editable.
+       */
+      startEdit(geometry: GeoJSON.Geometry | null, onChange: (count: number) => void): boolean {
+        const ring = outerRing(geometry);
+        if (ring.length < 3) return false;
+
+        picking.current = false;
+        onPick.current = null;
+        drawing.current = ring;
+        drawActive.current = true;
+        // A click on open map must not append to an existing ring.
+        appendOnClick.current = false;
+        onDrawChange.current = onChange;
+        renderDrawing();
+        onChange(ring.length);
+        const canvas = map.current?.getCanvas();
+        if (canvas) canvas.style.cursor = "crosshair";
+        return true;
+      },
+
+      setSnap(on: boolean) {
+        snapOn.current = on;
+        if (!on) showSnap(null);
+      },
+
+      showNeighbours(
+        buildings: { geometry: GeoJSON.Geometry; label: string }[],
+      ) {
+        neighbours.current = buildings;
+        setSiteData(NEIGHBOURS, {
+          type: "FeatureCollection",
+          features: buildings.map((b) => ({
+            type: "Feature",
+            geometry: b.geometry,
+            properties: { label: b.label },
+          })),
+        });
       },
 
       undoDrawPoint() {
@@ -1088,8 +1371,12 @@ export default function LandMap({
       cancelDraw() {
         drawing.current = [];
         drawActive.current = false;
+        appendOnClick.current = true;
+        dragging.current = null;
         onDrawChange.current = null;
         renderDrawing();
+        showSnap(null);
+        map.current?.dragPan.enable();
         const canvas = map.current?.getCanvas();
         if (canvas) canvas.style.cursor = "";
       },
@@ -1107,8 +1394,12 @@ export default function LandMap({
         const ring = [...points, points[0]];
         drawing.current = [];
         drawActive.current = false;
+        appendOnClick.current = true;
+        dragging.current = null;
         onDrawChange.current = null;
         renderDrawing();
+        showSnap(null);
+        map.current?.dragPan.enable();
         const canvas = map.current?.getCanvas();
         if (canvas) canvas.style.cursor = "";
         return { type: "Polygon", coordinates: [ring] };
@@ -1119,13 +1410,18 @@ export default function LandMap({
           SITE_PIN, SITE_TITLE, SITE_FOOTPRINT,
           CONSTRAINT_PRESENT, CONSTRAINT_PROXIMITY, CONSTRAINT_SEARCH,
           GRID_SUPPLY_AREA, GRID_SITE_SUBS, GRID_ECR,
-          DRAW_LINE, DRAW_POINTS,
+          DRAW_LINE, DRAW_POINTS, DRAW_MIDS, DRAW_SNAP, NEIGHBOURS,
         ]) {
           setSiteData(id, emptyCollection());
         }
         drawing.current = [];
         drawActive.current = false;
         onDrawChange.current = null;
+        // Snap targets belong to the site that was on screen. Left in place
+        // they would be invisible corners from the previous building.
+        neighbours.current = [];
+        dragging.current = null;
+        appendOnClick.current = true;
         setCoverage(null);
         setGridCoverage(null);
         gridBounds.current = null;
@@ -1159,6 +1455,14 @@ export default function LandMap({
    * Move-pin mode. Separate from draw mode and mutually exclusive with it: one
    * click cannot mean both "place a corner" and "pick a building".
    */
+  /** Neighbouring polygons currently drawn, and their vertices as snap targets. */
+  const neighbours = useRef<{ geometry: GeoJSON.Geometry; label: string }[]>([]);
+  const snapOn = useRef(true);
+  /** Index of the vertex being dragged, or null. */
+  const dragging = useRef<number | null>(null);
+  /** True in edit mode, where a click on open map must NOT append a vertex. */
+  const appendOnClick = useRef(true);
+
   const picking = useRef(false);
   const onPick = useRef<((lat: number, lon: number) => void) | null>(null);
   const [hiddenCategories, setHiddenCategories] = useState<Set<ConstraintCategory>>(

@@ -1462,11 +1462,182 @@ the UPRN unchanged, a click between two addresses offering both.
 ### Not done
 
 - **No vertex editing.** Points are placed and undone in order; an existing
-  shape cannot be nudged. Redrawing from scratch is the only edit.
-- **No snapping** to the source polygon or to other buildings.
+  shape cannot be nudged. Redrawing from scratch is the only edit. *(Done in
+  §2n.)*
+- **No snapping** to the source polygon or to other buildings. *(Done in §2n,
+  to neighbours only — see there for why not to its own vertices.)*
 - **The override is not re-screened automatically**, by design (above) — but
   nothing forces the user to press the button, so a stale screening can be left
   on screen. It is labelled the whole time it is stale.
+## 2n. S-01 vertex editing and snapping
+
+§2m left two things undone and named them: an existing shape could not be
+nudged, and nothing lined up with anything. Both are the same complaint from a
+user — the published polygon is *nearly* right.
+
+### Edit is the common case, so it comes first
+
+Redraw assumes the shape is wrong. Usually it is right except for one corner,
+and redrawing to fix one corner throws away four good ones and replaces them
+with four hand-placed approximations. **Edit shape** seeds the editor from the
+existing footprint and sits before Redraw in the button row.
+
+It produces the same T4 override. A footprint with a moved corner is not what
+OS published, and the tier has to say that whether the change was one vertex or
+all of them.
+
+`outerRing()` drops the ring's closing duplicate before editing. Keeping it
+would put a handle on top of another handle, and dragging the twin away would
+silently unclose the ring — a polygon whose last point is no longer its first.
+For a MultiPolygon it takes the **largest part by vertex count** and drops the
+rest, which is the only defensible default; holes and outbuildings are lost
+rather than silently merged into the outline.
+
+### The handles say what they accept
+
+A solid handle is a vertex; a hollow, smaller one is a midpoint — a place a
+vertex *could* go. They take different cursors, `move` and `copy`.
+
+That started as a nicety and turned out to be the fix for a real defect: the
+first version showed `move` over both, which promises a drag that the midpoint
+does not accept. Found by reading the cursor in the browser, not by a test.
+
+Midpoints appear only at three points or more. Below that there is no shape to
+insert into.
+
+### Gestures that had to be taken away
+
+Three controls were wrong in edit mode and each had to be removed rather than
+left to misbehave:
+
+- **A click on open map must not append.** In a fresh drawing a click places
+  the next corner. On an existing ring, tacking a corner onto the end is never
+  what a click in the middle of the map meant — it would throw a spike across
+  the shape. `appendOnClick` is false in edit mode; vertices go in through the
+  midpoint handles.
+- **Undo point is hidden in edit mode.** There is nothing of the user's to
+  undo. The button would chop the last corner off the published ring under a
+  label saying otherwise.
+- **A click on a corner already placed grabs it**, rather than adding another
+  on top. Closing a polygon by clicking its first point is a common instinct —
+  in most draw tools it is how you finish — and without the guard it left a
+  coincident duplicate that nothing would show.
+
+`removeVertex` refuses below three and returns the list **unchanged rather
+than throwing**: the caller is a pointer handler, and the right behaviour when
+a delete would destroy the polygon is for nothing to happen. But nothing
+happening is indistinguishable from a missed click, so at exactly three points
+the panel says the removal is refused and why.
+
+The hint names which mode is running, because the two accept different gestures
+and a hint that described only one would be wrong half the time.
+
+### Snapping is in screen pixels, not metres
+
+This is the decision the module is built around. A tolerance in metres is
+generous when zoomed out and unusably tight when zoomed in: the same 2 m would
+take the wrong building at one zoom and refuse to snap at all at another. What
+the user is doing is "put this handle on that corner", which is a screen-space
+judgement, so the threshold is one — 12 px, at whatever zoom is in force. The
+map supplies the projection; `draw.ts` never knows about zoom.
+
+### Not its own vertices
+
+The obvious candidate set is "every vertex on the map, including this shape's".
+It is wrong. Dragging a corner onto the one beside it collapses the edge
+between them into nothing, and the gesture that triggers it — nudging a corner
+a short distance — is the commonest there is.
+
+It also buys nothing. The site's own published footprint is in the neighbour
+list already, because it is a building like any other, so "snap back to where
+OS put it" still works — through the neighbours, where it cannot destroy an
+edge.
+
+### Snapping does not change provenance
+
+A snapped vertex takes the neighbour's **exact coordinate**. That is the point:
+shared party walls line up instead of disagreeing by half a metre, and the
+epsilon in `polygonsIntersect` (§2l) stops having to paper over it.
+
+It does not make the result source data. A shape built entirely from OS
+vertices is still a user drawing at T4, because the user chose which vertices
+and in what order. The panel states this under the checkbox rather than leaving
+it to be inferred:
+
+> A snapped corner takes the neighbour's exact coordinate. That does not make
+> the shape source data — it is still your drawing.
+
+The snapped target is **ringed in blue while the snap holds**. A handle that
+jumps to a coordinate the user did not choose, with no explanation, reads as a
+bug.
+
+### Neighbours, and saying when there are none
+
+`buildingsNear()` bbox-filters `os_building` then measures haversine distance to
+each polygon's **own centre** — not the bbox corner, which would call a polygon
+"nearby" at 1.4× the radius. `/api/site-intel/buildings` returns them with the
+radius used and **`loadedTotal`**.
+
+Both halves are needed. With nothing to snap to, the reason is either "no
+buildings near this site" or "no building polygons are loaded at all", and
+those call for different things from the user. Reporting a bare zero would be
+§0 rule 4 again, in miniature.
+
+Snap targets are cleared with the site. Left in place they would be invisible
+corners belonging to the previous building — the worst kind, because the shape
+they came from is no longer drawn.
+
+### The drag
+
+`mousedown` on a handle claims the pointer and disables `dragPan`; without that
+the map slides while the vertex stays put, which looks like a broken handle.
+Release re-enables it — and `mouseleave` on the canvas releases it too, so a
+drag that ends off the map cannot leave panning disabled with no way to get it
+back.
+
+### Verified in the browser
+
+The geometry is unit-tested, but none of the above is geometry. Driven through
+Playwright: Edit shape seeded four points from the existing footprint; a corner
+drag moved the saved area 4,044 m² → 3,349 m² with the override note shown; the
+`copy` cursor found over a midpoint and a click there took it to five points; a
+re-click on a placed corner left the count at three; a click on open map in edit
+mode left it at four; Undo absent in edit mode and present in draw mode; the
+cursor back to `grab` after Cancel.
+
+Snapping was proven by dragging a corner onto neighbour `SAMPLE-BLD-0002`'s
+top-left corner at three release distances. At 150 px and 170 px the saved ring
+held the pointer's own coordinate; at 190 px it held `[-1.12045, 53.50815]` —
+the neighbour's published vertex, exactly.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | rings, midpoints, insert/move/remove, snapping, hit-testing — no React, no MapLibre |
+| `stores.ts` | `buildingsNear()`, centre-distance filtered |
+| `api/site-intel/buildings` | neighbours, the radius used, and the loaded total |
+| `LandMap.tsx` | neighbour, midpoint and snap-indicator layers; drag, insert, delete; `startEdit` / `setSnap` / `showNeighbours` |
+| `SitePanel.tsx` | Edit shape, the mode-aware hint, the snap toggle and its provenance note |
+
+**24 tests**, 405 across the suite.
+
+### Not done
+
+- **No edge dragging.** A whole edge cannot be moved; both its corners have to
+  be dragged in turn.
+- **No snapping to edges, only to corners.** Putting a vertex on a neighbour's
+  wall *between* its corners is not supported, and that is a real case for
+  terraces.
+- **No rectangle or right-angle assist.** Buildings are mostly orthogonal and
+  nothing helps the user keep them so.
+- **Neighbours are the 120 largest in the bbox**, not the 120 nearest. At the
+  current scale nothing is dropped; at national scale a dense street would lose
+  its smallest buildings as snap targets.
+- **Holes are still dropped.** `outerRing` takes the outer ring only, so a
+  courtyard building edited here comes back solid.
+- **Nothing is touch-tested.** The drag is mouse events; a tablet is untried.
+
 ## 3. Blockers and conflicts — need James's decision
 
 ### 3.1 Stack conflict (blocking for architecture, not for this slice)
@@ -1580,7 +1751,8 @@ See `PRELAUNCH.md` for the full tickets; this is the index.
 - **TICKET-15 no real OS OpenMap Local load.** The footprint store and its
   loader are verified against an invented fixture and a synthetic British
   National Grid file that it correctly refuses. No real extract has been
-  loaded, and coverage is whatever has been.
+  loaded, and coverage is whatever has been. Snap targets come from the same
+  table, so outside the loaded extract snapping is inert (§2n).
 - NESO "GIS Boundaries for GB DNO Licence Areas" loader now exists
   (`npm run grid:boundaries`), but has only been run against an invented
   fixture — the real GeoJSON has never been fetched.

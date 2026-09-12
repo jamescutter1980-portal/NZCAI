@@ -44,10 +44,16 @@ export interface SiteMapApi {
 
   /* Redraw (brief §3.2, §3.4). */
   startDraw(onChange: (count: number) => void): void;
+  /** Seeds the editor from an existing shape. False when there is none. */
+  startEdit(geometry: GeoJSON.Geometry | null, onChange: (count: number) => void): boolean;
   undoDrawPoint(): void;
   cancelDraw(): void;
   /** Closes the ring. Null below three points, which is not an area. */
   finishDraw(): GeoJSON.Polygon | null;
+  /** Snap new and dragged vertices to nearby corners. */
+  setSnap(on: boolean): void;
+  /** Neighbouring polygons: context to draw against, and snap targets. */
+  showNeighbours(buildings: { geometry: GeoJSON.Geometry; label: string }[]): void;
 
   clearSite(): void;
 }
@@ -691,8 +697,21 @@ export default function SitePanel({ mapApi }: Props) {
   const [grid, setGrid] = useState<GridProfile | null>(null);
   /* Redraw. `drawPoints` is null when not drawing, a count when drawing. */
   const [drawPoints, setDrawPoints] = useState<number | null>(null);
+  /*
+   * Which of the two modes is running. They accept different gestures — a
+   * click on open map places a corner in a fresh drawing and does nothing to
+   * an existing ring — so the hint has to tell the user which one they are in.
+   */
+  const [editing, setEditing] = useState(false);
   /* True between pressing Move pin and the next map click. */
   const [picking, setPicking] = useState(false);
+  const [snapOn, setSnapOn] = useState(true);
+  /*
+   * Null until asked for. Both halves matter: with nothing to snap to, the
+   * reason is either "no buildings near this site" or "no building polygons
+   * loaded at all", and those call for different things from the user.
+   */
+  const [neighbours, setNeighbours] = useState<{ nearby: number; loaded: number } | null>(null);
   /*
    * Set when the footprint changed after the constraints were screened. The
    * screening ran against the OLD shape, so the panel must say so rather than
@@ -715,7 +734,9 @@ export default function SitePanel({ mapApi }: Props) {
     setPerformance(null);
     setGrid(null);
     setDrawPoints(null);
+    setEditing(false);
     setPicking(false);
+    setNeighbours(null);
     setConstraintsStale(false);
     setStep(null);
     mapApi.clearSite();
@@ -813,6 +834,30 @@ export default function SitePanel({ mapApi }: Props) {
             .then((r) => r.json())
             .then((report: EpcReport & { error?: string }) => {
               if (!report.error) setEpc(report);
+            })
+            .catch(() => undefined);
+
+          // Context to draw against, and the corners snapping needs.
+          void fetch(
+            `/api/site-intel/buildings?lat=${data.profile.lat}&lng=${data.profile.lon}`,
+          )
+            .then((r) => r.json())
+            .then((body: {
+              buildings?: { sourceRef: string | null; geometry: GeoJSON.Geometry }[];
+              loadedTotal?: number;
+              error?: string;
+            }) => {
+              if (body.error || !body.buildings) return;
+              setNeighbours({
+                nearby: body.buildings.length,
+                loaded: body.loadedTotal ?? 0,
+              });
+              mapApi.showNeighbours(
+                body.buildings.map((b) => ({
+                  geometry: b.geometry,
+                  label: b.sourceRef ?? "Nearby building",
+                })),
+              );
             })
             .catch(() => undefined);
 
@@ -1164,10 +1209,34 @@ export default function SitePanel({ mapApi }: Props) {
           )}
 
           {drawPoints !== null && (
-            <p className="site-hint">
-              Click to place each corner. {drawPoints} placed
-              {drawPoints < 3 ? " — three is the minimum for an area." : "."}
-            </p>
+            <div className="site-hint">
+              <p>
+                {drawPoints} point{drawPoints === 1 ? "" : "s"}.{" "}
+                {editing
+                  ? "Drag a solid handle to move it, click a hollow one to add a corner"
+                  : "Click the map to place a corner, or drag a solid handle to move one"}
+                , alt- or shift-click a solid one to remove it
+                {drawPoints < 3 ? " — three is the minimum for an area." : "."}
+              </p>
+              <label className="site-snap">
+                <input
+                  type="checkbox"
+                  checked={snapOn}
+                  onChange={(e) => { setSnapOn(e.target.checked); mapApi.setSnap(e.target.checked); }}
+                />
+                Snap to nearby corners
+                {neighbours?.nearby === 0 &&
+                  (neighbours.loaded === 0
+                    ? " — no building polygons are loaded, so nothing to snap to"
+                    : " — none within 150 m of this site, so nothing to snap to")}
+              </label>
+              <p className="site-snap-note">
+                A snapped corner takes the neighbour&rsquo;s exact coordinate. That does
+                not make the shape source data — it is still your drawing.
+                {drawPoints === 3 &&
+                  " At three points a corner cannot be removed: it would leave no area."}
+              </p>
+            </div>
           )}
 
           <div className="site-actions">
@@ -1198,14 +1267,43 @@ export default function SitePanel({ mapApi }: Props) {
             )}
 
             {drawPoints === null ? (
-              <button
-                type="button"
-                onClick={() => { setPicking(false); mapApi.startDraw(setDrawPoints); }}
-                disabled={busy || !selected.uprn || picking}
-                title={selected.uprn ? undefined : "A drawing needs a UPRN to be saved against"}
-              >
-                Redraw footprint
-              </button>
+              <>
+                {/*
+                  * Editing the existing shape is the common correction - the
+                  * published polygon is right except for one corner - so it
+                  * comes first. It produces the same T4 override, because a
+                  * footprint with a moved corner is not what OS published.
+                  */}
+                {profile?.footprint.geometry && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPicking(false);
+                      const ok = mapApi.startEdit(
+                        profile.footprint.geometry,
+                        setDrawPoints,
+                      );
+                      if (!ok) setError("That footprint has no editable outline.");
+                      setEditing(ok);
+                    }}
+                    disabled={busy || !selected.uprn || picking}
+                  >
+                    Edit shape
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPicking(false);
+                    setEditing(false);
+                    mapApi.startDraw(setDrawPoints);
+                  }}
+                  disabled={busy || !selected.uprn || picking}
+                  title={selected.uprn ? undefined : "A drawing needs a UPRN to be saved against"}
+                >
+                  Redraw footprint
+                </button>
+              </>
             ) : (
               <>
                 <button
@@ -1215,21 +1313,35 @@ export default function SitePanel({ mapApi }: Props) {
                   onClick={() => {
                     const polygon = mapApi.finishDraw();
                     setDrawPoints(null);
+                    setEditing(false);
                     if (polygon) void patchFootprint({ footprint: polygon });
                   }}
                 >
                   Save shape
                 </button>
+                {/*
+                  * Undo belongs to a drawing being built up. In edit mode
+                  * there is nothing of the user's to undo, and the button
+                  * would chop a corner off the published ring under a label
+                  * that says otherwise. Removal there is alt- or shift-click,
+                  * which names the corner it takes.
+                  */}
+                {!editing && (
+                  <button
+                    type="button"
+                    disabled={busy || drawPoints === 0}
+                    onClick={() => mapApi.undoDrawPoint()}
+                  >
+                    Undo point
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={busy || drawPoints === 0}
-                  onClick={() => mapApi.undoDrawPoint()}
-                >
-                  Undo point
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { mapApi.cancelDraw(); setDrawPoints(null); }}
+                  onClick={() => {
+                    mapApi.cancelDraw();
+                    setDrawPoints(null);
+                    setEditing(false);
+                  }}
                 >
                   Cancel
                 </button>
@@ -1250,6 +1362,7 @@ export default function SitePanel({ mapApi }: Props) {
               mapApi.cancelDraw();
               mapApi.cancelPick();
               setDrawPoints(null);
+              setEditing(false);
               setPicking(false);
               setSelected(null);
               setProfile(null);

@@ -284,3 +284,9 @@ tested against a synthetic BNG file. Confirm it behaves the same on a real one.
 `footprint: unavailable`, and S-02 then has no geometry to screen. That is
 correct behaviour, but it means footprint coverage decides constraint coverage,
 and `npm run site:verify` is the place that says so.
+
+**Snapping depends on this too.** Editing a footprint snaps corners to
+neighbouring building polygons, which come from the same table. Outside the
+loaded extract there are no neighbours, so snapping is inert — the panel says
+which of "none near this site" and "none loaded at all" applies, but the effect
+on the user is the same: every corner is placed by hand.

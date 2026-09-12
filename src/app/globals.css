@@ -1044,3 +1044,16 @@ body {
   background: var(--accent-soft); color: var(--ink);
   font-size: 11.5px; line-height: 1.45;
 }
+
+/* Draw/edit mode hint. */
+.site-hint p { margin: 0; }
+.site-snap {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px; font-size: 11.5px; color: var(--ink-2); cursor: pointer;
+}
+/*
+ * A snapped corner takes the neighbour's exact coordinate. It does not make
+ * the shape source data, and the note saying so stays visible rather than
+ * living in a tooltip.
+ */
+.site-snap-note { margin-top: 5px !important; font-size: 11px; color: var(--ink-3); line-height: 1.4; }
