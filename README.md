@@ -48,9 +48,19 @@ pnpm typecheck
 pnpm lint
 pnpm n3rgy:sync              # pull readings for active consents
 pnpm sources:check --all     # health-check every data source from this machine
+pnpm seed:demo               # fill an empty database with a worked Scope 3 example
 ```
 
 Data files under `data/` and every `.env*` except `.env.example` are gitignored.
+
+`pnpm seed:demo` writes a worked example, Harbourside Foods Ltd: fifteen
+counterparties across both directions, two reporting years, a baseline and a
+restatement, all fifteen categories assessed, two targets and five initiatives,
+and one open supplier link. It is built around the awkward cases — a
+counterparty rebased from spend to its own report, one that joined and one that
+left, one that cannot be screened at all — so the value chain pages show what
+they are for. It refuses to write to a database that already holds
+counterparties unless `--reset` is passed.
 
 Every push to `main` and every pull request runs `.github/workflows/ci.yml`:
 typecheck, lint, the vitest suite and a production build for the portal, and
