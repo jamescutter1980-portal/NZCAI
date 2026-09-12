@@ -1,0 +1,93 @@
+# The gate every change passes before it lands: the portal's own checks, the
+# MCP layer's tests, and a build. Both layers live in this repository, so both
+# run here. Nothing needs a secret: every check is offline.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to a branch supersedes the run in flight for it. Runs on main are
+# never cancelled, so the default branch keeps a complete history of results.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  portal:
+    name: Portal
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22: the portal reads and writes SQLite through node:sqlite, which
+      # is a built-in from 22 onwards. The version is pinned to a major so a
+      # patch release cannot change what CI tests without a commit.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # pnpm comes from the packageManager field in package.json, so CI and a
+      # developer's machine run the same version.
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Locate the pnpm store
+        id: store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # --frozen-lockfile fails rather than quietly resolving a new tree, so a
+      # lockfile that was not committed with its package.json is caught here.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  mcp:
+    name: MCP layer
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # Installed as a package rather than run from the tree, so the wheel's
+      # own layout is exercised: a module missing from the build is a failure
+      # here and not a surprise at docker build time.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Test
+        run: pytest -q

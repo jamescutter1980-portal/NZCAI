@@ -13,7 +13,7 @@ import type { ConsentStore } from "@/lib/consent/store";
 import { toView, type ConsentRecord, type ConsentView } from "@/lib/consent/types";
 import { transportCarbon, type TransportCarbon } from "@/lib/transport/carbon";
 import { TRANSPORT_CATEGORIES } from "@/lib/transport/types";
-import { valueChainReport, type ValueChainReport } from "@/lib/value-chain";
+import { categoryCompleteness, valueChainReport, type ValueChainReport } from "@/lib/value-chain";
 
 /**
  * Reporting readiness: what is still missing before a client's return can be
@@ -502,13 +502,14 @@ function scopeChecks(portfolio: PortfolioReport | null, portfolioError: string |
 /* value chain — the Scope 3 categories that need counterparty data   */
 /* ------------------------------------------------------------------ */
 
-function valueChainChecks(report: ValueChainReport | null, error: string | null): ReadinessCheck[] {
+function valueChainChecks(db: Db, report: ValueChainReport | null, error: string | null): ReadinessCheck[] {
   const base = (id: string, title: string): Pick<ReadinessCheck, "id" | "group" | "title" | "severity" | "fix"> => ({ id, group: "Scope coverage", title, severity: "gap", fix: FIX.valueChain });
   const engagement = base("scope.s3_value_chain_engagement", "Scope 3 counterparty engagement");
   const data = base("scope.s3_value_chain_data", "Scope 3 counterparty data");
+  const completeness = base("scope.s3_category_completeness", "Scope 3 category completeness");
   if (!report) {
     const detail = `The value chain could not be read, so this cannot be checked: ${error ?? "unknown error"}`;
-    return [{ ...engagement, status: "unknown", detail }, { ...data, status: "unknown", detail }];
+    return [{ ...engagement, status: "unknown", detail }, { ...data, status: "unknown", detail }, { ...completeness, status: "unknown", detail }];
   }
   const c = report.coverage;
   if (c.active === 0) {
@@ -546,7 +547,31 @@ function valueChainChecks(report: ValueChainReport | null, error: string | null)
             "Ask for an annual GHG report as the minimum, or an activity ledger where none exists; what is still missing at filing is estimated and disclosed as tier D or E.",
           ].filter(Boolean).join(" "),
   };
-  return [engagementCheck, dataCheck];
+  return [engagementCheck, dataCheck, categoryCompletenessCheck(db, report, completeness)];
+}
+
+/**
+ * Every Scope 3 category assessed, and every exclusion justified. An omitted
+ * category with nothing on record cannot be told apart from an oversight, and
+ * it is the first thing a reviewer asks about.
+ */
+function categoryCompletenessCheck(db: Db, report: ValueChainReport, base: Pick<ReadinessCheck, "id" | "group" | "title" | "severity" | "fix">): ReadinessCheck {
+  let c: ReturnType<typeof categoryCompleteness>;
+  try {
+    c = categoryCompleteness(db, report);
+  } catch (e) {
+    return { ...base, status: "unknown", detail: `The category assessments could not be read, so this cannot be checked: ${message(e)}` };
+  }
+  const outstanding = c.counts.unassessed + c.counts.relevantWithoutData + c.counts.unjustifiedExclusions;
+  const gaps = c.lines.filter((l) => l.gap);
+  return {
+    ...base,
+    status: c.complete ? "ok" : "attention",
+    count: outstanding,
+    detail: c.complete
+      ? `${c.detail} Nothing is omitted without a reason on record.`
+      : `${c.detail} ${gaps.length > 0 ? `First to settle: ${nameList(gaps.slice(0, 5).map((l) => l.label))}.` : ""} A category left out with no justification on record reads as an oversight, not a decision.`.trim(),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -686,7 +711,7 @@ export async function assessReadiness(db: Db, ctx: OperationContext, period: Per
     ...assetChecks(portfolio, portfolioError, period),
     ...consentChecks(db, period, views, consentError),
     ...scopeChecks(portfolio, portfolioError, transport, transportError, emissions, period),
-    ...valueChainChecks(valueChain, valueChainError),
+    ...valueChainChecks(db, valueChain, valueChainError),
     ...integrationChecks(db, ctx),
   ];
 
