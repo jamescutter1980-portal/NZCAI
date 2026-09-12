@@ -1153,3 +1153,141 @@ export function regularise(
     axisDegrees: (axis * 180) / Math.PI,
   };
 }
+
+/* ------------------------------------------------------- simplifying --- */
+
+/**
+ * How far the outline may move when a corner is dropped, in metres.
+ *
+ * A quarter of a metre sits in a gap, like the regularisation tolerance does.
+ * Below it is tracing wobble and coordinate rounding; the smallest thing in a
+ * building footprint worth keeping is an architectural step — a recessed
+ * doorway, a buttress — and those are half a metre and up. OS OpenMap Local is
+ * generalised to about this already.
+ *
+ * In METRES, not screen pixels: like squaring, this runs on a whole shape with
+ * no pointer in it, so the question is about the ground rather than the aim.
+ */
+export const SIMPLIFY_METRES = 0.25;
+
+export interface Simplified {
+  vertices: Vertex[];
+  /** Corners dropped, and how many there were to begin with. */
+  removed: number;
+  from: number;
+  /** The furthest the outline actually moved, in metres. */
+  furthestM: number;
+}
+
+/**
+ * Drops corners that carry no shape, by Ramer–Douglas–Peucker.
+ *
+ * WHAT IT IS FOR. §2u squares a shape up and deliberately keeps a corner whose
+ * two walls end up near-collinear, because dropping a vertex the user placed is
+ * not squaring's business. It is this one's. A footprint traced along a curve,
+ * or imported with every generalisation artefact intact, carries the same
+ * freight.
+ *
+ * A RING HAS NO ENDS, and the algorithm needs two. They are taken as the two
+ * corners furthest apart — the shape's diameter — because those two are the
+ * least plausible candidates for removal, so anchoring on them biases the
+ * result least. The ring is then split into two chains and each simplified as
+ * an open line.
+ *
+ * The tolerance is the furthest the OUTLINE may move, so a dropped corner is
+ * always within `toleranceM` of the line replacing it. The report gives the
+ * distance actually reached, which is usually well inside it.
+ *
+ * Never goes below three corners: the result would have no area. Where it
+ * would, the shape comes back untouched rather than partly eaten.
+ */
+export function simplify(
+  vertices: Vertex[],
+  toleranceM: number = SIMPLIFY_METRES,
+): Simplified | null {
+  const n = vertices.length;
+  if (n <= MIN_VERTICES) return null;
+
+  // One flat frame for the whole shape, as in `regularise`.
+  const lat0 = vertices.reduce((sum, v) => sum + v[1], 0) / n;
+  const k = Math.cos((lat0 * Math.PI) / 180);
+  if (k === 0) return null;
+  const flat = (v: Vertex) => ({ x: (v[0] - vertices[0][0]) * k, y: v[1] - vertices[0][1] });
+  const points = vertices.map(flat);
+  const tolerance = toleranceM / 111_320;
+
+  // The diameter. O(n²), which is nothing on a footprint's worth of corners.
+  let anchorA = 0;
+  let anchorB = 1;
+  let furthestApart = -1;
+  for (let i = 0; i < n; i += 1) {
+    for (let j = i + 1; j < n; j += 1) {
+      const d = Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y);
+      if (d > furthestApart) {
+        furthestApart = d;
+        anchorA = i;
+        anchorB = j;
+      }
+    }
+  }
+  if (furthestApart <= 0) return null;   // every corner in the same place
+
+  let furthest = 0;
+
+  /*
+   * `footOnSegment` is plane geometry over a pair of numbers; its parameter is
+   * called a screen point because that is where its other callers work, but
+   * the flat frame is the same shape and the same maths. Reusing it keeps one
+   * copy of the perpendicular-distance rule.
+   */
+  const keep = (from: number, to: number, chain: number[]): number[] => {
+    if (to - from < 2) return [chain[from]];
+
+    let worst = -1;
+    let worstAt = from;
+    for (let i = from + 1; i < to; i += 1) {
+      const { distance } = footOnSegment(
+        points[chain[i]], points[chain[from]], points[chain[to]],
+      );
+      if (distance > worst) {
+        worst = distance;
+        worstAt = i;
+      }
+    }
+
+    if (worst > tolerance) {
+      return [...keep(from, worstAt, chain), ...keep(worstAt, to, chain)];
+    }
+    // Everything between the ends is inside the tolerance and goes.
+    if (worst > furthest) furthest = worst;
+    return [chain[from]];
+  };
+
+  const chain = (from: number, to: number): number[] => {
+    const out: number[] = [];
+    for (let i = from; ; i = (i + 1) % n) {
+      out.push(i);
+      if (i === to) break;
+    }
+    return out;
+  };
+
+  const first = chain(anchorA, anchorB);
+  const second = chain(anchorB, anchorA);
+  const kept = [
+    ...keep(0, first.length - 1, first),
+    ...keep(0, second.length - 1, second),
+  ];
+
+  // Below three there is no area. Partly eating a shape is worse than leaving
+  // it, so the whole operation stands down.
+  if (kept.length < MIN_VERTICES) return null;
+
+  kept.sort((a, b) => a - b);
+  return {
+    vertices: kept.map((i) => vertices[i]),
+    removed: n - kept.length,
+    from: n,
+    furthestM: furthest * 111_320,
+  };
+}

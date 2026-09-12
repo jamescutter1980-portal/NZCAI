@@ -2477,7 +2477,7 @@ with no undo button offered.
 ### Not done
 
 - **It squares; it does not simplify.** Near-collinear walls keep their jog and
-  their vertex. A shape traced with forty points comes back with forty.
+  their vertex. A shape traced with forty points comes back with forty. *(Done in §2v.)*
 - **No rectangle fit.** An almost-rectangular shape is squared, not replaced by
   its best-fit rectangle — which would be the right tool for a shed and the
   wrong one for an L-plan, and telling them apart is a judgement this does not
@@ -2487,6 +2487,108 @@ with no undo button offered.
   and are left alone rather than squared to their own grid.
 - **It cannot be previewed.** You apply it and read what it did; there is no
   before-and-after on the map beyond undoing it.
+- **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
+  and nothing is touch-tested.
+
+## 2v. S-01 shape simplification
+
+§2u squares a shape up and deliberately keeps a corner whose two walls come out
+near-collinear, because dropping a vertex the user placed is not squaring's
+business. It is this one's. A footprint traced along a curve, or imported with
+every generalisation artefact intact, carries the same freight.
+
+### Ramer–Douglas–Peucker, with the ring problem solved
+
+The algorithm needs two fixed endpoints and **a ring has none**. The anchors are
+the two corners furthest apart — the shape's diameter — because those two are
+the least plausible candidates for removal, so anchoring on them biases the
+result least. The ring is split into two chains at those anchors and each is
+simplified as an open line.
+
+Finding the diameter is O(n²), which is nothing on a footprint's worth of
+corners and avoids a heuristic that would need defending.
+
+### The tolerance is how far the OUTLINE may move
+
+Not an angle, not a vertex count: **0.25 m**, the furthest the edge may shift
+when a corner goes. The report gives the distance actually reached, which is
+usually well inside it — 0.00 m where the dropped corners were exactly on the
+line.
+
+A quarter of a metre sits in a gap, as the squaring tolerance does. Below it is
+tracing wobble and coordinate rounding; the smallest thing in a footprint worth
+keeping is an architectural step — a recessed doorway, a buttress — and those
+are half a metre and up. OS OpenMap Local is generalised to about this already.
+
+In metres rather than screen pixels because, like squaring, this runs on a whole
+shape with no pointer in it: the question is about the ground, not the aim.
+
+### It will not eat a shape
+
+Below three corners there is no area. Where simplifying would go under, the
+operation **stands down whole** rather than returning something partly eaten —
+better to do nothing than to hand back a line and call it a footprint.
+
+### One snapshot for both whole-shape changes
+
+Squaring and simplifying share a single undo snapshot, so the second means the
+first can no longer be taken back. Deliberate: these are occasional, considered
+operations, and one step back is easier to hold in the head than a history the
+panel would have to render. The button names which one it will undo.
+
+`beforeSquareUp` became `beforeBulk` and `undoSquareUp` became `undoBulkEdit`,
+because a name that says "squaring" on a control that also undoes simplifying
+is the kind of thing that misleads a later reader.
+
+### Verified in the browser
+
+A rectangle traced with three extra clicks strung along its south wall — how a
+hand-drawn outline actually comes out:
+
+| | corners | area |
+|---|---|---|
+| drawn | 7 | 3,405 m² |
+| simplified | 4 | 3,405 m² |
+
+*"Dropped 3 of 7 corners. The outline moved by at most 0.00 m."* All four real
+corners survived with their **exact** coordinates, and the area did not move.
+
+On this view a pixel is 0.25 m — the tolerance exactly — so a one-pixel wobble
+is a real quarter-metre step. Traced that way it reported *"Dropped 2 of 7
+corners. The outline moved by at most 0.17 m"*, which is the tolerance doing its
+job at the boundary rather than either extreme.
+
+Undo simplifying took 4 points back to 7 and cleared the report. On the
+published rectangle, where nothing can go: *"Nothing to drop — every corner is
+carrying part of the shape"*, with no undo button offered.
+
+### A small thing the run caught
+
+The squaring report printed the grid as **"-0.0°"** on a shape aligned to within
+a twentieth of a degree of the axis. Rounding happens before the test for zero
+now: a minus sign on nothing reads as a mistake.
+
+### What was built
+
+| file | role |
+|---|---|
+| `draw.ts` | `simplify`, `SIMPLIFY_METRES`, the `Simplified` report |
+| `LandMap.tsx` | `simplifyShape`, and the undo snapshot generalised to both operations |
+| `SitePanel.tsx` | the second button, one report renderer for both, the negative-zero fix |
+
+**11 more tests**, 523 across the suite.
+
+### Not done
+
+- **No self-intersection check.** At a quarter of a metre on a building this
+  cannot realistically happen, but "cannot realistically" is not "cannot", and
+  nothing verifies it. The area is reported, which would show a gross failure.
+- **The tolerance is fixed.** No control to loosen it for a shape that wants
+  heavier generalisation, which is the case for an imported outline with
+  hundreds of points.
+- **It cannot be previewed**, like squaring: you apply it and read what it did.
+- **One snapshot**, so squaring then simplifying leaves only the simplifying
+  undoable.
 - **Holes are still dropped**, neighbours are still the 120 largest in the bbox,
   and nothing is touch-tested.
 

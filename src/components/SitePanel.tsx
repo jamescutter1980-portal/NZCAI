@@ -12,7 +12,7 @@ import type { MeesScreening } from "@/lib/site-intel/mees";
 import type { GridProfile } from "@/lib/site-intel/grid";
 import type { CertificateAge, Intensity, RatingReading } from "@/lib/site-intel/performance";
 import { TIER_LABEL, buildingIdFor } from "@/lib/site-intel/types";
-import type { Regularised } from "@/lib/site-intel/draw";
+import type { Regularised, Simplified } from "@/lib/site-intel/draw";
 
 /**
  * S-01 "Is this the building?" step.
@@ -64,8 +64,13 @@ export interface SiteMapApi {
    * it did — the panel has to say, because it moves every corner.
    */
   squareUp(): Regularised | null;
-  /** Takes the last squaring back, without losing the rest of the edit. */
-  undoSquareUp(): boolean;
+  /**
+   * Drops corners that carry no shape. Separate from squaring, which keeps a
+   * corner whose walls come out near-collinear on purpose.
+   */
+  simplifyShape(): Simplified | null;
+  /** Takes the last whole-shape change back, without losing the rest of the edit. */
+  undoBulkEdit(): boolean;
   /** Neighbouring polygons: context to draw against, and snap targets. */
   showNeighbours(buildings: { geometry: GeoJSON.Geometry; label: string }[]): void;
 
@@ -177,6 +182,42 @@ interface PerformanceReport {
   mees: MeesScreening;
   considered: number;
   unavailable: string | null;
+}
+
+/** A whole-shape change, and whether it actually altered anything. */
+type BulkEdit =
+  | { kind: "squared"; report: Regularised }
+  | { kind: "simplified"; report: Simplified };
+
+const bulkChanged = (b: BulkEdit): boolean =>
+  b.kind === "squared" ? b.report.moved > 0 : b.report.removed > 0;
+
+/**
+ * What a whole-shape change did, in plain words.
+ *
+ * Both of these alter every part of the outline at once on an assumption, so
+ * the panel states the cost in METRES rather than a percentage: the reader is
+ * deciding whether the shape still describes the building.
+ */
+function bulkReport(b: BulkEdit): string {
+  if (b.kind === "squared") {
+    const r = b.report;
+    if (r.moved === 0) return "Already square — nothing moved.";
+    // Round before testing for zero: a grid at -0.04° would otherwise print as
+    // "-0.0°", and a minus sign on nothing reads as a mistake.
+    const axis = Math.round(r.axisDegrees * 10) / 10;
+    return `Squared to the building's own grid, ${(axis === 0 ? 0 : axis).toFixed(1)}°. `
+      + `${r.moved} corner${r.moved === 1 ? "" : "s"} moved, `
+      + `the furthest by ${r.furthestM.toFixed(2)} m.`
+      + (r.keptDiagonal > 0
+        ? ` ${r.keptDiagonal} wall${r.keptDiagonal === 1 ? " was" : "s were"}`
+          + " left alone as a real diagonal."
+        : "");
+  }
+  const r = b.report;
+  if (r.removed === 0) return "Nothing to drop — every corner is carrying part of the shape.";
+  return `Dropped ${r.removed} of ${r.from} corners. `
+    + `The outline moved by at most ${r.furthestM.toFixed(2)} m.`;
 }
 
 /** States that mean the band itself is a problem, for emphasis only. */
@@ -722,7 +763,7 @@ export default function SitePanel({ mapApi }: Props) {
   const [snapOn, setSnapOn] = useState(true);
   const [squareOn, setSquareOn] = useState(true);
   /** What the last squaring did, so the panel can report it and offer it back. */
-  const [squaredUp, setSquaredUp] = useState<Regularised | null>(null);
+  const [bulk, setBulk] = useState<BulkEdit | null>(null);
   /*
    * Null until asked for. Both halves matter: with nothing to snap to, the
    * reason is either "no buildings near this site" or "no building polygons
@@ -752,7 +793,7 @@ export default function SitePanel({ mapApi }: Props) {
     setGrid(null);
     setDrawPoints(null);
     setEditing(false);
-    setSquaredUp(null);
+    setBulk(null);
     setPicking(false);
     setNeighbours(null);
     setConstraintsStale(false);
@@ -1263,18 +1304,7 @@ export default function SitePanel({ mapApi }: Props) {
                 ends up agreeing with the building next door. That does not make the
                 shape source data — it is still your drawing.
               </p>
-              {squaredUp && (
-                <p className="site-squared">
-                  {squaredUp.moved === 0
-                    ? "Already square — nothing moved."
-                    : `Squared to the building's own grid, ${squaredUp.axisDegrees.toFixed(1)}°. `
-                      + `${squaredUp.moved} corner${squaredUp.moved === 1 ? "" : "s"} moved, `
-                      + `the furthest by ${squaredUp.furthestM.toFixed(2)} m.`}
-                  {squaredUp.keptDiagonal > 0 &&
-                    ` ${squaredUp.keptDiagonal} wall${squaredUp.keptDiagonal === 1 ? " was" : "s were"}`
-                      + " left alone as a real diagonal."}
-                </p>
-              )}
+              {bulk && <p className="site-squared">{bulkReport(bulk)}</p>}
               <p className="site-snap-note">
                 An aligned wall is different again: nothing published says it is square
                 to the wall beside it, parallel to the one opposite, or on the line a
@@ -1336,7 +1366,7 @@ export default function SitePanel({ mapApi }: Props) {
                       );
                       if (!ok) setError("That footprint has no editable outline.");
                       setEditing(ok);
-                      setSquaredUp(null);
+                      setBulk(null);
                     }}
                     disabled={busy || !selected.uprn || picking}
                   >
@@ -1348,7 +1378,7 @@ export default function SitePanel({ mapApi }: Props) {
                   onClick={() => {
                     setPicking(false);
                     setEditing(false);
-                    setSquaredUp(null);
+                    setBulk(null);
                     mapApi.startDraw(setDrawPoints);
                   }}
                   disabled={busy || !selected.uprn || picking}
@@ -1367,7 +1397,7 @@ export default function SitePanel({ mapApi }: Props) {
                     const polygon = mapApi.finishDraw();
                     setDrawPoints(null);
                     setEditing(false);
-                    setSquaredUp(null);
+                    setBulk(null);
                     if (polygon) void patchFootprint({ footprint: polygon });
                   }}
                 >
@@ -1401,26 +1431,49 @@ export default function SitePanel({ mapApi }: Props) {
                   * button with nothing behind it — the note still says what
                   * happened.
                   */}
-                {squaredUp && squaredUp.moved > 0 ? (
+                {bulk && bulkChanged(bulk) ? (
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => { if (mapApi.undoSquareUp()) setSquaredUp(null); }}
+                    onClick={() => { if (mapApi.undoBulkEdit()) setBulk(null); }}
                   >
-                    Undo squaring
+                    {bulk.kind === "squared" ? "Undo squaring" : "Undo simplifying"}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={busy || drawPoints < 3}
-                    onClick={() => {
-                      const done = mapApi.squareUp();
-                      setSquaredUp(done);
-                      if (!done) setError("That shape has no wall with any length to square to.");
-                    }}
-                  >
-                    Square up the shape
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy || drawPoints < 3}
+                      onClick={() => {
+                        const report = mapApi.squareUp();
+                        setBulk(report ? { kind: "squared", report } : null);
+                        if (!report) {
+                          setError("That shape has no wall with any length to square to.");
+                        }
+                      }}
+                    >
+                      Square up the shape
+                    </button>
+                    {/*
+                      * Four corners is the floor, so a square has nothing to
+                      * consider and the control says so by being unavailable.
+                      */}
+                    <button
+                      type="button"
+                      disabled={busy || drawPoints <= 3}
+                      onClick={() => {
+                        const report = mapApi.simplifyShape();
+                        setBulk(report ? { kind: "simplified", report } : null);
+                        if (!report) {
+                          setError(
+                            "Nothing to simplify — every corner is carrying part of the shape.",
+                          );
+                        }
+                      }}
+                    >
+                      Simplify the outline
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
@@ -1428,7 +1481,7 @@ export default function SitePanel({ mapApi }: Props) {
                     mapApi.cancelDraw();
                     setDrawPoints(null);
                     setEditing(false);
-                    setSquaredUp(null);
+                    setBulk(null);
                   }}
                 >
                   Cancel
@@ -1451,7 +1504,7 @@ export default function SitePanel({ mapApi }: Props) {
               mapApi.cancelPick();
               setDrawPoints(null);
               setEditing(false);
-              setSquaredUp(null);
+              setBulk(null);
               setPicking(false);
               setSelected(null);
               setProfile(null);

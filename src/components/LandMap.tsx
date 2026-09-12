@@ -45,6 +45,7 @@ import {
   linesForEdge,
   linesForVertex,
   regularise,
+  simplify,
   insertAfter,
   midpoints,
   moveEdge,
@@ -58,6 +59,7 @@ import {
   vertexAt,
   type Assist,
   type Regularised,
+  type Simplified,
   type SnapResult,
   type SnapTargets,
   type Vertex,
@@ -1667,7 +1669,7 @@ export default function LandMap({
         drawing.current = [];
         drawActive.current = true;
         appendOnClick.current = true;
-        beforeSquareUp.current = null;
+        beforeBulk.current = null;
         onDrawChange.current = onChange;
         renderDrawing();
         onChange(0);
@@ -1691,7 +1693,7 @@ export default function LandMap({
         onPick.current = null;
         drawing.current = ring;
         drawActive.current = true;
-        beforeSquareUp.current = null;
+        beforeBulk.current = null;
         // A click on open map must not append to an existing ring.
         appendOnClick.current = false;
         onDrawChange.current = onChange;
@@ -1724,7 +1726,7 @@ export default function LandMap({
       squareUp(): Regularised | null {
         const done = regularise(drawing.current as Vertex[]);
         if (!done) return null;
-        beforeSquareUp.current = drawing.current as Vertex[];
+        beforeBulk.current = drawing.current as Vertex[];
         drawing.current = done.vertices;
         renderDrawing();
         showSnap(null);
@@ -1732,10 +1734,28 @@ export default function LandMap({
         return done;
       },
 
-      undoSquareUp(): boolean {
-        const before = beforeSquareUp.current;
+      /**
+       * Drops corners that carry no shape.
+       *
+       * Deliberately NOT part of squaring, which keeps a corner whose walls
+       * come out near-collinear: dropping a vertex the user placed is a
+       * separate decision and gets a separate button.
+       */
+      simplifyShape(): Simplified | null {
+        const done = simplify(drawing.current as Vertex[]);
+        if (!done) return null;
+        beforeBulk.current = drawing.current as Vertex[];
+        drawing.current = done.vertices;
+        renderDrawing();
+        showSnap(null);
+        onDrawChange.current?.(drawing.current.length);
+        return done;
+      },
+
+      undoBulkEdit(): boolean {
+        const before = beforeBulk.current;
         if (!before) return false;
-        beforeSquareUp.current = null;
+        beforeBulk.current = null;
         drawing.current = before;
         renderDrawing();
         onDrawChange.current?.(drawing.current.length);
@@ -1772,7 +1792,7 @@ export default function LandMap({
         appendOnClick.current = true;
         dragging.current = null;
         pendingEdge.current = null;
-        beforeSquareUp.current = null;
+        beforeBulk.current = null;
         onDrawChange.current = null;
         renderDrawing();
         showSnap(null);
@@ -1797,7 +1817,7 @@ export default function LandMap({
         appendOnClick.current = true;
         dragging.current = null;
         pendingEdge.current = null;
-        beforeSquareUp.current = null;
+        beforeBulk.current = null;
         onDrawChange.current = null;
         renderDrawing();
         showSnap(null);
@@ -1866,8 +1886,13 @@ export default function LandMap({
   const snapOn = useRef(true);
   /** Right-angle assist. Separate from snapping: it aligns to an assumption. */
   const squareOn = useRef(true);
-  /** The ring as it was before the last squaring, so that one is undoable. */
-  const beforeSquareUp = useRef<Vertex[] | null>(null);
+  /**
+   * The ring as it was before the last WHOLE-SHAPE change, so that one can be
+   * taken back. One snapshot, not a stack: these are occasional, deliberate
+   * operations, and a second one meaning the first is no longer undoable is
+   * easier to hold in the head than a history the panel would have to show.
+   */
+  const beforeBulk = useRef<Vertex[] | null>(null);
   /** Index of the vertex being dragged, or null. */
   const dragging = useRef<number | null>(null);
   /**

@@ -19,6 +19,8 @@ import {
   linesForVertex,
   regularise,
   REGULARISE_DEGREES,
+  simplify,
+  SIMPLIFY_METRES,
   insertAfter,
   midpoints,
   moveEdge,
@@ -1326,5 +1328,123 @@ describe("squaring a whole shape up", () => {
     const out = regularise(withJog);
     assert.ok(out);
     assert.equal(out.vertices.length, 5, "the corner is still there");
+  });
+});
+
+/* --------------------------------------------------------- simplifying --- */
+
+describe("dropping corners that carry no shape", () => {
+  /** A square with `extra` evenly spaced points along its south wall. */
+  const withPointsAlongTheSouthWall = (extra: number, wobbleM = 0): Vertex[] => {
+    const ring: Vertex[] = [[0, 0]];
+    for (let i = 1; i <= extra; i += 1) {
+      const t = i / (extra + 1);
+      // A wobble expressed in metres, so the tolerance can be aimed at it.
+      const off = wobbleM === 0 ? 0 : (i % 2 === 0 ? 1 : -1) * (wobbleM / 111_320);
+      ring.push([0.001 * t, off]);
+    }
+    ring.push([0.001, 0], [0.001, 0.001], [0, 0.001]);
+    return ring;
+  };
+
+  test("points strung along a straight wall are dropped", () => {
+    const ring = withPointsAlongTheSouthWall(5);
+    const out = simplify(ring);
+    assert.ok(out);
+    assert.equal(out.from, 9, "four corners plus the five strung along the wall");
+    assert.equal(out.removed, 5, "the five that were on the line");
+    assert.equal(out.vertices.length, 4, "a square again");
+  });
+
+  test("the corners of the shape are never the ones dropped", () => {
+    const out = simplify(withPointsAlongTheSouthWall(5));
+    assert.ok(out);
+    for (const corner of [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]] as Vertex[]) {
+      assert.ok(
+        out.vertices.some((v) => v[0] === corner[0] && v[1] === corner[1]),
+        `corner ${corner} went missing`,
+      );
+    }
+  });
+
+  test("a wobble inside the tolerance goes, one outside it stays", () => {
+    // 10 cm of wobble is tracing noise; 60 cm is a step in the building.
+    assert.equal(simplify(withPointsAlongTheSouthWall(4, 0.10))?.removed, 4);
+    assert.equal(simplify(withPointsAlongTheSouthWall(4, 0.60))?.removed, 0);
+  });
+
+  test("it reports how far the outline actually moved", () => {
+    const out = simplify(withPointsAlongTheSouthWall(4, 0.10));
+    assert.ok(out);
+    assert.ok(out.furthestM > 0.09 && out.furthestM < 0.11, `${out.furthestM} m`);
+    assert.ok(out.furthestM <= SIMPLIFY_METRES, "never further than the tolerance");
+  });
+
+  test("a real jog stays, a flat one goes", () => {
+    // The extra corner goes in ring ORDER, between the two it sits between:
+    // appended to the end it would double the north wall back on itself and
+    // be a feature of a different shape.
+    const withCorner = (north: number): Vertex[] => [
+      [0, 0], [0.001, 0], [0.001, 0.001], [0.0005, north], [0, 0.001],
+    ];
+    assert.equal(simplify(withCorner(0.001))?.removed, 1, "flat: it carries nothing");
+    const out = simplify(withCorner(0.0011));
+    assert.ok(out);
+    assert.equal(out.removed, 0, "a jog of 11 m is the shape, not noise");
+  });
+
+  test("it never eats a shape below three corners", () => {
+    // A tolerance big enough to swallow the lot: the shape stands down whole
+    // rather than coming back as a line.
+    const square: Vertex[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]];
+    assert.equal(simplify(square, 1000), null);
+  });
+
+  test("at or below three corners there is nothing to simplify", () => {
+    assert.equal(simplify([[0, 0], [0.001, 0], [0, 0.001]]), null);
+    assert.equal(simplify([[0, 0], [0.001, 0]]), null);
+  });
+
+  test("a shape of no extent is refused rather than divided by zero", () => {
+    assert.equal(simplify([[0, 0], [0, 0], [0, 0], [0, 0]]), null);
+  });
+
+  test("the ring wraps, so a run of points across the start is still found", () => {
+    /*
+     * The anchors are the two corners furthest apart, which need not be the
+     * first and last in the array — so the chains wrap, and a straight run
+     * spanning index 0 has to be simplified like any other.
+     */
+    const ring: Vertex[] = [
+      [0.0005, 0], [0.001, 0], [0.001, 0.001], [0, 0.001], [0, 0],
+      [0.00025, 0],
+    ];
+    const out = simplify(ring);
+    assert.ok(out);
+    assert.equal(out.removed, 2, "both points on the south wall, either side of the start");
+    assert.equal(out.vertices.length, 4);
+  });
+
+  test("the tolerance is the exported one, and it is in METRES", () => {
+    // Unlike the pointer thresholds: this runs on a shape, not on an aim.
+    assert.equal(SIMPLIFY_METRES, 0.25);
+  });
+
+  test("squaring then simplifying clears what squaring leaves behind", () => {
+    /*
+     * The pair §2u left open. Squaring keeps a corner whose walls come out
+     * near-collinear, because dropping a placed vertex is not its business;
+     * simplifying then takes it.
+     */
+    const ragged: Vertex[] = [
+      [0, 0], [0.0005, 0.0000005], [0.001, 0], [0.00099, 0.00101], [-0.00001, 0.001],
+    ];
+    const squared = regularise(ragged);
+    assert.ok(squared);
+    assert.equal(squared.vertices.length, 5, "squaring keeps the redundant corner");
+
+    const out = simplify(squared.vertices);
+    assert.ok(out);
+    assert.equal(out.vertices.length, 4, "simplifying takes it");
   });
 });

@@ -690,6 +690,34 @@ still describes the building. **Undo squaring** takes just that back, without
 throwing away the rest of the edit — and is offered only where something
 actually moved.
 
+### Simplifying an outline
+
+Squaring keeps a corner whose walls come out near-collinear, because dropping a
+vertex you placed is a separate decision. **Simplify the outline** is that
+decision: Ramer–Douglas–Peucker over the ring.
+
+A ring has no endpoints and the algorithm needs two, so the anchors are the
+**two corners furthest apart** — the shape's diameter, since those are the least
+plausible candidates for removal. The ring is split there into two chains and
+each simplified as an open line.
+
+The tolerance is **how far the outline may move**, not an angle or a target
+count: 0.25 m. Below that is tracing wobble and coordinate rounding; the
+smallest thing in a footprint worth keeping is an architectural step — a
+recessed doorway, a buttress — and those are half a metre and up. In metres
+rather than screen pixels for the same reason as squaring: no pointer is
+involved, so the question is about the ground.
+
+It reports how far the edge actually moved, which is usually well inside the
+tolerance:
+
+> Dropped 3 of 7 corners. The outline moved by at most 0.00 m.
+
+Below three corners there is no area, so where simplifying would go under it
+**stands down whole** rather than handing back something partly eaten. Squaring
+and simplifying share one undo snapshot, so the second means the first can no
+longer be taken back — the button names which one it will undo.
+
 ### Reproject first — the loader will stop you
 
 OS publishes OpenMap Local in **British National Grid (EPSG:27700)**, in metres.
