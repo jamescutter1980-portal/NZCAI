@@ -35,6 +35,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Data sources | `/sources`, `/sources/[id]`, `/lookup`, `/api/sources/...`, `pnpm sources:check` | 111 sources, 82 connectors, 253 operations, generic forms, health checks, one-click location lookup |
 | Storage | `data/portal.sqlite` | Node built-in SQLite, migrations on open |
 | Access | `src/proxy.ts` | Optional basic auth via `PORTAL_BASIC_AUTH` |
+| CI | `.github/workflows/ci.yml` | Typecheck, lint, 791 portal tests and a build; 33 MCP-layer tests against an installed wheel |
 
 ## Develop
 
@@ -50,6 +51,11 @@ pnpm sources:check --all     # health-check every data source from this machine
 ```
 
 Data files under `data/` and every `.env*` except `.env.example` are gitignored.
+
+Every push to `main` and every pull request runs `.github/workflows/ci.yml`:
+typecheck, lint, the vitest suite and a production build for the portal, and
+the pytest suite against an installed `nzcai-mcp` wheel. No secrets are
+needed; both jobs are offline.
 
 ## MCP layer
 
