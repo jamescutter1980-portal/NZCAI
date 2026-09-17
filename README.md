@@ -1,6 +1,19 @@
-# NZC Portal
+# NZCAI — data-portal reference implementation
 
-Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
+> **Read this first (2026-09-17).** This repository is **not NZC Portal** — the live
+> product with real users and its own developer lives in a different repository that
+> Claude Code never writes to (see the engine's `CLAUDE.md` §1). It is also **not the
+> product**: on 2026-09-11 James decided that its designs are ported into the NZC AI
+> engine (`nzc-ai-engine`, `app/scope3/` and beyond) and that these TypeScript files are a
+> **reference implementation, not code to merge** (engine `docs/104` §2b). On 2026-09-17
+> (engine `docs/117` Q13) he approved renaming it so it no longer calls itself
+> "NZC Portal", and freezing it read-only once the housekeeping merge is done. Three
+> things in it are kept as specification: `docs/value-chain.md` (allocation tiers and the
+> report-versus-ledger variance rules), `docs/data-source-roadmap.md` §2 (the API status
+> corrections), and `src/lib/readiness` (the 24-check "can this return be filed?" roll-up
+> the engine still lacks). Everything else is superseded by the engine.
+
+Net zero carbon and ESG data portal — reference implementation. Next.js 16, TypeScript, zod, vitest.
 
 `nzcai-mcp` (below) is a separate Python service in the same repository: it exposes the domain calculations to MCP clients.
 
