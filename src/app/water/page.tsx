@@ -88,13 +88,14 @@ function fmt(n: number | null | undefined, digits = 1): string {
 
 export default function WaterPage() {
   const [members, setMembers] = useState<MoslMember[]>([]);
+  const [allMembers, setAllMembers] = useState<MoslMember[]>([]);
   const [memberQ, setMemberQ] = useState("");
   const [memberRole, setMemberRole] = useState("");
   const [supplyPoints, setSupplyPoints] = useState<SupplyPoint[]>([]);
   const [readings, setReadings] = useState<Reading[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"supply" | "reading" | "benchmark" | null>(null);
 
   const [spid, setSpid] = useState("");
   const [service, setService] = useState("water");
@@ -164,6 +165,19 @@ export default function WaterPage() {
 
   useEffect(() => {
     let active = true;
+    fetch("/api/water/members")
+      .then((r) => r.json())
+      .then((b) => {
+        if (active) setAllMembers(b.members ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     const params = new URLSearchParams();
     if (memberQ.trim()) params.set("q", memberQ.trim());
     if (memberRole) params.set("role", memberRole);
@@ -180,7 +194,7 @@ export default function WaterPage() {
 
   async function addSupplyPoint(e: FormEvent) {
     e.preventDefault();
-    setBusy(true);
+    setBusy("supply");
     setError(null);
     try {
       const res = await fetch("/api/water/supply-points", {
@@ -208,13 +222,13 @@ export default function WaterPage() {
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function addReading(e: FormEvent) {
     e.preventDefault();
-    setBusy(true);
+    setBusy("reading");
     setError(null);
     try {
       const res = await fetch("/api/water/consumption", {
@@ -242,19 +256,19 @@ export default function WaterPage() {
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
-  async function runBenchmark(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
+  async function runBenchmark(e?: FormEvent) {
+    e?.preventDefault();
+    setBusy("benchmark");
     setError(null);
     setEstimate(null);
     try {
-      const params = new URLSearchParams({ propertyType: benchType, days: benchDays });
-      if (benchArea) params.set("floorAreaM2", benchArea);
-      if (benchOccupants) params.set("occupants", benchOccupants);
+      const params = new URLSearchParams({ propertyType: benchType, days: benchDays || "365" });
+      if (benchArea.trim()) params.set("floorAreaM2", benchArea.trim());
+      if (benchOccupants.trim()) params.set("occupants", benchOccupants.trim());
       const res = await fetch(`/api/water/benchmark?${params}`);
       const body = await res.json();
       if (!res.ok) setError(body.error ?? `Failed (${res.status})`);
@@ -262,12 +276,12 @@ export default function WaterPage() {
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
-  const retailers = members.filter((m) => m.roles.includes("retailer") || m.roles.includes("self_supply"));
-  const wholesalers = members.filter((m) => m.roles.includes("wholesaler"));
+  const retailers = allMembers.filter((m) => m.roles.includes("retailer") || m.roles.includes("self_supply"));
+  const wholesalers = allMembers.filter((m) => m.roles.includes("wholesaler"));
 
   return (
     <>
@@ -328,7 +342,7 @@ export default function WaterPage() {
             <label style={{ fontSize: 13 }}>Floor area (m²)<input value={floorAreaM2} onChange={(e) => setFloorAreaM2(e.target.value)} type="number" min="0" step="any" style={input} /></label>
             <label style={{ fontSize: 13 }}>Occupants / FTE<input value={occupants} onChange={(e) => setOccupants(e.target.value)} type="number" min="0" step="any" style={input} /></label>
           </div>
-          <button type="submit" disabled={busy} style={{ padding: "8px 14px", width: "fit-content" }}>{busy ? "Saving…" : "Add supply point"}</button>
+          <button type="submit" disabled={busy === "supply"} style={{ padding: "8px 14px", width: "fit-content" }}>{busy === "supply" ? "Saving…" : "Add supply point"}</button>
         </form>
       </section>
 
@@ -373,7 +387,7 @@ export default function WaterPage() {
             <label style={{ fontSize: 13 }}>Evidence / invoice ref<input value={evidence} onChange={(e) => setEvidence(e.target.value)} style={input} /></label>
             <label style={{ fontSize: 13 }}>Unit cost (£/m³)<input value={unitCost} onChange={(e) => setUnitCost(e.target.value)} type="number" min="0" step="any" style={input} /></label>
           </div>
-          <button type="submit" disabled={busy || !supplyPointId} style={{ padding: "8px 14px", width: "fit-content" }}>{busy ? "Saving…" : "Add reading"}</button>
+          <button type="submit" disabled={busy === "reading" || !supplyPointId} style={{ padding: "8px 14px", width: "fit-content" }}>{busy === "reading" ? "Saving…" : "Add reading"}</button>
         </form>
       </section>
 
@@ -458,10 +472,17 @@ export default function WaterPage() {
             <label style={{ fontSize: 13 }}>Floor area (m²)<input value={benchArea} onChange={(e) => setBenchArea(e.target.value)} type="number" min="0" step="any" style={input} /></label>
             <label style={{ fontSize: 13 }}>Occupants (optional)<input value={benchOccupants} onChange={(e) => setBenchOccupants(e.target.value)} type="number" min="0" step="any" style={input} /></label>
           </div>
-          <button type="submit" disabled={busy} style={{ padding: "8px 14px", width: "fit-content" }}>Estimate</button>
+          <button
+            type="button"
+            onClick={() => void runBenchmark()}
+            disabled={busy === "benchmark"}
+            style={{ padding: "8px 14px", width: "fit-content" }}
+          >
+            {busy === "benchmark" ? "Estimating…" : "Estimate"}
+          </button>
         </form>
         {estimate && (
-          <div style={box("#fff3cd", "#ffe69c")}>
+          <div id="benchmark-result" style={box("#fff3cd", "#ffe69c")}>
             <p style={{ margin: 0, fontSize: 15 }}>
               <strong>{fmt(estimate.m3)} m³</strong> over {estimate.days} days ({estimate.label}, {estimate.method})
             </p>
