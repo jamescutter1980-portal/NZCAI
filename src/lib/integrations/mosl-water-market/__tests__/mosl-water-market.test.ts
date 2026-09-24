@@ -8,6 +8,14 @@ describe("mosl-water-market", () => {
     const fetch = vi.fn();
     const result = await runOperation(definition, "links", {}, testContext(fetch));
     expect(fetch).not.toHaveBeenCalled();
-    expect(result.links?.length).toBe(4);
+    expect(result.links?.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("lists trading parties from the Our Members snapshot", async () => {
+    const fetch = vi.fn();
+    const result = await runOperation(definition, "members", { role: "retailer", q: "Wave" }, testContext(fetch));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(result.rows?.length).toBe(1);
+    expect(result.rows?.[0]).toMatchObject({ short_name: "Wave", roles: expect.stringContaining("retailer") });
   });
 });

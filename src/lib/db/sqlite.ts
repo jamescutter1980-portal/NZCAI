@@ -473,6 +473,48 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       CREATE INDEX supplier_submission_links_counterparty ON supplier_submission_links(counterparty_id, reporting_year);
     `,
   },
+  {
+    id: "0017_water_consumption",
+    sql: `
+      CREATE TABLE water_supply_points (
+        id TEXT PRIMARY KEY,
+        spid TEXT NOT NULL UNIQUE,
+        service TEXT NOT NULL,
+        label TEXT,
+        asset_id TEXT,
+        postcode TEXT,
+        address TEXT,
+        retailer_id TEXT,
+        wholesaler_id TEXT,
+        property_type TEXT,
+        floor_area_m2 REAL,
+        occupants REAL,
+        consent_ref TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX water_supply_points_asset ON water_supply_points(asset_id);
+      CREATE INDEX water_supply_points_retailer ON water_supply_points(retailer_id);
+      CREATE TABLE water_consumption (
+        id TEXT PRIMARY KEY,
+        supply_point_id TEXT NOT NULL REFERENCES water_supply_points(id) ON DELETE CASCADE,
+        period_start TEXT NOT NULL,
+        period_end TEXT NOT NULL,
+        volume_m3 REAL NOT NULL,
+        basis TEXT NOT NULL,
+        source TEXT NOT NULL,
+        evidence TEXT,
+        reading_start REAL,
+        reading_end REAL,
+        unit_cost_gbp_per_m3 REAL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX water_consumption_sp ON water_consumption(supply_point_id, period_start);
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;
