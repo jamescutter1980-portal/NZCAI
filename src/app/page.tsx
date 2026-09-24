@@ -19,6 +19,9 @@ export default function Home() {
           <Link href="/emissions">Refrigerants, water and waste</Link> – Scope 1 fugitive and the Scope 3 sources meters do not cover
         </li>
         <li>
+          <Link href="/water">UK property water consumption</Link> – SPIDs, MOSL members, bill readings and screening benchmarks
+        </li>
+        <li>
           <Link href="/value-chain">Value chain</Link> – upstream and downstream counterparties, each year&apos;s data request and its audit trail, and the emissions they return
         </li>
         <li>
