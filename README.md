@@ -10,6 +10,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 - `docs/api-implementation-plan.md` – the plan to close the remaining API gaps, phased by what actually blocks each
 - `docs/api-gap-analysis.md` – what is integrated, what changed versus the catalogue, what could not be built, verification plan
 - `docs/integrations/data-sources.md` – the sources pages, API routes and health-check CLI
+- `docs/integrations/client-api.md` – per-client API keys: what they read, issuing and revoking, Power BI and Excel setup
 - `docs/integrations/CONNECTOR_GUIDE.md` – how to add a connector
 - `docs/integrations/reference-data.md` – files the factor and pathway loaders expect
 - `docs/integrations/n3rgy.md` – first connector: consent-based smart-meter data
@@ -35,6 +36,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Data sources | `/sources`, `/sources/[id]`, `/lookup`, `/api/sources/...`, `pnpm sources:check` | 111 sources, 82 connectors, 253 operations, generic forms, health checks, one-click location lookup |
 | Storage | `data/portal.sqlite` | Node built-in SQLite, migrations on open |
 | Access | `src/proxy.ts` | Optional basic auth via `PORTAL_BASIC_AUTH` |
+| Client API | `pnpm api-keys`, `docs/integrations/client-api.md` | Per-client read-only keys for Power BI, Excel or a warehouse, limited to that client's assets |
 | CI | `.github/workflows/ci.yml` | Typecheck, lint, 791 portal tests and a build; 33 MCP-layer tests against an installed wheel |
 
 ## Develop

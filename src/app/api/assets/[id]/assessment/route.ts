@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AssetsRepository } from "@/lib/assets";
 import { assessAsset, type PathwayType, type Scenario } from "@/lib/assessment";
 import { getDb } from "@/lib/db/sqlite";
+import { canSeeAsset, resolveAccess } from "@/lib/api-keys";
 import { defaultContext } from "@/lib/integrations/framework";
 
 /**
@@ -16,9 +17,11 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = getDb();
+  const auth = resolveAccess(req, db);
+  if (!auth.ok) return auth.response;
   const repo = new AssetsRepository(db);
   const asset = repo.get(id);
-  if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!asset || !canSeeAsset(auth.access, asset)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const q = new URL(req.url).searchParams;
   const yearParam = q.get("year");

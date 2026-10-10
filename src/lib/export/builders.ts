@@ -224,12 +224,12 @@ function sumOrNull(values: (number | null)[]): number | null {
   return r3(values.reduce<number>((n, v) => n + (v ?? 0), 0));
 }
 
-/** Every asset, once, with its energy, carbon and coverage for the year. */
-export function portfolioRollup(db: Db, ctx: OperationContext, year: number): PortfolioRollup {
+/** Every asset, once, with its energy, carbon and coverage for the year; clientId narrows it to one client's. */
+export function portfolioRollup(db: Db, ctx: OperationContext, year: number, scope: { clientId?: string } = {}): PortfolioRollup {
   const repo = new AssetsRepository(db);
   const period = calendarYear(year);
   const expectedDays = Math.max(1, Math.min(period.days, elapsedDays(period, ctx.now())));
-  const assets = repo.list().map((asset): AssetRollup => {
+  const assets = repo.list(scope).map((asset): AssetRollup => {
     const meters = repo.meters(asset.id);
     const carbon = carbonFor(db, ctx, meters, asset, year);
     const stream = (utility: "electricity" | "gas", direction: "import" | "export") =>
@@ -266,8 +266,8 @@ export const PORTFOLIO_ENERGY_COLUMNS = [
   "first_reading", "last_reading", "meter_count",
 ];
 
-export function buildPortfolioEnergyExport(db: Db, ctx: OperationContext, year: number): ExportTable {
-  const roll = portfolioRollup(db, ctx, year);
+export function buildPortfolioEnergyExport(db: Db, ctx: OperationContext, year: number, scope: { clientId?: string } = {}): ExportTable {
+  const roll = portfolioRollup(db, ctx, year, scope);
   const rows: CsvValue[][] = roll.assets.map((a) => {
     // With no readings the energy is unknown, not zero, so those cells stay blank.
     const hasData = a.intervals > 0;
@@ -293,8 +293,8 @@ export const PORTFOLIO_CARBON_COLUMNS = [
   "total_scope1_scope2_location_kgco2e", "intensity_kgco2e_per_m2", "factors_complete", "unavailable_reasons",
 ];
 
-export function buildPortfolioCarbonExport(db: Db, ctx: OperationContext, year: number): ExportTable {
-  const roll = portfolioRollup(db, ctx, year);
+export function buildPortfolioCarbonExport(db: Db, ctx: OperationContext, year: number, scope: { clientId?: string } = {}): ExportTable {
+  const roll = portfolioRollup(db, ctx, year, scope);
   const rows: CsvValue[][] = roll.assets.map((a) => {
     // Nothing metered means the emissions are unknown, not zero, so those cells stay blank.
     const td = a.calculated ? sumOrNull(a.carbon.scope3TandD.map((l) => l.kgCo2e)) : null;

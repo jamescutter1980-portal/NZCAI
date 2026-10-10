@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/sqlite";
 import { defaultContext } from "@/lib/integrations/framework";
 import { getConsentStore } from "@/lib/consent/registry";
+import { canSeeAsset, clientScope, resolveAccess, type Access } from "@/lib/api-keys";
+import { AssetsRepository } from "@/lib/assets/repo";
 import {
   buildAssetCarbonExport,
   buildConsentsExport,
@@ -46,9 +48,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
   const bom = bomSchema.safeParse(query.bom);
   if (!bom.success) return invalid(bom.error);
 
+  const auth = resolveAccess(req, getDb());
+  if (!auth.ok) return auth.response;
+
   let built: Built;
   try {
-    built = await build(kind, query);
+    built = await build(kind, query, auth.access);
   } catch (e) {
     // Absent reference data is handled inside the builders and never lands
     // here. A malformed reference file can, and a caller expecting a CSV
@@ -62,9 +67,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
 
 type Built = { table: ExportTable } | { error: NextResponse };
 
-async function build(kind: ExportKind, query: Record<string, string>): Promise<Built> {
+async function build(kind: ExportKind, query: Record<string, string>, access: Access): Promise<Built> {
   const db = getDb();
   const ctx = defaultContext();
+
+  // The proxy already limits keys to the client-scoped kinds; this holds if that list drifts.
+  if (access.kind === "client" && kind !== "asset-carbon" && kind !== "portfolio-energy" && kind !== "portfolio-carbon") {
+    return { error: NextResponse.json({ error: `Export "${kind}" is not available to API keys` }, { status: 403 }) };
+  }
 
   if (kind === "readings") {
     const parsed = readingsParamsSchema.safeParse(query);
@@ -82,7 +92,8 @@ async function build(kind: ExportKind, query: Record<string, string>): Promise<B
   if (kind === "asset-carbon") {
     const parsed = yearSchema.extend({ asset: z.string().min(1, "asset id is required") }).safeParse(query);
     if (!parsed.success) return { error: invalid(parsed.error) };
-    const t = buildAssetCarbonExport(db, ctx, parsed.data.asset, parsed.data.year);
+    const asset = new AssetsRepository(db).get(parsed.data.asset);
+    const t = asset && canSeeAsset(access, asset) ? buildAssetCarbonExport(db, ctx, parsed.data.asset, parsed.data.year) : undefined;
     if (!t) return { error: NextResponse.json({ error: `Asset ${parsed.data.asset} not found` }, { status: 404 }) };
     return { table: t };
   }
@@ -90,8 +101,8 @@ async function build(kind: ExportKind, query: Record<string, string>): Promise<B
   const parsed = yearSchema.safeParse(query);
   if (!parsed.success) return { error: invalid(parsed.error) };
   const { year } = parsed.data;
-  if (kind === "portfolio-energy") return { table: buildPortfolioEnergyExport(db, ctx, year) };
-  if (kind === "portfolio-carbon") return { table: buildPortfolioCarbonExport(db, ctx, year) };
+  if (kind === "portfolio-energy") return { table: buildPortfolioEnergyExport(db, ctx, year, clientScope(access)) };
+  if (kind === "portfolio-carbon") return { table: buildPortfolioCarbonExport(db, ctx, year, clientScope(access)) };
   if (kind === "value-chain") return { table: buildValueChainExport(db, ctx, year) };
   return { table: buildSecrSummaryExport(db, ctx, year) };
 }

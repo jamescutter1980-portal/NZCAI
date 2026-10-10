@@ -25,6 +25,8 @@ export type AssetUpdate = z.infer<typeof assetUpdateSchema>;
 
 export interface AssetRecord extends AssetCreate {
   id: string;
+  /** The client whose portfolio this asset sits in; set from the api-keys CLI, never by PATCH. */
+  clientId?: string;
   createdAt: string;
   updatedAt: string;
 }
