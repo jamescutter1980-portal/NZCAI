@@ -52,4 +52,36 @@ describe("proxy", () => {
     expect(get(`/api/value-chain/report`).status).toBe(401);
     expect(get(`/api/value-chain/submit/${TOKEN}/extra`).status).toBe(401);
   });
+
+  describe("client API keys", () => {
+    const KEY = "nzc_" + "k".repeat(43);
+    const asBasic = (password: string) => `Basic ${Buffer.from(`logicor:${password}`).toString("base64")}`;
+    const method = (m: string, path: string, headers: Record<string, string>) =>
+      proxy(new NextRequest(`https://portal.example.com${path}`, { method: m, headers }));
+
+    it("passes a key through to the client-readable routes, as bearer or Basic password", () => {
+      process.env.PORTAL_BASIC_AUTH = CREDENTIALS;
+      expect(get("/api/assets", { authorization: `Bearer ${KEY}` }).status).toBe(200);
+      expect(get("/api/exports/portfolio-carbon", { authorization: asBasic(KEY) }).status).toBe(200);
+    });
+
+    it("turns a key away from everything else, whether or not a password is set", () => {
+      for (const password of [CREDENTIALS, undefined]) {
+        if (password) process.env.PORTAL_BASIC_AUTH = password;
+        else delete process.env.PORTAL_BASIC_AUTH;
+        const auth = { authorization: `Bearer ${KEY}` };
+        expect(get("/api/exports/secr-summary", auth).status).toBe(403);
+        expect(get("/api/consents", auth).status).toBe(403);
+        expect(get("/assets", auth).status).toBe(403);
+        expect(method("POST", "/api/assets", auth).status).toBe(403);
+        expect(method("DELETE", "/api/assets/a1", auth).status).toBe(403);
+      }
+    });
+
+    it("still treats the portal password as the portal password", () => {
+      process.env.PORTAL_BASIC_AUTH = CREDENTIALS;
+      const res = get("/api/exports/secr-summary", { authorization: `Basic ${Buffer.from(CREDENTIALS).toString("base64")}` });
+      expect(res.status).toBe(200);
+    });
+  });
 });

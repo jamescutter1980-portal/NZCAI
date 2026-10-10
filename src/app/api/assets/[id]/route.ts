@@ -3,16 +3,19 @@ import { AssetNotFoundError, AssetsRepository, assetUpdateSchema } from "@/lib/a
 import { ReadingsRepository } from "@/lib/db/readings-repo";
 import { getDb } from "@/lib/db/sqlite";
 import { getConsentStore, toView } from "@/lib/consent";
+import { assetView, canSeeAsset, resolveAccess } from "@/lib/api-keys";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: Request, { params }: Ctx) {
+export async function GET(req: Request, { params }: Ctx) {
   const { id } = await params;
   const db = getDb();
+  const auth = resolveAccess(req, db);
+  if (!auth.ok) return auth.response;
   const repo = new AssetsRepository(db);
   const asset = repo.get(id);
-  if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!asset || !canSeeAsset(auth.access, asset)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const readings = new ReadingsRepository(db);
   const store = getConsentStore();
   const meters = await Promise.all(
@@ -23,7 +26,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       return { ...m, readings: readings.countReadings(key), latest: readings.latestIntervalStart(key) ?? null, consent: active ? { id: active.id, expiresOn: active.expiresOn } : null, consentStatus: active ? "active" : consents[0]?.effectiveStatus ?? "none" };
     }),
   );
-  return NextResponse.json({ asset, meters, screenings: repo.listScreenings(id), latestScreening: repo.latestScreening(id) ?? null });
+  return NextResponse.json({ asset: assetView(auth.access, asset), meters, screenings: repo.listScreenings(id), latestScreening: repo.latestScreening(id) ?? null });
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {

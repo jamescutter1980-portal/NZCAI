@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { clientMayRead, presentedKey } from "@/lib/api-keys/scope";
 
 /**
  * Optional HTTP Basic Auth for the whole portal. Set PORTAL_BASIC_AUTH to
@@ -6,9 +7,19 @@ import { NextResponse, type NextRequest } from "next/server";
  * through so schedulers do not need the password, and supplier submission
  * links pass through because the token in the path is their credential.
  * Replace with real user accounts before multi-user use.
+ *
+ * A request carrying a client API key goes no further than the read-only
+ * routes in clientMayRead, password or not; those routes verify the key and
+ * filter to the key's client.
  */
 export function proxy(req: NextRequest) {
   const expected = process.env.PORTAL_BASIC_AUTH?.trim();
+
+  if (presentedKey(req.headers.get("authorization"), expected)) {
+    if (clientMayRead(req.method, req.nextUrl.pathname)) return NextResponse.next();
+    return NextResponse.json({ error: "API keys can only read assets, portfolio figures and portfolio exports." }, { status: 403 });
+  }
+
   if (!expected) return NextResponse.next();
 
   const syncToken = process.env.SYNC_TOKEN?.trim();

@@ -473,6 +473,31 @@ const MIGRATIONS: { id: string; sql: string }[] = [
       CREATE INDEX supplier_submission_links_counterparty ON supplier_submission_links(counterparty_id, reporting_year);
     `,
   },
+  {
+    id: "0017_client_api_keys",
+    sql: `
+      CREATE TABLE clients (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      ALTER TABLE assets ADD COLUMN client_id TEXT REFERENCES clients(id) ON DELETE SET NULL;
+      CREATE INDEX assets_client ON assets(client_id);
+      CREATE TABLE api_keys (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+        label TEXT NOT NULL,
+        key_hash TEXT NOT NULL UNIQUE,
+        key_hint TEXT NOT NULL,
+        expires_at TEXT,
+        last_used_at TEXT,
+        revoked_at TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX api_keys_client ON api_keys(client_id);
+    `,
+  },
 ];
 
 export type Db = DatabaseSync;

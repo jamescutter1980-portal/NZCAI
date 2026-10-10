@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { AssetsRepository, assetCreateSchema } from "@/lib/assets";
 import { getDb } from "@/lib/db/sqlite";
+import { assetView, clientScope, resolveAccess } from "@/lib/api-keys";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const repo = new AssetsRepository(getDb());
-  const assets = repo.list().map((a) => ({ ...a, meters: repo.meters(a.id).length, lastScreening: repo.listScreenings(a.id, 1)[0]?.ranAt ?? null }));
+export async function GET(req: Request) {
+  const db = getDb();
+  const auth = resolveAccess(req, db);
+  if (!auth.ok) return auth.response;
+  const repo = new AssetsRepository(db);
+  const assets = repo.list(clientScope(auth.access)).map((a) => ({ ...assetView(auth.access, a), meters: repo.meters(a.id).length, lastScreening: repo.listScreenings(a.id, 1)[0]?.ranAt ?? null }));
   return NextResponse.json({ assets });
 }
 

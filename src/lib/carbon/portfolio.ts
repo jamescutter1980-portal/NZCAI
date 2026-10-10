@@ -115,10 +115,11 @@ export function summariseAsset(asset: AssetRecord, carbon: AssetCarbon, meterCou
   };
 }
 
-export function portfolioReport(db: Db, ctx: OperationContext, period: Period): PortfolioReport {
+/** Pass clientId to roll up one client's portfolio only. */
+export function portfolioReport(db: Db, ctx: OperationContext, period: Period, scope: { clientId?: string } = {}): PortfolioReport {
   const repo = new AssetsRepository(db);
   const now = ctx.now();
-  const assets = repo.list();
+  const assets = repo.list(scope);
   const summaries: AssetSummary[] = [];
   const issues: DataQualityIssue[] = [];
   const factorReferences = new Set<string>();

@@ -5,7 +5,7 @@ import type { ScreeningRun } from "./screening";
 
 interface AssetRow {
   id: string; name: string; uprn: string | null; address: string | null; postcode: string | null; latitude: number | null; longitude: number | null;
-  floor_area_m2: number | null; property_type: string | null; country: string | null; notes: string | null; created_at: string; updated_at: string;
+  floor_area_m2: number | null; property_type: string | null; country: string | null; notes: string | null; client_id: string | null; created_at: string; updated_at: string;
 }
 interface MeterRow {
   asset_id: string; mpxn: string; utility: string; direction: string; label: string | null; supplier_factor_kgco2e_per_kwh: number | null; supplier_factor_evidence: string | null; share: number | null; created_at: string;
@@ -21,8 +21,18 @@ export class AssetNotFoundError extends Error {
 export class AssetsRepository {
   constructor(private readonly db: Db) {}
 
-  list(): AssetRecord[] {
-    return (this.db.prepare("SELECT * FROM assets ORDER BY name").all() as unknown as AssetRow[]).map(fromRow);
+  /** Every asset, or only one client's when clientId is given. */
+  list(filter: { clientId?: string } = {}): AssetRecord[] {
+    const rows = filter.clientId === undefined
+      ? this.db.prepare("SELECT * FROM assets ORDER BY name").all()
+      : this.db.prepare("SELECT * FROM assets WHERE client_id = ? ORDER BY name").all(filter.clientId);
+    return (rows as unknown as AssetRow[]).map(fromRow);
+  }
+
+  /** Puts an asset in a client's portfolio, or takes it out with null. */
+  assignClient(id: string, clientId: string | null, now = new Date()): void {
+    const res = this.db.prepare("UPDATE assets SET client_id = ?, updated_at = ? WHERE id = ?").run(clientId, now.toISOString(), id);
+    if (res.changes === 0) throw new AssetNotFoundError(id);
   }
 
   get(id: string): AssetRecord | undefined {
@@ -130,7 +140,7 @@ function fromRow(r: AssetRow): AssetRecord {
   return {
     id: r.id, name: r.name, uprn: r.uprn ?? undefined, address: r.address ?? undefined, postcode: r.postcode ?? undefined,
     latitude: r.latitude ?? undefined, longitude: r.longitude ?? undefined, floorAreaM2: r.floor_area_m2 ?? undefined,
-    propertyType: r.property_type ?? undefined, country: r.country ?? undefined, notes: r.notes ?? undefined, createdAt: r.created_at, updatedAt: r.updated_at,
+    propertyType: r.property_type ?? undefined, country: r.country ?? undefined, notes: r.notes ?? undefined, clientId: r.client_id ?? undefined, createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
 
