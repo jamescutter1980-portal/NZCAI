@@ -4,6 +4,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 
 `nzcai-mcp` (below) is a separate Python service in the same repository: it exposes the domain calculations to MCP clients.
 
+- `docs/whats-live.md` – plain-English status of every feature, for marketing (keep it current)
 - `docs/data-source-roadmap.md` – data source register, gap review and integration sequence
 - `docs/assets-and-carbon.md` – assets, meter linking, screening profile and carbon method
 - `docs/value-chain.md` – Scope 3 counterparties: the register, the engagement lifecycle, the annual report and ledger asks, allocation and tiers
