@@ -14,12 +14,20 @@ What each status means:
 
 ## Log (newest first)
 
+### 13 October 2026: four NZC Portal apps confirmed live
+
+- **Product:** NZC Portal: EPC and MEES App, ESOS App, SECR App, Energy Policy App
+- **Feature:** EPC and MEES App; ESOS App; SECR App; Energy Policy App
+- **Status:** Live
+- **What a user can do today:** Customers can use all four apps now. A one-line description of what each app lets a user do is still to be confirmed. Until it is, say only that the app is available, and do not claim any specific capability within it.
+- **Limits or caveats:** Limits for each app are still to be confirmed. The "SECR reporting readiness check" listed below is still Coming soon; do not present it as part of the live SECR App.
+
 ### 11 October 2026: status review of everything built so far
 
 - **Product:** NZC Portal and NZC AI (all features below)
 - **Feature:** Status review
-- **Status:** Coming soon, for every feature listed in the table below
-- **What a user can do today:** Nothing yet as a paying customer. The features in the table are built and tested, but neither product has been released to customers.
+- **Status:** Coming soon, for the features listed below as Coming soon
+- **What a user can do today:** None of the features covered by this review can be used by customers yet. They are built and tested, but not released. (This review did not cover the four live NZC Portal apps; see the 13 October entry.)
 - **Limits or caveats:** Do not describe any feature below as available, launched or live until this log moves it to Live. There is no Landlord, Client or Microgeneration app in the portal yet; those names should not be used as if they exist.
 
 ### 10 October 2026: client data feed (API keys)
@@ -68,6 +76,10 @@ What each status means:
 
 | Product | App / area | Feature | Status | Caveats |
 |---|---|---|---|---|
+| NZC Portal | EPC and MEES App | EPC and MEES App | Live | Capabilities to be confirmed; claim availability only |
+| NZC Portal | ESOS App | ESOS App | Live | Capabilities to be confirmed; claim availability only |
+| NZC Portal | SECR App | SECR App | Live | Capabilities to be confirmed; claim availability only |
+| NZC Portal | Energy Policy App | Energy Policy App | Live | Capabilities to be confirmed; claim availability only |
 | NZC Portal | Buildings | Building register with linked meters | Coming soon | Manual setup by the NZC team |
 | NZC Portal | Buildings | Energy and carbon per building (Scope 1 and 2) | Coming soon | UK government emission factors only |
 | NZC Portal | Buildings | One-click environmental screening (flood, ground, radon, air quality, noise and more) | Coming soon | UK only; some sources need licences |
