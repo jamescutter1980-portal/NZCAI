@@ -14,6 +14,14 @@ What each status means:
 
 ## Log (newest first)
 
+### 13 October 2026: EPC and MEES App description confirmed
+
+- **Product:** NZC Portal: EPC and MEES App
+- **Feature:** EPC and MEES App
+- **Status:** Live
+- **What a user can do today:** Landlords can use it to track their buildings' EPC ratings and MEES risk.
+- **Limits or caveats:** Limits are still to be confirmed. Claim only tracking of EPC ratings and MEES risk. Do not claim that the app produces or lodges EPCs, gives MEES compliance advice or registers exemptions unless this log is updated to say so.
+
 ### 13 October 2026: four NZC Portal apps confirmed live
 
 - **Product:** NZC Portal: EPC and MEES App, ESOS App, SECR App, Energy Policy App
@@ -76,7 +84,7 @@ What each status means:
 
 | Product | App / area | Feature | Status | Caveats |
 |---|---|---|---|---|
-| NZC Portal | EPC and MEES App | EPC and MEES App | Live | Capabilities to be confirmed; claim availability only |
+| NZC Portal | EPC and MEES App | Track EPC ratings and MEES risk (for landlords) | Live | Tracking only; other limits to be confirmed |
 | NZC Portal | ESOS App | ESOS App | Live | Capabilities to be confirmed; claim availability only |
 | NZC Portal | SECR App | SECR App | Live | Capabilities to be confirmed; claim availability only |
 | NZC Portal | Energy Policy App | Energy Policy App | Live | Capabilities to be confirmed; claim availability only |
