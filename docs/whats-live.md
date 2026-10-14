@@ -14,6 +14,14 @@ What each status means:
 
 ## Log (newest first)
 
+### 14 October 2026: ESOS App description confirmed
+
+- **Product:** NZC Portal: ESOS App
+- **Feature:** ESOS App
+- **Status:** Live
+- **What a user can do today:** Companies can use it to manage their ESOS compliance.
+- **Limits or caveats:** Limits are still to be confirmed. Say "helps companies manage ESOS compliance", not "makes you compliant". ESOS still needs a registered lead assessor to review and approve the work, and board director sign-off. Do not claim the app replaces the lead assessor, carries out energy audits or submits the notification to the Environment Agency unless this log is updated to say so.
+
 ### 13 October 2026: EPC and MEES App description confirmed
 
 - **Product:** NZC Portal: EPC and MEES App
@@ -85,7 +93,7 @@ What each status means:
 | Product | App / area | Feature | Status | Caveats |
 |---|---|---|---|---|
 | NZC Portal | EPC and MEES App | Track EPC ratings and MEES risk (for landlords) | Live | Tracking only; other limits to be confirmed |
-| NZC Portal | ESOS App | ESOS App | Live | Capabilities to be confirmed; claim availability only |
+| NZC Portal | ESOS App | Manage ESOS compliance (for companies) | Live | Lead assessor and director sign-off still required; other limits to be confirmed |
 | NZC Portal | SECR App | SECR App | Live | Capabilities to be confirmed; claim availability only |
 | NZC Portal | Energy Policy App | Energy Policy App | Live | Capabilities to be confirmed; claim availability only |
 | NZC Portal | Buildings | Building register with linked meters | Coming soon | Manual setup by the NZC team |
