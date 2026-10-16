@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+## No changes to the NZC Portal app without Iain's verification
+
+Do not change the NZC Portal app (its code, pages, data handling, tests,
+dependencies or configuration) unless Iain has verified the change. If a task
+would change the app, stop and ask for Iain's verification first. Updating the
+"what's live" log below is not a change to the app.
+
 ## Keep the "what's live" log current
 
 `docs/whats-live.md` is the record the marketing team reads before claiming any
