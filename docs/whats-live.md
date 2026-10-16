@@ -14,6 +14,22 @@ What each status means:
 
 ## Log (newest first)
 
+### 16 October 2026: Energy Policy App description confirmed
+
+- **Product:** NZC Portal: Energy Policy App
+- **Feature:** Energy Policy App
+- **Status:** Live
+- **What a user can do today:** Companies can use it to create their energy policy.
+- **Limits or caveats:** Limits are still to be confirmed. The company still owns and approves its own policy. Do not claim the policy meets ISO 50001, satisfies ESOS or any other scheme, or is reviewed by an expert unless this log is updated to say so.
+
+### 16 October 2026: SECR App description confirmed
+
+- **Product:** NZC Portal: SECR App
+- **Feature:** SECR App
+- **Status:** Live
+- **What a user can do today:** Companies can use it to prepare their SECR reporting.
+- **Limits or caveats:** Limits are still to be confirmed. Say "helps companies prepare SECR reporting". SECR disclosures go in the company's own annual report, and the directors remain responsible for them. Do not claim the app files the report, makes a company compliant or provides assurance unless this log is updated to say so. The "SECR reporting readiness check" listed below is still Coming soon; do not present it as part of this app.
+
 ### 14 October 2026: ESOS App description confirmed
 
 - **Product:** NZC Portal: ESOS App
@@ -94,8 +110,8 @@ What each status means:
 |---|---|---|---|---|
 | NZC Portal | EPC and MEES App | Track EPC ratings and MEES risk (for landlords) | Live | Tracking only; other limits to be confirmed |
 | NZC Portal | ESOS App | Manage ESOS compliance (for companies) | Live | Lead assessor and director sign-off still required; other limits to be confirmed |
-| NZC Portal | SECR App | SECR App | Live | Capabilities to be confirmed; claim availability only |
-| NZC Portal | Energy Policy App | Energy Policy App | Live | Capabilities to be confirmed; claim availability only |
+| NZC Portal | SECR App | Prepare SECR reporting (for companies) | Live | Preparation only; directors remain responsible; other limits to be confirmed |
+| NZC Portal | Energy Policy App | Create an energy policy (for companies) | Live | Company approves its own policy; no standard or scheme claims; other limits to be confirmed |
 | NZC Portal | Buildings | Building register with linked meters | Coming soon | Manual setup by the NZC team |
 | NZC Portal | Buildings | Energy and carbon per building (Scope 1 and 2) | Coming soon | UK government emission factors only |
 | NZC Portal | Buildings | One-click environmental screening (flood, ground, radon, air quality, noise and more) | Coming soon | UK only; some sources need licences |
