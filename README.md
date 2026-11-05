@@ -7,6 +7,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 - `docs/whats-live.md` – plain-English status of every feature, for marketing (keep it current)
 - `docs/data-source-roadmap.md` – data source register, gap review and integration sequence
 - `docs/assets-and-carbon.md` – assets, meter linking, screening profile and carbon method
+- `docs/nzcbs-alignment-gap-analysis.md` – UK NZCBS V1 Rev 1: requirement-by-requirement gap analysis, the submission-pack target and the phased build plan (awaiting Iain's verification)
 - `docs/value-chain.md` – Scope 3 counterparties: the register, the engagement lifecycle, the annual report and ledger asks, allocation and tiers
 - `docs/api-implementation-plan.md` – the plan to close the remaining API gaps, phased by what actually blocks each
 - `docs/api-gap-analysis.md` – what is integrated, what changed versus the catalogue, what could not be built, verification plan
