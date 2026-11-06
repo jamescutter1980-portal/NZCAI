@@ -1,62 +1,74 @@
-import { defineIntegration, makeProvenance, type HealthResult, type OperationContext } from "../framework";
-import { bundledReferenceDir, deploymentReferenceDir, findLimit, listReferenceVersions, loadNzcbsReference, type LimitRow, type NzcbsReference } from "@/lib/nzcbs/reference";
-import { STANDARD_VERSION_LABEL } from "@/lib/nzcbs/constants";
-import type { AreaBasis, LimitTable } from "@/lib/nzcbs/types";
+import { defineIntegration, makeProvenance, type OperationContext } from "../framework";
+import { csvToRecords, missingColumns, parseNumericCell } from "../_shared/csv";
+import { fileVersion, listReferenceFiles, loadReferenceFile, referenceDir, referenceHealth, type ReferenceFile } from "../_shared/reference-data";
 
 /**
- * UK Net Zero Carbon Buildings Standard (UK NZCBS) limits and targets.
+ * UK Net Zero Carbon Buildings Standard (UK NZCBS) limits and targets, loaded
+ * from user-supplied versioned files data/reference/uk-nzcbs/<version>.csv.
  *
- * The Rev 1 tables ship with the repository under reference/uk-nzcbs/<version>/
- * (converted from the submission proforma by scripts/nzcbs/convert-proforma-tables.py
- * and checksummed). A later revision can be dropped into
- * data/reference/uk-nzcbs/<version>/ and is picked up by name. The rule engine
- * in src/lib/nzcbs reads the same files; this integration only exposes them on
- * the sources page.
+ * Columns: version, sector, metric, year, limit_value, unit, notes.
+ * Metrics follow the Standard's headings, e.g. operational_energy_eui,
+ * embodied_upfront, embodied_lifecycle, onsite_renewables, refrigerant_leakage.
  *
- * A reference table, not a compliance determination: conformity needs the
- * Standard's own method and an approved verifier (sections 4.3, 6 and 7).
+ * This is a reference table, not a calculation API. Keep it separate from
+ * CRREM pathways: the Standard sets limits per sector and year of completion
+ * or reporting; CRREM models intensity trajectories.
  */
 
 const ID = "uk-nzcbs";
-export const LINKS = [{ label: "UK Net Zero Carbon Buildings Standard", url: "https://www.nzcbuildings.co.uk/" }];
-export const COLUMNS = ["table", "sector", "subsector", "scope", "area_basis", "year", "value", "unit", "status", "note"];
+const FILE_PATTERN = /^([A-Za-z0-9][A-Za-z0-9._-]*)\.csv$/;
+const REQUIRED = ["version", "sector", "metric", "year", "limit_value", "unit", "notes"];
 
-const TABLES: { value: LimitTable; label: string }[] = [
-  { value: "OE-1", label: "OE-1 Energy use intensity, New Buildings" },
-  { value: "OE-2", label: "OE-2 Energy use intensity, Existing Buildings, one-go route" },
-  { value: "OE-3", label: "OE-3 Energy use intensity, Existing Buildings, stepped route" },
-  { value: "OE-4", label: "OE-4 Space heating, New Buildings" },
-  { value: "EC-1", label: "EC-1 Upfront carbon, New Works" },
-  { value: "EC-2", label: "EC-2 Upfront carbon, Retrofit Works" },
-  { value: "EC-3", label: "EC-3 Upfront carbon, Reportable Works" },
-];
-
-function rowOut(r: LimitRow) {
-  return { table: r.table, sector: r.sector, subsector: r.subsector, scope: r.scope, area_basis: r.areaBasis, year: r.year, value: r.value, unit: r.unit, status: r.status, note: r.note };
+export interface LimitRow {
+  version: string;
+  sector: string;
+  metric: string;
+  year: number | null;
+  limit_value: number | null;
+  availability: "available" | "unavailable";
+  unit: string;
+  notes: string;
 }
 
-function notLoaded(ctx: OperationContext, requested?: string) {
-  const loaded = listReferenceVersions(ctx.env).map((v) => v.version).join(", ") || "none";
-  return requested
-    ? `UK NZCBS version ${requested} is not loaded (loaded: ${loaded}). Supply it as ${deploymentReferenceDir(ctx.env)}/${requested}/ with its manifest.`
-    : `No UK NZCBS reference tables found in ${bundledReferenceDir(ctx.env)} or ${deploymentReferenceDir(ctx.env)}.`;
+export interface VersionIndex {
+  version: string;
+  file: ReferenceFile;
+  rows: LimitRow[];
+  sectors: string[];
+  metrics: string[];
 }
 
-function versionOf(ref: NzcbsReference): string {
-  return `${ref.version} (${ref.manifest.standard}); manifest ${ref.manifest.converted_on}`;
-}
+export const COLUMNS = ["version", "sector", "metric", "year", "limit_value", "availability", "unit", "notes"];
 
-async function health(ctx: OperationContext): Promise<HealthResult> {
-  const started = Date.now();
-  try {
-    const versions = listReferenceVersions(ctx.env);
-    if (versions.length === 0) return { ok: false, detail: notLoaded(ctx), latencyMs: Date.now() - started };
-    const ref = loadNzcbsReference(ctx.env);
-    return { ok: true, detail: `${versions.length} version(s): ${versions.map((v) => `${v.version}${v.bundled ? " (bundled)" : ""}`).join(", ")}; ${ref?.limits.length ?? 0} limit rows, checksums verified.`, latencyMs: Date.now() - started };
-  } catch (e) {
-    return { ok: false, detail: e instanceof Error ? e.message : String(e), latencyMs: Date.now() - started };
+export function parseLimits(text: string, version: string, file: ReferenceFile): VersionIndex {
+  const table = csvToRecords(text, { isHeader: (row) => row.map((c) => c.toLowerCase()).includes("limit_value") });
+  const missing = missingColumns(table.header, REQUIRED);
+  if (missing.length) throw new Error(`${file.name}: missing columns ${missing.join(", ")}`);
+  const rows: LimitRow[] = [];
+  for (const r of table.records) {
+    if (!r.sector.trim() || !r.metric.trim()) continue;
+    const value = parseNumericCell(r.limit_value);
+    rows.push({
+      version: r.version.trim() || version,
+      sector: r.sector.trim(),
+      metric: r.metric.trim(),
+      year: parseNumericCell(r.year),
+      limit_value: value,
+      availability: value === null ? "unavailable" : "available",
+      unit: r.unit.trim(),
+      notes: r.notes,
+    });
   }
+  return { version, file, rows, sectors: [...new Set(rows.map((x) => x.sector))].sort(), metrics: [...new Set(rows.map((x) => x.metric))].sort() };
 }
+
+export function loadVersions(ctx: OperationContext): VersionIndex[] {
+  return listReferenceFiles(ctx.env, ID, FILE_PATTERN)
+    .map((file) => loadReferenceFile(file, (text) => parseLimits(text, FILE_PATTERN.exec(file.name)![1], file)))
+    .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+}
+
+export const LINKS = [{ label: "UK Net Zero Carbon Buildings Standard", url: "https://www.nzcbuildings.co.uk/" }];
 
 export const definition = defineIntegration({
   id: ID,
@@ -64,80 +76,78 @@ export const definition = defineIntegration({
   group: "pathways",
   access: "download",
   territory: "UK",
-  description: `Limits and targets of the UK Net Zero Carbon Buildings Standard, ${STANDARD_VERSION_LABEL}: upfront carbon (Tables EC-1 to EC-3), energy use intensity (OE-1 to OE-3), space heating (OE-4), on-site renewables targets (Annex A3), the refrigerant GWP limit (A4) and the PV upfront carbon limit (EC-5), by sector, subsector, scope and Date of Commencement year.`,
+  description: "Sector limits and targets from the UK Net Zero Carbon Buildings Standard (operational energy intensity, upfront and life-cycle embodied carbon, on-site renewables and related metrics) by sector and year, loaded from a versioned local reference file.",
   docsUrl: "https://www.nzcbuildings.co.uk/",
-  attribution: "Limits and targets: UK Net Zero Carbon Buildings Standard, Version 1, Rev 1 (April 2026), © Net Zero Carbon Buildings Standard Ltd. Converted from the published submission proforma; verify against the current publication.",
+  attribution: "Limits and targets: UK Net Zero Carbon Buildings Standard, version as stated. © UK NZCBS. Transcribed from the published Standard; verify against the current publication.",
   licence: "restricted",
-  envVars: [{ name: "REFERENCE_DATA_DIR", required: false, description: "Directory holding reference files (default data/reference). A later revision of the tables is read from <dir>/uk-nzcbs/<version>/ alongside the bundled reference/uk-nzcbs/<version>/." }],
+  envVars: [{ name: "REFERENCE_DATA_DIR", required: false, description: "Directory holding reference files (default data/reference). Limits are read from <dir>/uk-nzcbs/<version>.csv." }],
   status: "built_unverified",
   notes: [
-    "The Rev 1 tables are bundled with the repository and checksummed; a table that does not match its manifest is refused. Sample rows were checked by hand against Annex A (see reference/uk-nzcbs/v1r1/README.md).",
-    "The submission proforma prints a PV upfront carbon limit of 750 kgCO2e/kWp where the Standard's text prints 1000; both are recorded and the engine uses the Standard's figure until NZCBS Ltd confirms.",
-    "Limits vary by Date of Commencement year (4.2.6), building type (Table 4), works type (Table 5), route (5.2.7.1) and, for Offices, the GIA or NIA basis (Table 10). Mixed-Use buildings weight them with Equations 1a and 1b (4.2.5.2); the rule engine in src/lib/nzcbs does that.",
-    "A reference table, not a compliance determination. Conformity needs the Standard's method, submission through the proforma and an approved verifier; before verification a building may only be described as targeting verification (7.4.1).",
-    "Keep separate from CRREM: the Standard sets limits per sector and year; CRREM models decarbonisation trajectories.",
+    "Supply the file: transcribe the limit and target tables from the published Standard (technical document and its annexes) into data/reference/uk-nzcbs/<version>.csv (e.g. v1.0.csv) with columns version, sector, metric, year, limit_value, unit, notes. Leave limit_value blank where the Standard sets no limit for that sector/metric/year (blank is unavailable, never 0). Add a new file for each Standard version; do not edit an existing one.",
+    "Suggested metric keys: operational_energy_eui (kWh/m2/yr), embodied_upfront (kgCO2e/m2, A1-A5), embodied_lifecycle (kgCO2e/m2, A-C), onsite_renewables (kWh/m2/yr), refrigerant_leakage, space_heating_demand, peak_demand. Keep the Standard's own sector names and floor-area basis in the notes column.",
+    "This is a reference table, not a calculation API. Compliance with the Standard needs the full method (metering, verification, reporting) and, for certification, an approved verifier.",
+    "Keep separate from CRREM: the Standard sets limits per sector and year; CRREM models decarbonisation trajectories. Do not mix the two in one chart without labelling both sources.",
+    "Rows are loaded verbatim from the published tables and carry basis 'measured' (as published); the values themselves are standard limits, not measured building performance.",
   ],
-  healthCheck: health,
+  healthCheck: referenceHealth(ID, FILE_PATTERN, "<version>.csv"),
   operations: [
     {
       id: "limits",
       label: "Limits for a sector and year",
-      description: "The limit from one Annex A table for a sector, subsector, scope and Date of Commencement year, with the rows considered.",
+      description: "All limits and targets for one sector, optionally filtered by year and metric.",
       params: [
-        { name: "table", label: "Table", type: "select", required: true, options: TABLES.map((t) => ({ value: t.value, label: t.label })), default: "OE-2" },
-        { name: "sector", label: "Sector", type: "string", required: true, placeholder: "Offices", help: "Table 6 sector name." },
-        { name: "subsector", label: "Subsector", type: "string", placeholder: "General", help: "As the table names it, e.g. General, Supermarket, Flats." },
-        { name: "scope", label: "Scope", type: "string", placeholder: "Whole building", help: "Offices and Storage: Whole building, Shell & Core + Cat A, Shell & Core only, Landlord-only, Tenant-only, Cat A + Cat B, Cat B." },
-        { name: "area_basis", label: "Area basis", type: "select", options: [{ value: "GIA", label: "GIA" }, { value: "NIA", label: "NIA (Offices)" }], help: "Offices may meet either (Table 10)." },
-        { name: "year", label: "Date of Commencement year", type: "integer", required: true, min: 2000, max: 2100, placeholder: "2026", help: "Clamped to the published range 2025 to 2050." },
-        { name: "version", label: "Reference version", type: "string", placeholder: "v1r1", help: "Defaults to the newest loaded." },
+        { name: "version", label: "Standard version", type: "string", placeholder: "v1.0", help: "File name without .csv. Defaults to the newest loaded version." },
+        { name: "sector", label: "Sector", type: "string", required: true, placeholder: "Office", help: "As named in the file (case-insensitive substring match)." },
+        { name: "year", label: "Year", type: "integer", min: 2000, max: 2100, placeholder: "2030", help: "Optional. Matches rows for that year; rows with no year always match." },
+        { name: "metric", label: "Metric", type: "string", placeholder: "operational_energy_eui", help: "Optional substring filter on the metric key." },
       ],
       async run(params, ctx) {
+        const versions = loadVersions(ctx);
         const requested = params.version ? String(params.version) : undefined;
-        const ref = loadNzcbsReference(ctx.env, requested);
-        if (!ref) return { summary: notLoaded(ctx, requested), columns: COLUMNS, rows: [], provenance: makeProvenance(definition, ctx, { dataset: "limits", basis: "unavailable" }), links: LINKS };
-        const r = findLimit(ref, { table: params.table as LimitTable, sector: String(params.sector), subsector: params.subsector ? String(params.subsector) : undefined, scope: params.scope ? String(params.scope) : undefined, areaBasis: params.area_basis ? (String(params.area_basis) as AreaBasis) : undefined, year: Number(params.year) });
-        const rows = (r.row ? [r.row] : r.candidates).map(rowOut);
-        const version = versionOf(ref);
-        if (r.status === "limit") {
-          return { summary: `${params.table} ${r.year}, ${r.row!.sector}${r.row!.subsector ? ` / ${r.row!.subsector}` : ""}${r.row!.scope ? ` / ${r.row!.scope}` : ""}: ${r.value} ${r.unit}.`, columns: COLUMNS, rows, provenance: makeProvenance(definition, ctx, { dataset: "limits", basis: "measured", version }), warnings: [...r.notes, "A limit, not a determination: the building's own limit may be a weighted figure (4.2.5.2) and depends on its classification."], links: LINKS };
+        const idx = requested ? versions.find((v) => v.version === requested) : versions[0];
+        if (!idx) {
+          const loaded = versions.map((v) => v.version).join(", ") || "none";
+          return { summary: requested ? `NZCBS version ${requested} is not loaded (loaded: ${loaded}). Save it as ${requested}.csv in ${referenceDir(ctx.env, ID)}.` : `No NZCBS limit files loaded in ${referenceDir(ctx.env, ID)}.`, columns: COLUMNS, rows: [], provenance: makeProvenance(definition, ctx, { dataset: "limits", basis: "unavailable" }), links: LINKS };
         }
-        const basis = r.status === "no_limit" || r.status === "not_applicable" || r.status === "deferred" ? "not_applicable" : "unavailable";
-        return { summary: `${params.table} ${r.year}, ${params.sector}: ${r.status.replace(/_/g, " ")}. ${r.notes.join(" ")}`, columns: COLUMNS, rows, provenance: makeProvenance(definition, ctx, { dataset: "limits", basis, version }), warnings: r.notes, links: LINKS };
-      },
-    },
-    {
-      id: "renewables_targets",
-      label: "On-site renewables targets and other limits",
-      description: "Annex A3 targets by region, the A4 refrigerant GWP limit and the PV upfront carbon limit.",
-      params: [{ name: "version", label: "Reference version", type: "string", placeholder: "v1r1" }],
-      async run(params, ctx) {
-        const requested = params.version ? String(params.version) : undefined;
-        const ref = loadNzcbsReference(ctx.env, requested);
-        if (!ref) return { summary: notLoaded(ctx, requested), columns: ["key", "value", "unit", "note"], rows: [], provenance: makeProvenance(definition, ctx, { dataset: "other-limits", basis: "unavailable" }), links: LINKS };
-        const rows = [
-          ...ref.renewablesTargets.map((t) => ({ key: `renewables target: ${t.region}, ${t.buildingGroup === "all_other" ? "all other building types" : "Single Family Homes and single-storey Storage and Distribution"}`, value: t.value, unit: t.unit, note: "Annex A3; reducible under 5.3.5.1 (Equation 5, reused systems, kWp floors)." })),
-          ...Object.entries(ref.otherLimits).map(([key, v]) => ({ key, value: v.value, unit: v.unit, note: `${v.source}. ${v.note}` })),
-        ];
-        return { summary: `${ref.renewablesTargets.length} renewables targets and ${Object.keys(ref.otherLimits).length} other limits in ${ref.version}.`, columns: ["key", "value", "unit", "note"], rows, provenance: makeProvenance(definition, ctx, { dataset: "other-limits", basis: "measured", version: versionOf(ref) }), links: LINKS };
+        const sector = String(params.sector).trim().toLowerCase();
+        const year = params.year as number | undefined;
+        const metric = params.metric ? String(params.metric).trim().toLowerCase() : undefined;
+        const rows = idx.rows
+          .filter((r) => r.sector.toLowerCase().includes(sector))
+          .filter((r) => year === undefined || r.year === null || r.year === year)
+          .filter((r) => !metric || r.metric.toLowerCase().includes(metric))
+          .slice(0, 100);
+        const version = fileVersion(idx.file, idx.version);
+        if (rows.length === 0) {
+          return { summary: `No NZCBS ${idx.version} limits for sector "${params.sector}"${year ? ` in ${year}` : ""}${metric ? ` (metric ${metric})` : ""}. Sectors loaded: ${idx.sectors.join(", ") || "none"}.`, columns: COLUMNS, rows: [], provenance: makeProvenance(definition, ctx, { dataset: "limits", basis: "unavailable", version }), links: LINKS };
+        }
+        const unavailable = rows.filter((r) => r.availability === "unavailable").length;
+        return {
+          summary: `${rows.length} NZCBS ${idx.version} limit(s) for ${rows[0].sector}${year ? ` in ${year}` : ""}: ${rows.filter((r) => r.limit_value !== null).slice(0, 3).map((r) => `${r.metric} ${r.limit_value} ${r.unit}`).join("; ")}${rows.length > 3 ? "; ..." : ""}.`,
+          columns: COLUMNS,
+          rows: rows.map((r) => ({ ...r })),
+          provenance: makeProvenance(definition, ctx, { dataset: "limits", basis: "measured", version }),
+          warnings: [
+            ...(unavailable ? [`${unavailable} row(s) have no limit set in the Standard for this sector/year; shown as unavailable, not 0.`] : []),
+            "Limits are transcribed from the published Standard; verify against the current publication before use in a compliance statement.",
+          ],
+          links: LINKS,
+        };
       },
     },
     {
       id: "versions",
       label: "Loaded Standard versions",
-      description: "Which reference versions are loaded, where from, with sectors and row counts.",
+      description: "Which limit files are loaded, with sectors, metrics and file modification time.",
       params: [],
       async run(_params, ctx) {
-        const versions = listReferenceVersions(ctx.env);
-        const rows = versions.map((v) => {
-          const ref = loadNzcbsReference(ctx.env, v.version);
-          return { version: v.version, source: v.bundled ? "bundled" : "deployment", dir: v.dir, standard: ref?.manifest.standard ?? "", proforma: ref?.manifest.proforma ?? "", rows: ref?.limits.length ?? 0, sectors: ref?.sectors.join(", ") ?? "", converted_on: ref?.manifest.converted_on ?? "" };
-        });
+        const versions = loadVersions(ctx);
+        const rows = versions.map((v) => ({ version: v.version, file: v.file.name, rows: v.rows.length, sectors: v.sectors.join(", "), metrics: v.metrics.join(", "), modified_at: v.file.modifiedAt, size_bytes: v.file.sizeBytes }));
         return {
-          summary: rows.length ? `${rows.length} UK NZCBS version(s) loaded: ${rows.map((r) => `${r.version} (${r.source})`).join(", ")}.` : notLoaded(ctx),
-          columns: ["version", "source", "dir", "standard", "proforma", "rows", "sectors", "converted_on"],
+          summary: rows.length ? `${rows.length} NZCBS version(s) loaded: ${rows.map((r) => r.version).join(", ")}.` : `No NZCBS limit files loaded in ${referenceDir(ctx.env, ID)}.`,
+          columns: ["version", "file", "rows", "sectors", "metrics", "modified_at", "size_bytes"],
           rows,
-          provenance: makeProvenance(definition, ctx, { dataset: "versions", basis: rows.length ? "measured" : "unavailable" }),
+          provenance: makeProvenance(definition, ctx, { dataset: "limits", basis: rows.length ? "measured" : "unavailable" }),
           links: LINKS,
         };
       },

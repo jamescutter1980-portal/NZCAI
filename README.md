@@ -30,7 +30,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Scope 3 analysis | `/value-chain/trend`, `/value-chain/completeness`, `/value-chain/hotspots`, `/value-chain/targets`, `/value-chain/submit/[token]` | Headline versus like-for-like change with baseline and restatements, all fifteen categories assessed with justified exclusions, spend-based hotspot screen that never feeds a reported total, targets against a straight-line trajectory with an abatement pipeline never netted off, and one-time hashed links for counterparties to submit their own report for review |
 | Transport | `/transport`, `/api/transport/...`, `/api/factors` | Fleet, grey fleet, travel and commuting against picked DESNZ rows; DVLA and MOT vehicle lookup |
 | Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents, value chain |
-| Assessment | `/api/assets/[id]/assessment`, `src/lib/nzcbs` | CRREM misalignment year and a pre-verification UK NZCBS V1 Rev 1 assessment: classification, limit selection (Equations 1a, 1b, 5) and every section 5 aspect from a section-numbered rule engine over the bundled Rev 1 tables |
+| Assessment | `/api/assets/[id]/assessment` | CRREM misalignment year and UK NZCBS indicative check |
 | Readiness | `/readiness`, `/api/readiness` | 24 checks graded blocker, gap or advisory before a return is filed |
 | Portfolio | `/portfolio`, `/api/portfolio` | Roll-up by calendar, financial or rolling-12-month period with data-quality flags |
 | Assets | `/assets`, `/assets/[id]`, `/api/assets/...`, `pnpm carbon:intensity` | Meters per building, Scope 1 and 2 with factor provenance, screening across 14 point-based sources |
@@ -105,7 +105,7 @@ src/nzcai_mcp/
   config.py        environment -> Config, the only place env vars are read
   reference.py     the DESNZ flat file loader (the portal's file, same rules)
   pathways.py      the CRREM pathway loader (likewise)
-  uk_nzcbs.py      the UK NZCBS limit table loader (likewise)
+  nzcbs/           UK NZCBS V1 Rev 1: bundled limit tables, classification, limit selection, aspects
   auth.py          bearer token middleware for the HTTP transport
   server.py        the only module that imports the MCP SDK
   tools/           pure calculations: no MCP, no I/O, unit tested directly
@@ -158,8 +158,10 @@ configuration. See `.env.example` for the full set of variables.
 | `search_emission_factors` | Rows of the loaded DESNZ flat file with their ids, so a fuel or activity can point at a published row |
 | `crrem_misalignment_year` | First year an asset exceeds a CRREM pathway, the year-by-year projection, cumulative excess, and the caveats that apply |
 | `nzcbs_limits` | The UK NZCBS V1 Rev 1 limit for an Annex A table, sector, subsector, scope, area basis and Date of Commencement year, from the bundled tables; "no limit", "deferred" and ambiguous queries are reported, never read as zero or guessed |
-| `nzcbs_check` | Pre-verification comparison of supplied building values (EUI, PUE, upfront carbon, renewables generation per footprint, refrigerant GWP, space heating) against the limits the Standard selects for that building type, route and year — pass, fail, or not_assessable |
-| `list_reference_datasets` | Which DESNZ years, CRREM versions and NZCBS reference versions are loaded, and what each covers |
+| `nzcbs_check` | Quick pre-verification comparison of supplied values (EUI, PUE, upfront carbon, renewables per footprint, refrigerant GWP, PV carbon) against the limits the Standard selects for a single-sector building |
+| `nzcbs_classify` | Full classification and limit selection for a building profile: building and works types, sector or Mixed-Use, reporting periods, the weighted operational energy limit (Equations 1a and 1b), embodied limits per works, space heating, renewables target and GWP limit |
+| `nzcbs_assess` | Pre-verification assessment of every section 5 aspect (5.1 to 5.10) from the profile and the ORP figures: section-numbered findings, pass or fail against the selected limit, reporting metrics, and not_assessable where inputs are missing |
+| `list_reference_datasets` | Which DESNZ years, CRREM versions and UK NZCBS reference versions are loaded, and what each covers |
 
 ### Emission factors
 
@@ -235,35 +237,39 @@ Results always carry a reminder to check that the floor-area basis, scope and gr
 factor assumptions match the pathway's, because a misalignment year computed on a
 different basis is worse than none.
 
-### UK NZCBS limits
+### UK NZCBS limits and assessment
 
 The Version 1, Rev 1 tables ship with the repository in `reference/uk-nzcbs/v1r1/`
 (converted from the published submission proforma by
 `scripts/nzcbs/convert-proforma-tables.py`, checksummed, and hand-checked against
 Annex A as recorded in that folder's README). The wheel bundles the same folder, and
 a later revision dropped into `<REFERENCE_DATA_DIR>/uk-nzcbs/<version>/` is picked up
-by name. The portal's rule engine (`src/lib/nzcbs`) and this layer's
-`nzcai_mcp/nzcbs.py` read the same files and run the same test vectors
-(`tests/nzcbs/vectors.json`), so the two never disagree on a limit.
+by name. The rule engine lives in `nzcai_mcp/nzcbs/` and runs the shared test
+vectors in `tests/nzcbs/vectors.json`, every number of which is read from the
+Standard's text.
+
+This is NZC AI's engine. The portal's own `uk-nzcbs` integration and indicative check
+are unchanged by it and still read a per-deployment CSV; moving the portal onto the
+engine is a later phase (see `docs/nzcbs-alignment-gap-analysis.md`).
 
 Like CRREM, the Standard is the publisher's material: results carry its attribution
 and the reminder to verify against the current publication.
 
-**`nzcbs_check` is a pre-verification comparison, not a compliance determination.**
-Conformity needs the Standard's own metering, submission and verification process
-(sections 4.3, 6 and 7); before that a building may only be described as "targeting
-verification to the UK Net Zero Carbon Buildings Standard" (7.4.1). The tool says so
-on every result.
+**None of these tools makes a compliance determination.** Conformity needs the
+Standard's own metering, submission and verification process (sections 4.3, 6 and
+7); before that a building may only be described as "targeting verification to the
+UK Net Zero Carbon Buildings Standard" (7.4.1). Every result says so.
 
-The rule that makes it worth having, shared with the portal's assessment:
+The rule that makes the engine worth having:
 
 > No limit, benchmark or asset value is invented.
 
-The tool selects the table from the building type, route and Date of Commencement
-year as section 5.2.7.1 and 5.1.6 direct, then compares the values you pass. A
-metric is reported `not_assessable`, **never a pass**, when the Standard sets no
-limit for it, when no value was supplied, or when the query is ambiguous (Offices
-without a subsector resolves to three different figures and is reported as such).
+The tools select the table from the building type, route and Date of Commencement
+year as sections 5.2.7.1 and 5.1.6 direct, weight it with Equations 1a and 1b for
+mixed buildings, then compare the figures you pass. A metric is reported
+`not_assessable`, **never a pass**, when the Standard sets no limit for it, when no
+value was supplied, or when the query is ambiguous (Offices without a subsector
+resolves to three different figures and is reported as such).
 
 ### Authentication
 

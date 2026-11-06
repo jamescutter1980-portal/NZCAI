@@ -156,10 +156,12 @@ def bundled_reference_dir() -> Path:
     override = os.environ.get("NZCBS_BUNDLED_REFERENCE_DIR", "").strip()
     if override:
         return Path(override) / INTEGRATION_ID
-    packaged = Path(__file__).resolve().parent / "bundled_reference" / INTEGRATION_ID
+    package_root = Path(__file__).resolve().parents[1]  # nzcai_mcp/
+    packaged = package_root / "bundled_reference" / INTEGRATION_ID
     if packaged.is_dir():
         return packaged
-    return Path(__file__).resolve().parents[2] / "reference" / INTEGRATION_ID
+    # Running from source: <repo>/src/nzcai_mcp/nzcbs/reference.py -> <repo>/reference
+    return package_root.parents[1] / "reference" / INTEGRATION_ID
 
 
 _VERSION_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")

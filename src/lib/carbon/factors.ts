@@ -32,10 +32,6 @@ export const DESNZ_SELECTORS = {
   electricityGenerated: { level1: "UK electricity", level2: "Electricity generated", uom: "kWh", ghgUnit: "kg CO2e" },
   electricityTandD: { level1: "Transmission and distribution", level2: "T&D- UK electricity", uom: "kWh", ghgUnit: "kg CO2e" },
   naturalGasGross: { level1: "Fuels", level2: "Gaseous fuels", level3: "Natural gas", uom: "kWh (Gross CV)", ghgUnit: "kg CO2e" },
-  /** Well-to-tank lines the UK NZCBS adds to generation and T&D (5.2.3.4) and to fuels (5.2.3.3). Not part of SECR or GHG Protocol Scope 2. */
-  wttElectricityGeneration: { level1: "WTT- UK electricity", level2: "WTT- UK electricity (generation)", uom: "kWh", ghgUnit: "kg CO2e" },
-  wttElectricityTandD: { level1: "WTT- UK electricity", level2: "WTT- UK electricity (T&D)", uom: "kWh", ghgUnit: "kg CO2e" },
-  wttNaturalGasGross: { level1: "WTT- fuels", level2: "WTT- gaseous fuels", level3: "Natural gas", uom: "kWh (Gross CV)", ghgUnit: "kg CO2e" },
 } as const;
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").replace(/[–—]/g, "-").trim();

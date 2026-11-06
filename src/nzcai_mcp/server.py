@@ -41,6 +41,9 @@ from .tools.carbon import CalculationError
 from .nzcbs import (
     ATTRIBUTION as NZCBS_ATTRIBUTION,
     NzcbsDataError,
+    NzcbsInputError,
+    assess_building as nzcbs_assess_building,
+    classify_building_profile as nzcbs_classify_profile,
     bundled_reference_dir as nzcbs_bundled_dir,
     deployment_reference_dir as nzcbs_dir,
     find_limit as nzcbs_find_limit,
@@ -56,7 +59,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # withholds the text of any other exception from the client and reports a bare
 # "Error executing tool", so these are re-raised as ToolError to keep the detail --
 # the model needs to read "available: example-uk" to correct its own argument.
-EXPECTED_FAILURES = (CalculationError, ReferenceDataError, PathwayDataError, NzcbsDataError)
+EXPECTED_FAILURES = (CalculationError, ReferenceDataError, PathwayDataError, NzcbsDataError, NzcbsInputError)
 
 
 def _report_expected_failures(fn: F) -> F:
@@ -68,6 +71,38 @@ def _report_expected_failures(fn: F) -> F:
             raise ToolError(str(exc)) from exc
 
     return wrapper  # type: ignore[return-value]
+
+PROFILE_HELP = (
+    "Building profile. Required: rpep (ISO date, 4.2.4.1), giaM2, niaM2, areas (list of "
+    "{sector: Table 6 name or null for unclassifiable, subsector, scope, niaM2, giaM2, "
+    "newArea, additionalUse, submetered, outOfHoursUse, particularUse, carPark}). "
+    "Optional: previousRpep, footprintM2, singleStorey, region (Annex A3 name), works "
+    "(list of {id, type or facts, commencementDate, completionDate, embodied: "
+    "{upfrontKgCo2e, upfrontCatBKgCo2e, giaM2, lifeCycleKgCo2ePerM2, pvKwp, "
+    "pvUpfrontKgCo2e, scope}}), previouslyClassifiedNewBuilding, operationalRoute "
+    "('one-go' or 'stepped'), areaBasis ('GIA' or 'NIA' for Offices), "
+    "intendedToBeOccupied, omitMinorSectors."
+)
+INPUTS_HELP = (
+    "Figures for the ORP, each optional: energy {supplies: [{kind, fuel, kwh, measurement, "
+    "excluded, additionalUse, dataCentre, factorKgCo2ePerKwh}], gridFactors: {generation, "
+    "transmissionAndDistribution, wttGeneration, wttTransmissionAndDistribution, reference}, "
+    "occupancy: {totalGiaM2, unoccupiableGiaM2, occupiedGiaM2, operationalOnFirstDay}, "
+    "itEnergyKwh, conditionedAreaM2, bedrooms, commonPartsAreaM2}; renewables {systems: "
+    "[{technology, capacityKw, generatedKwh, exportedKwh, reused}], constraints: "
+    "{unconstrainedAreaM2, reasons, evidence}, feasibleCapacityKwp, capAtElectricityLimit}; "
+    "water {sources: [{source, m3, supplyFactorKgCo2ePerM3}], meteredDisposalM3, "
+    "onsiteDisposalM3, treatmentFactorKgCo2ePerM3, residents, pupils}; fossilFuels "
+    "{systems: [{description, fuel, exception, biofuel}]}; demand {giaM2, "
+    "resolutionMinutes, intervalKwh}; districtNetworks {gridFactorKgCo2ePerKwh, networks: "
+    "[...]}; spaceHeating {heatMetersInstalled, heatingDeliveredKwh, coolingDeliveredKwh, "
+    "peakHeatingKw, peakCoolingKw, occupiedGiaM2}; refrigerants {systems: [{id, systemType, "
+    "refrigerant, gwp, chargeKg, installDate, addedKg, startChargeKg, endChargeKg, "
+    "exception, leakDetectionFitted}]}; offsets {inScopeEmissionsKgCo2e, credits: [...], "
+    "procurement: [...]}. Supply kinds: grid_electricity, natural_gas, bulk_fuel, biofuel, "
+    "district_heat, district_cooling, chp_electricity, chp_heat, "
+    "onsite_renewable_electricity_used, onsite_renewable_heat."
+)
 
 INSTRUCTIONS = """\
 Tools for UK/EU building energy and carbon analysis.
@@ -362,6 +397,52 @@ def build_server(config: Config | None = None) -> MCPServer:
             deployment_dir=str(nzcbs_dir(config.reference_dir)),
             bundled_dir=str(nzcbs_bundled_dir()),
         )
+
+    @server.tool(
+        title="UK NZCBS classify building",
+        description=(
+            "Classify a building under UK NZCBS V1 Rev 1 and select every limit that "
+            "applies, without measured figures: building type (Table 4), works types "
+            "(Table 5), sector or Mixed-Use with the 10% and 30% rules (4.2.2), Table 9 "
+            "Additional Uses, reporting periods (4.2.4), the operational energy limit year "
+            "and table (5.2.7.1) weighted by Equations 1a and 1b, embodied carbon limits per "
+            "works (5.1.6), the space heating limit (OE-4), the Annex A3 renewables target "
+            "and the A4 GWP limit. The profile is the same object nzcbs_assess takes."
+        ),
+    )
+    @_report_expected_failures
+    def nzcbs_classify(
+        profile: Annotated[dict[str, Any], Field(description=PROFILE_HELP)],
+        version: Annotated[str | None, Field(default=None, description="Reference version. Defaults to the newest loaded.")] = None,
+    ) -> dict[str, Any]:
+        index = load_nzcbs(config.reference_dir, version)
+        if index is None:
+            raise NzcbsDataError(f"No UK NZCBS reference tables found in {nzcbs_bundled_dir()} or {nzcbs_dir(config.reference_dir)}.")
+        return nzcbs_classify_profile(index, profile)
+
+    @server.tool(
+        title="UK NZCBS assess building",
+        description=(
+            "Pre-verification assessment of a building against every aspect of UK NZCBS "
+            "V1 Rev 1 (sections 5.1 to 5.10) from a building profile and the measured or "
+            "assessed figures for its Operational Reporting Period. Returns, per aspect, "
+            "section-numbered findings: pass or fail against the selected limit, reporting "
+            "metrics, and not_assessable where the inputs cannot give a value. Nothing is "
+            "invented and nothing missing is passed. Not a verified claim: until verified "
+            "by an approved verifier the building is only 'targeting verification to the "
+            "UK Net Zero Carbon Buildings Standard' (7.4.1)."
+        ),
+    )
+    @_report_expected_failures
+    def nzcbs_assess(
+        profile: Annotated[dict[str, Any], Field(description=PROFILE_HELP)],
+        inputs: Annotated[dict[str, Any] | None, Field(default=None, description=INPUTS_HELP)] = None,
+        version: Annotated[str | None, Field(default=None, description="Reference version. Defaults to the newest loaded.")] = None,
+    ) -> dict[str, Any]:
+        index = load_nzcbs(config.reference_dir, version)
+        if index is None:
+            raise NzcbsDataError(f"No UK NZCBS reference tables found in {nzcbs_bundled_dir()} or {nzcbs_dir(config.reference_dir)}.")
+        return nzcbs_assess_building(index, profile, inputs or {})
 
     @server.tool(
         title="List reference datasets",

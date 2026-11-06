@@ -260,7 +260,7 @@ Generated from the registry. "First thing to verify live" is the first note on e
 | Source | Access | Territory | Status | Operations | Keys or files | First thing to verify live |
 |---|---|---|---|---|---|---|
 | [CRREM decarbonisation pathways](../src/lib/integrations/crrem-pathways) | download | Global (UK pathways included) | Built, unverified | Pathway series; Misalignment year for an asset; Loaded CRREM versions | REFERENCE_DATA_DIR? | Supply the file: export the pathway tables from the CRREM tool or the published pathway workbook into data/reference/crrem-pathways/<version |
-| [UK Net Zero Carbon Buildings Standard limits](../src/lib/integrations/uk-nzcbs) | download | UK | Built, unverified | Limits for a sector and year; Loaded Standard versions | REFERENCE_DATA_DIR? | Rev 1 tables bundled in reference/uk-nzcbs/v1r1 (checksummed, hand-checked against Annex A); later revisions go in data/reference/uk-nzcbs/<version>/ |
+| [UK Net Zero Carbon Buildings Standard limits](../src/lib/integrations/uk-nzcbs) | download | UK | Built, unverified | Limits for a sector and year; Loaded Standard versions | REFERENCE_DATA_DIR? | Supply the file: transcribe the limit and target tables from the published Standard (technical document and its annexes) into data/reference |
 
 ## 6. Verification log
 

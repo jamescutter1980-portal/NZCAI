@@ -15,7 +15,8 @@ Rules that apply to every file:
 | `desnz-conversion-factors` | `data/reference/desnz-conversion-factors/` | `<year>.csv` (e.g. `2026.csv`) | `ID, Scope, Level 1, Level 2, Level 3, Level 4, Column Text, UOM, GHG/Unit, GHG Conversion Factor <year>` |
 | `aib-residual-mix` | `data/reference/aib-residual-mix/` | `residual-mix.csv` | `data_year, country_code, country, residual_mix_gco2_per_kwh, direct_co2_only, publication, publication_date, source_url` |
 | `crrem-pathways` | `data/reference/crrem-pathways/` | `<version>.csv` (e.g. `v2.04.csv`) | `version, country_code, property_type, pathway_type, scenario, year, value, unit` |
-| `uk-nzcbs` | bundled `reference/uk-nzcbs/<version>/`; later revisions in `data/reference/uk-nzcbs/<version>/` | a folder per version with `manifest.json` | `limits.csv`, `renewables_targets.csv`, `other_limits.csv`, `reduction_curves.csv`, `menus.csv` |
+| `uk-nzcbs` (portal) | `data/reference/uk-nzcbs/` | `<version>.csv` (e.g. `v1.0.csv`) | `version, sector, metric, year, limit_value, unit, notes` |
+| `uk-nzcbs` (NZC AI) | bundled `reference/uk-nzcbs/<version>/`; later revisions in `data/reference/uk-nzcbs/<version>/` | a folder per version with `manifest.json` | `limits.csv`, `renewables_targets.csv`, `other_limits.csv`, `reduction_curves.csv`, `menus.csv` |
 
 ## desnz-conversion-factors
 
@@ -71,15 +72,29 @@ Pathway values carry basis `modelled`. The misalignment operation reports the fi
 
 ## uk-nzcbs
 
-Source: UK Net Zero Carbon Buildings Standard, Version 1, Rev 1 (April 2026), https://www.nzcbuildings.co.uk/. Unlike the other reference sets, the current tables are **bundled with the repository** in `reference/uk-nzcbs/v1r1/` (and inside the MCP wheel), converted from the published submission proforma by `scripts/nzcbs/convert-proforma-tables.py` and checksummed in `manifest.json`. Nothing needs supplying per deployment. That folder's `README.md` records the hand check against Annex A and the known discrepancies (the PV upfront carbon limit differs between the Standard's text and the proforma).
+Source: UK Net Zero Carbon Buildings Standard, https://www.nzcbuildings.co.uk/. Transcribe the limit and target tables from the published Standard into `<version>.csv` (e.g. `v1.0.csv`):
 
-To load a later revision of the Standard without a code change:
+| Column | Values |
+|---|---|
+| `version` | Standard version (`v1.0`) |
+| `sector` | Sector name as in the Standard |
+| `metric` | Key such as `operational_energy_eui`, `embodied_upfront`, `embodied_lifecycle`, `onsite_renewables`, `refrigerant_leakage`, `space_heating_demand` |
+| `year` | Year the limit applies (completion or reporting year); blank if not year-specific |
+| `limit_value` | The limit; blank where the Standard sets none |
+| `unit` | `kWh/m2/yr`, `kgCO2e/m2`, ... |
+| `notes` | Floor-area basis, scope, table reference |
 
-1. Extract the revised proforma's limit sheets to CSV in the layout the converter expects (one file per table, as in the skill's `data/` folder).
+That per-deployment CSV is what the **portal's** `uk-nzcbs` integration and its indicative check still read; it is unchanged for now.
+
+**NZC AI** (the MCP layer) reads a different, complete set: the Version 1, Rev 1 tables **bundled with the repository** in `reference/uk-nzcbs/v1r1/` (and inside the MCP wheel), converted from the published submission proforma by `scripts/nzcbs/convert-proforma-tables.py` and checksummed in `manifest.json`. Nothing needs supplying per deployment. That folder's `README.md` records the hand check against Annex A and the known discrepancies (the PV upfront carbon limit differs between the Standard's text and the proforma).
+
+To give NZC AI a later revision of the Standard without a code change:
+
+1. Extract the revised proforma's limit sheets to CSV in the layout the converter expects (one file per table, as in the `nzcbs-standard` skill's `data/` folder).
 2. Run `python3 scripts/nzcbs/convert-proforma-tables.py <extracted-dir> data/reference/uk-nzcbs/<version>/`, naming the version after the revision (for example `v1r2`).
 3. Check a sample of rows against the revision's Annex A and record it in a README in that folder.
 
-Both loaders list bundled and deployment versions together, newest name first; a deployment folder with the same name as a bundled one wins. A file that does not match its manifest checksum is refused.
+The loader lists bundled and deployment versions together, newest name first; a deployment folder with the same name as a bundled one wins. A file that does not match its manifest checksum is refused.
 
 This is a reference table, not a calculation API, and is kept separate from CRREM.
 
