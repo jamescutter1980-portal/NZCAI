@@ -30,7 +30,7 @@ Net zero carbon and ESG data portal. Next.js 16, TypeScript, zod, vitest.
 | Scope 3 analysis | `/value-chain/trend`, `/value-chain/completeness`, `/value-chain/hotspots`, `/value-chain/targets`, `/value-chain/submit/[token]` | Headline versus like-for-like change with baseline and restatements, all fifteen categories assessed with justified exclusions, spend-based hotspot screen that never feeds a reported total, targets against a straight-line trajectory with an abatement pipeline never netted off, and one-time hashed links for counterparties to submit their own report for review |
 | Transport | `/transport`, `/api/transport/...`, `/api/factors` | Fleet, grey fleet, travel and commuting against picked DESNZ rows; DVLA and MOT vehicle lookup |
 | Exports | `/api/exports/[kind]` | Readings, asset carbon, portfolio energy and carbon, SECR summary, consents, value chain |
-| Assessment | `/api/assets/[id]/assessment` | CRREM misalignment year and UK NZCBS indicative check |
+| Assessment | `/api/assets/[id]/assessment`, `src/lib/nzcbs` | CRREM misalignment year and a pre-verification UK NZCBS V1 Rev 1 assessment: classification, limit selection (Equations 1a, 1b, 5) and every section 5 aspect from a section-numbered rule engine over the bundled Rev 1 tables |
 | Readiness | `/readiness`, `/api/readiness` | 24 checks graded blocker, gap or advisory before a return is filed |
 | Portfolio | `/portfolio`, `/api/portfolio` | Roll-up by calendar, financial or rolling-12-month period with data-quality flags |
 | Assets | `/assets`, `/assets/[id]`, `/api/assets/...`, `pnpm carbon:intensity` | Meters per building, Scope 1 and 2 with factor provenance, screening across 14 point-based sources |
@@ -157,9 +157,9 @@ configuration. See `.env.example` for the full set of variables.
 | `calculate_carbon_intensity` | EUI (kWh/m²), emissions by fuel, and dual location-based / market-based Scope 2 intensities, from the DESNZ factors for the reporting year |
 | `search_emission_factors` | Rows of the loaded DESNZ flat file with their ids, so a fuel or activity can point at a published row |
 | `crrem_misalignment_year` | First year an asset exceeds a CRREM pathway, the year-by-year projection, cumulative excess, and the caveats that apply |
-| `nzcbs_limits` | UK NZCBS limits for a sector, optionally by year and metric, with rows the Standard sets no limit for flagged as unavailable |
-| `nzcbs_check` | Indicative comparison of supplied building values against those limits — pass, fail, or not_assessable |
-| `list_reference_datasets` | Which DESNZ years, CRREM versions and NZCBS versions are loaded, and what each covers |
+| `nzcbs_limits` | The UK NZCBS V1 Rev 1 limit for an Annex A table, sector, subsector, scope, area basis and Date of Commencement year, from the bundled tables; "no limit", "deferred" and ambiguous queries are reported, never read as zero or guessed |
+| `nzcbs_check` | Pre-verification comparison of supplied building values (EUI, PUE, upfront carbon, renewables generation per footprint, refrigerant GWP, space heating) against the limits the Standard selects for that building type, route and year — pass, fail, or not_assessable |
+| `list_reference_datasets` | Which DESNZ years, CRREM versions and NZCBS reference versions are loaded, and what each covers |
 
 ### Emission factors
 
@@ -237,28 +237,33 @@ different basis is worse than none.
 
 ### UK NZCBS limits
 
-Limits load from `data/reference/uk-nzcbs/<version>.csv`, transcribed from the
-published Standard into the same files the portal's `uk-nzcbs` integration reads.
-Like CRREM, the Standard is licensed material: results carry its attribution and
-the reminder to verify against the current publication.
+The Version 1, Rev 1 tables ship with the repository in `reference/uk-nzcbs/v1r1/`
+(converted from the published submission proforma by
+`scripts/nzcbs/convert-proforma-tables.py`, checksummed, and hand-checked against
+Annex A as recorded in that folder's README). The wheel bundles the same folder, and
+a later revision dropped into `<REFERENCE_DATA_DIR>/uk-nzcbs/<version>/` is picked up
+by name. The portal's rule engine (`src/lib/nzcbs`) and this layer's
+`nzcai_mcp/nzcbs.py` read the same files and run the same test vectors
+(`tests/nzcbs/vectors.json`), so the two never disagree on a limit.
 
-**`nzcbs_check` is indicative, not a compliance determination.** The Standard has
-its own metering, verification and reporting method, and certification needs an
-approved verifier. The tool says so on every result.
+Like CRREM, the Standard is the publisher's material: results carry its attribution
+and the reminder to verify against the current publication.
 
-The rule that makes it worth having, inherited from the portal's assessment:
+**`nzcbs_check` is a pre-verification comparison, not a compliance determination.**
+Conformity needs the Standard's own metering, submission and verification process
+(sections 4.3, 6 and 7); before that a building may only be described as "targeting
+verification to the UK Net Zero Carbon Buildings Standard" (7.4.1). The tool says so
+on every result.
+
+The rule that makes it worth having, shared with the portal's assessment:
 
 > No limit, benchmark or asset value is invented.
 
-So a metric is reported `not_assessable`, **never a pass**, when either the file
-sets no limit for it — a blank cell is the Standard setting none, not a limit of
-zero — or you supplied no value for it. The portal computes operational energy
-intensity from meter readings; this layer has no meters, so you pass the values you
-have and everything else comes back not assessable with the reason.
-
-Sector names match exactly first, then on a single unambiguous partial. Two
-candidates is no match, because guessing which sector's limits apply is worse than
-saying it cannot be determined.
+The tool selects the table from the building type, route and Date of Commencement
+year as section 5.2.7.1 and 5.1.6 direct, then compares the values you pass. A
+metric is reported `not_assessable`, **never a pass**, when the Standard sets no
+limit for it, when no value was supplied, or when the query is ambiguous (Offices
+without a subsector resolves to three different figures and is reported as such).
 
 ### Authentication
 

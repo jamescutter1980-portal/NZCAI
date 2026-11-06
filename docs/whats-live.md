@@ -14,6 +14,14 @@ What each status means:
 
 ## Log (newest first)
 
+### 5 November 2026: UK NZCBS assessment rebuilt on the published Version 1, Rev 1 limits
+
+- **Product:** NZC Portal (Buildings) and NZC AI (AI tools)
+- **Feature:** UK Net Zero Carbon Buildings Standard pre-verification assessment
+- **Status:** Coming soon
+- **What a user can do today:** Nothing new is released. Once released, a user will be able to see how a building's measured energy compares with the Standard's own published limits for its sector, building type and year, with every other requirement of the Standard listed as met, not met, or not yet assessable from the data held. The AI assistant will answer limit questions from the same published tables.
+- **Limits or caveats:** This is not a verified claim. Verification is carried out by an approved verifier through NZCBS Ltd. Until a building is verified it may only be described as "targeting verification to the UK Net Zero Carbon Buildings Standard"; never say "aligned", "compliant" or "certified". Most requirements need data the portal does not yet hold per building (floor areas on both bases, footprint, region, works, occupancy, on-site generation, water, fuel and refrigerant systems), so most lines will read "not assessable" at first.
+
 ### 16 October 2026: Energy Policy App description confirmed
 
 - **Product:** NZC Portal: Energy Policy App
@@ -117,7 +125,7 @@ What each status means:
 | NZC Portal | Buildings | One-click environmental screening (flood, ground, radon, air quality, noise and more) | Coming soon | UK only; some sources need licences |
 | NZC Portal | Buildings | Location lookup for any postcode | Coming soon | UK only; nothing is saved |
 | NZC Portal | Buildings | CRREM stranding year | Coming soon | Indicative; needs licensed CRREM data |
-| NZC Portal | Buildings | UK NZCBS indicative check | Coming soon | Indicative only, not certification |
+| NZC Portal | Buildings | UK NZCBS pre-verification assessment against the published Version 1, Rev 1 limits | Coming soon | Not a verified claim; say "targeting verification" only; most requirements need data not yet held per building |
 | NZC Portal | Energy data | Smart-meter data (half-hourly electricity and gas) | Coming soon | UK only; occupier consent required |
 | NZC Portal | Energy data | Consent records (record, verify, renew, withdraw) | Coming soon | |
 | NZC Portal | Energy data | Scheduled meter data sync, gaps and expiry warnings | Coming soon | |
@@ -140,4 +148,4 @@ What each status means:
 | NZC AI | AI tools | Carbon intensity calculation | Coming soon | UK government factors |
 | NZC AI | AI tools | Emission factor lookup | Coming soon | UK government factors |
 | NZC AI | AI tools | CRREM stranding year | Coming soon | Needs licensed CRREM data |
-| NZC AI | AI tools | UK NZCBS limits and indicative check | Coming soon | Indicative only, not certification |
+| NZC AI | AI tools | UK NZCBS published limits lookup and pre-verification check | Coming soon | Not a verified claim; say "targeting verification" only |

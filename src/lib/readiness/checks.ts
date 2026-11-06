@@ -4,6 +4,7 @@ import { checkConfigured } from "@/lib/integrations/framework";
 import { getIntegration } from "@/lib/integrations/registry";
 import { listIntegrations } from "@/lib/integrations/service";
 import { listReferenceFiles } from "@/lib/integrations/_shared/reference-data";
+import { listReferenceVersions as listNzcbsVersions } from "@/lib/nzcbs/reference";
 import { DESNZ_SELECTORS, desnzFactor, residualMixFactor } from "@/lib/carbon/factors";
 import type { Period } from "@/lib/carbon/period";
 import { portfolioReport, type PortfolioReport } from "@/lib/carbon/portfolio";
@@ -237,8 +238,25 @@ function referenceChecks(ctx: OperationContext, period: Period): ReadinessCheck[
     desnz,
     aib,
     refFile("crrem-pathways", "CRREM pathways", "reference.crrem_pathways", "the CRREM stranding check on an asset"),
-    refFile("uk-nzcbs", "UK NZCBS limits", "reference.uk_nzcbs", "the UK NZCBS check on an asset"),
+    nzcbsReference(),
   ];
+
+  function nzcbsReference(): ReadinessCheck {
+    const versions = listNzcbsVersions(ctx.env);
+    return {
+      id: "reference.uk_nzcbs",
+      group: "Reference data",
+      title: "UK NZCBS limits",
+      severity: "advisory",
+      status: versions.length > 0 ? "ok" : "attention",
+      count: versions.length,
+      detail:
+        versions.length > 0
+          ? `${versions.length} version${versions.length === 1 ? "" : "s"} loaded (${versions.map((v) => `${v.version}${v.bundled ? ", bundled" : ""}`).join("; ")}), so the UK NZCBS assessment on an asset can run.`
+          : "No UK NZCBS reference tables are loaded (neither bundled nor in data/reference/uk-nzcbs/), so the UK NZCBS assessment on an asset cannot run. This limits analysis; it does not affect the figures in the return.",
+      fix: FIX.sources,
+    };
+  }
 }
 
 /* ------------------------------------------------------------------ */

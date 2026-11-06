@@ -1,190 +1,212 @@
-"""UK NZCBS limit loading and the indicative check."""
+"""UK NZCBS V1 Rev 1: the bundled tables, the shared vectors and the check tool."""
+
+import json
 
 import pytest
 
-from nzcai_mcp.tools.nzcbs import check, is_operational_energy_metric
-from nzcai_mcp.uk_nzcbs import (
+from nzcai_mcp import nzcbs as ref_mod
+from nzcai_mcp.nzcbs import (
     NzcbsDataError,
-    available_versions,
-    load_version,
-    parse_limits,
+    clamp_limit_year,
+    contains_prohibited_claim,
+    demand_statistics,
+    equation_1a,
+    equation_1b,
+    equation_5,
+    find_limit,
+    grid_factor,
+    leakage_kg,
+    list_versions,
+    load_reference,
+    network_carbon_factor,
+    network_energy_use,
+    network_limit,
+    occupancy_rate,
+    other_limit,
+    refrigerant_charge_kgco2e,
+    renewables_target,
+    works_type,
 )
+from nzcai_mcp.tools.nzcbs import check
 
-from fixtures.nzcbs import LIMITS, write_limits
+from fixtures.nzcbs import VECTORS, tampered_copy
 
-
-@pytest.fixture
-def index(tmp_path):
-    write_limits(tmp_path)
-    return load_version(tmp_path)
+vectors = json.loads(VECTORS.read_text(encoding="utf-8"))
 
 
-def run_check(index, sector, year, asset_values=None, **kwargs):
-    """Selection mirrors the server's wiring, so the pure check stays testable."""
-    matched = index.match_sector(sector) if index else None
-    for_sector = [r for r in index.rows if r.sector == matched] if (index and matched) else []
-    for_year = [r for r in for_sector if r.year is None or r.year == year]
-    return check(
-        version=index.version if index else None,
-        file_name=index.file_name if index else None,
-        sector=matched,
-        year=year,
-        limit_rows=[{"metric": r.metric, "limit_value": r.limit_value, "unit": r.unit,
-                     "year": r.year, "notes": r.notes} for r in for_year],
-        asset_values=asset_values or {},
-        loaded_versions=[index.version] if index else [],
-        loaded_sectors=index.sectors if index else [],
-        sector_years=[r.year for r in for_sector if r.year is not None],
-        reference_dir="/data/reference/uk-nzcbs",
-        requested_sector=sector,
-        **kwargs,
+@pytest.fixture(scope="module")
+def ref(tmp_path_factory):
+    # An empty deployment directory: only the bundled tables are visible.
+    return load_reference(tmp_path_factory.mktemp("empty"), vectors["version"])
+
+
+# --------------------------------------------------------------------------- #
+# loading                                                                      #
+# --------------------------------------------------------------------------- #
+
+
+def test_bundled_tables_load_with_checksums(ref):
+    assert ref is not None
+    assert ref.version == "v1r1" and ref.bundled
+    assert len(ref.limits) == ref.manifest["files"]["limits.csv"]["rows"]
+    assert len(ref.sectors) == 13
+    assert ref.menus["Which works type are you reporting?"] == ["New Works", "Retrofit Works", "Reportable Works", "no works to be reported"]
+
+
+def test_unknown_version_is_none_not_an_error(tmp_path):
+    assert load_reference(tmp_path, "v0.0") is None
+    assert [v.version for v in list_versions(tmp_path)] == ["v1r1"]
+
+
+def test_edited_table_is_refused(tmp_path):
+    tampered_copy(tmp_path)
+    ref_mod.clear_cache()
+    assert [v.version for v in list_versions(tmp_path)] == ["v9test", "v1r1"]
+    with pytest.raises(NzcbsDataError, match="does not match its manifest checksum"):
+        load_reference(tmp_path, "v9test")
+
+
+# --------------------------------------------------------------------------- #
+# the shared vectors                                                           #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("case", vectors["limits"], ids=lambda c: c["note"][:70])
+def test_annex_a_lookups(ref, case):
+    res = find_limit(
+        ref, table=case["table"], sector=case["sector"], year=case["year"],
+        subsector=case.get("subsector"), scope=case.get("scope"), area_basis=case.get("areaBasis"),
     )
+    assert res.status == case["expect"]["status"]
+    assert res.value == case["expect"]["value"]
+    if "unit" in case["expect"]:
+        assert res.unit == case["expect"]["unit"]
+    if "year" in case["expect"]:
+        assert res.year == case["expect"]["year"]
 
 
-# --- parsing --------------------------------------------------------------
+def test_annex_a3_and_a4(ref):
+    for v in vectors["renewables_targets"]:
+        assert renewables_target(ref, v["region"], v["group"]).value == v["expect"]
+    for key, value in vectors["other_limits"].items():
+        assert other_limit(ref, key).value == value
 
 
-def test_rows_without_a_sector_or_metric_are_skipped(index):
-    assert len(index.rows) == 5
-    assert index.sectors == ["Office", "Retail"]
-    assert "embodied_upfront" in index.metrics
+def test_equations():
+    for v in vectors["equation_1a"]:
+        assert equation_1a([(p["share"], p["limit"]) for p in v["parts"]]) == v["expect"]
+    for v in vectors["equation_1b"]:
+        assert equation_1b(v["newShare"], v["ln"], v["le"]) == v["expect"]
+    for v in vectors["equation_5"]:
+        assert equation_5(v["target"], v["unconstrainedAreaM2"], v["footprintM2"]) == v["expect"]
+    for v in vectors["equation_4"]:
+        assert occupancy_rate(v["totalGiaM2"], v["unoccupiableGiaM2"], v["occupiedGiaM2"]) == v["expect"]
+    for v in vectors["grid_factor"]:
+        assert grid_factor(v["generation"], v["transmissionAndDistribution"], v["wttGeneration"], v["wttTransmissionAndDistribution"]) == v["expect"]
+    for v in vectors["dhcn_limits"]:
+        assert abs(network_limit(v["service"], v["existing"], v["gridFactor"])["value"] - v["expect"]) <= v["tolerance"]
+    for v in vectors["equation_2"]:
+        assert network_energy_use(v["generationInputKwh"], v["distributionInputKwh"], v["meteredKwh"], v["systemDeliveredKwh"]) == v["expectEnergyUseKwh"]
+        assert network_carbon_factor(v["generationKgCo2e"], v["distributionKgCo2e"], v["systemDeliveredKwh"]) == v["expectFactor"]
+    for v in vectors["refrigerants"]:
+        assert refrigerant_charge_kgco2e(v["systems"]) == v["expectChargeKgCo2e"]
+        for e in v["expectLeakage"]:
+            system = next(s for s in v["systems"] if s["id"] == e["id"])
+            assert leakage_kg(system) == (e["kg"], e["equation"])
+        kyoto = sum((leakage_kg(s)[0] or 0) * s["gwp"] for s in v["systems"])
+        assert round(kyoto, 1) == v["expectKyotoLeakageKgCo2e"]
+        assert [s["id"] for s in v["systems"] if s["gwp"] > vectors["other_limits"]["refrigerant_gwp_limit"]] == v["expectGwpFails"]
+    for v in vectors["demand"]:
+        s = demand_statistics(v["intervalKwh"], v["resolutionMinutes"])
+        assert s["top_ten_kw"] == v["expectTopTenKw"]
+        assert s["p50_kw"] == v["expectP50Kw"] and s["p1_kw"] == v["expectP1Kw"]
+    for v in vectors["works_type"]:
+        assert works_type(v["facts"]) == v["expect"]
+    for t in vectors["prohibited_claims"]["prohibited"]:
+        assert contains_prohibited_claim(t), t
+    for t in vectors["prohibited_claims"]["permitted"]:
+        assert not contains_prohibited_claim(t), t
 
 
-def test_blank_limit_is_unavailable_not_zero(index):
-    row = next(r for r in index.rows if r.metric == "onsite_renewables")
-    assert row.limit_value is None
-    assert row.availability == "unavailable"
+def test_year_clamp():
+    assert clamp_limit_year(2019) == 2025
+    assert clamp_limit_year(2060) == 2050
+    assert clamp_limit_year(2031) == 2031
 
 
-def test_row_without_a_year_applies_to_every_year(index):
-    row = next(r for r in index.rows if r.metric == "onsite_renewables")
-    assert row.year is None
+# --------------------------------------------------------------------------- #
+# the check tool                                                               #
+# --------------------------------------------------------------------------- #
 
 
-def test_missing_columns_reported():
-    with pytest.raises(NzcbsDataError, match="missing columns"):
-        parse_limits("version,sector,limit_value\nv1,Office,1\n", "v1", "v1.csv")
+def run_check(ref, **kw):
+    defaults = dict(sector="Offices", year=2025, asset_values={}, loaded_versions=["v1r1"], requested_version=None, deployment_dir="/data/reference/uk-nzcbs", bundled_dir="/app/reference/uk-nzcbs")
+    defaults.update(kw)
+    return check(ref, **defaults)
 
 
-def test_file_without_a_recognisable_header():
-    with pytest.raises(NzcbsDataError, match="no header row"):
-        parse_limits("a,b,c\n1,2,3\n", "v1", "v1.csv")
+def test_existing_office_one_go_uses_oe2_2025(ref):
+    r = run_check(ref, subsector="General", scope="Whole building", asset_values={"eui": 95})
+    assert r["assessable"] and r["table"] == "OE-2" and r["limit_year"] == 2025
+    eui = r["rows"][0]
+    assert eui["status"] == "pass" and eui["limit_value"] == 105 and eui["gap"] == -10
+    assert r["counts"] == {"pass": 1, "fail": 0, "not_assessable": 0}
+    assert "targeting verification" in r["summary"]
+    assert "aligned" not in r["summary"].lower()
 
 
-def test_no_files_loaded(tmp_path):
-    assert load_version(tmp_path) is None
-    assert available_versions(tmp_path) == []
+def test_new_building_and_stepped_route_select_their_tables(ref):
+    new = run_check(ref, building_type="New Building", subsector="General", scope="Whole building", asset_values={"eui": 95})
+    assert new["table"] == "OE-1" and new["rows"][0]["limit_value"] == 90 and new["rows"][0]["status"] == "fail"
+    stepped = run_check(ref, route="stepped", subsector="General", scope="Whole building", year=2026, asset_values={"eui": 120})
+    assert stepped["table"] == "OE-3"
+    assert stepped["rows"][0]["year"] == 2026
+    assert any("Retrofit Plan" in w for w in stepped["warnings"])
 
 
-def test_newest_version_default(tmp_path):
-    for version in ("v1.0", "v1.10", "v1.9"):
-        write_limits(tmp_path, version=version)
-    assert available_versions(tmp_path)[0] == "v1.10"
+def test_nia_basis_for_offices(ref):
+    r = run_check(ref, subsector="General", scope="Whole building", area_basis="NIA", asset_values={"eui": 120})
+    assert r["rows"][0]["limit_value"] == 131 and r["rows"][0]["unit"] == "kWh/m2NIA/yr"
 
 
-# --- sector matching ------------------------------------------------------
+def test_ambiguous_office_is_not_assessable_not_guessed(ref):
+    r = run_check(ref, asset_values={"eui": 95})
+    assert r["rows"][0]["status"] == "not_assessable"
+    assert "more than one limit fits" in r["rows"][0]["reason"]
 
 
-def test_exact_sector_match(index):
-    assert index.match_sector("Office") == "Office"
+def test_missing_value_is_not_assessable_never_a_pass(ref):
+    r = run_check(ref, subsector="General", scope="Whole building")
+    assert r["rows"][0] ["status"] == "not_assessable" and r["rows"][0]["limit_value"] == 105
+    assert any("never as a pass" in w for w in r["warnings"])
 
 
-def test_partial_sector_match_when_unambiguous(index):
-    assert index.match_sector("offi") == "Office"
-    assert index.match_sector("Office Building") == "Office"
-
-
-def test_ambiguous_sector_is_no_match(tmp_path):
-    """Two candidates is no match: the portal will not guess which sector applies."""
-    text = LIMITS + "\nvTEST,Office Park,operational_energy_eui,2025,150.5,kWh/m2/yr,SYNTHETIC"
-    write_limits(tmp_path, text=text)
-    assert load_version(tmp_path).match_sector("Office") == "Office"  # exact still wins
-    assert load_version(tmp_path).match_sector("Offic") is None       # two partials
-
-
-# --- the check ------------------------------------------------------------
-
-
-def test_supplied_value_under_the_limit_passes(index):
-    result = run_check(index, "Office", 2025, {"operational_energy_eui": 95.0})
-    row = next(r for r in result["rows"] if r["metric"] == "operational_energy_eui")
-    assert row["status"] == "pass"
-    assert row["gap"] == pytest.approx(95.0 - 111.1)
-    assert result["assessable"] is True
-
-
-def test_supplied_value_over_the_limit_fails(index):
-    result = run_check(index, "Office", 2025, {"operational_energy_eui": 130.0})
-    row = next(r for r in result["rows"] if r["metric"] == "operational_energy_eui")
-    assert row["status"] == "fail"
-    assert row["gap"] == pytest.approx(130.0 - 111.1)
-    assert "above the limit" in result["summary"]
-
-
-def test_metric_with_no_limit_is_not_assessable_never_a_pass(index):
-    """A blank limit is the Standard setting none, not a limit of zero."""
-    result = run_check(index, "Office", 2025, {"onsite_renewables": 0.0})
-    row = next(r for r in result["rows"] if r["metric"] == "onsite_renewables")
-    assert row["status"] == "not_assessable"
-    assert row["gap"] is None
-    assert "not a limit of zero" in row["reason"]
-
-
-def test_metric_with_no_supplied_value_is_not_assessable(index):
-    result = run_check(index, "Office", 2025, {"operational_energy_eui": 95.0})
-    row = next(r for r in result["rows"] if r["metric"] == "embodied_upfront")
-    assert row["status"] == "not_assessable"
-    assert "No value was supplied" in row["reason"]
-    assert "whole life carbon assessment" in row["reason"]
-
-
-def test_metric_keys_are_matched_loosely(index):
-    result = run_check(index, "Office", 2025, {"Operational Energy EUI": 95.0})
-    row = next(r for r in result["rows"] if r["metric"] == "operational_energy_eui")
-    assert row["status"] == "pass"
-
-
-def test_counts_and_disclaimer(index):
-    result = run_check(index, "Office", 2025, {"operational_energy_eui": 95.0})
-    assert result["counts"] == {"pass": 1, "fail": 0, "not_assessable": 2}
-    assert "not a verified NZCBS assessment" in result["disclaimer"]
-    assert any("never as a pass" in w for w in result["warnings"])
-
-
-def test_undated_row_included_for_any_year(index):
-    result = run_check(index, "Office", 2030, {"operational_energy_eui": 50.0})
-    metrics = {r["metric"] for r in result["rows"]}
-    # The 2030 EUI row plus the undated on-site renewables row; not the 2025 rows.
-    assert metrics == {"operational_energy_eui", "onsite_renewables"}
-
-
-def test_no_limit_table_is_reported_not_raised():
-    result = check(
-        version=None, file_name=None, sector=None, year=2025, limit_rows=[],
-        asset_values={}, loaded_versions=[], loaded_sectors=[], sector_years=[],
-        reference_dir="/data/reference/uk-nzcbs", requested_sector="Office",
+def test_other_metrics(ref):
+    r = run_check(
+        ref, subsector="General", scope="Whole building", works_type="Retrofit Works", region="C. South England",
+        asset_values={"eui": 95, "upfront_carbon": 400, "renewables_per_footprint": 50, "refrigerant_gwp": 2088, "pv_upfront_carbon_per_kwp": 900, "mystery": 1},
     )
-    assert result["assessable"] is False
-    assert "no limit table loaded" in result["summary"]
-    assert "nothing to check against" in result["reasons"][0]
+    by = {row["metric"]: row for row in r["rows"]}
+    ec2_2025_offices = next(x for x in ref.limits if x.table == "EC-2" and x.sector == "Offices" and x.subsector == "General" and x.scope == "Whole building" and x.year == 2025)
+    assert by["Upfront carbon (Retrofit Works)"]["limit_value"] == ec2_2025_offices.value
+    assert by["Annual on-site renewable electricity generation per m2 footprint"] ["status"] == "pass"
+    assert by["Annual on-site renewable electricity generation per m2 footprint"]["limit_value"] == 45
+    assert by["GWP of refrigerant"]["status"] == "fail" and by["GWP of refrigerant"]["limit_value"] == 677
+    assert by["PV upfront carbon per kWp"]["status"] == "pass" and "proforma prints 750" in by["PV upfront carbon per kWp"]["reason"]
+    assert by["mystery"]["status"] == "not_assessable"
 
 
-def test_unknown_sector_is_reported_with_what_is_loaded(index):
-    result = run_check(index, "Datacentre", 2025)
-    assert result["assessable"] is False
-    assert "Sectors loaded: Office, Retail" in result["reasons"][0]
+def test_space_heating_only_for_new_homes(ref):
+    flats = run_check(ref, sector="Homes", subsector="Flats", building_type="New Building", asset_values={"space_heating": 12})
+    sh = next(row for row in flats["rows"] if row["metric"].startswith("Annual space heating"))
+    assert sh["status"] == "pass" and sh["limit_value"] == 15
+    existing = run_check(ref, sector="Homes", subsector="Flats", asset_values={"space_heating": 12})
+    sh2 = next(row for row in existing["rows"] if row["metric"].startswith("Annual space heating"))
+    assert sh2["status"] == "not_assessable"
 
 
-def test_year_with_no_rows_lists_the_years_that_exist(index):
-    result = run_check(index, "Retail", 2040)
-    assert result["assessable"] is False
-    assert "Years in the file for this sector: 2025" in result["reasons"][0]
-
-
-@pytest.mark.parametrize("metric,expected", [
-    ("operational_energy_eui", True), ("EUI", True), ("Operational Energy", True),
-    ("energy_use_intensity", True), ("embodied_upfront", False),
-    ("onsite_renewables", False), ("refrigerant_leakage", False),
-])
-def test_operational_energy_metric_detection(metric, expected):
-    assert is_operational_energy_metric(metric) is expected
+def test_no_tables_and_unknown_sector_are_reported(ref):
+    none = run_check(None, loaded_versions=[])
+    assert none["assessable"] is False and "No UK NZCBS reference tables" in none["reasons"][0]
+    bad = run_check(ref, sector="Airship hangar")
+    assert bad["assessable"] is False and "not a Table 6 sector" in bad["summary"]

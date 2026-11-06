@@ -1,0 +1,97 @@
+{
+  "description": "Shared test vectors for the UK NZCBS V1 Rev 1 engine. Run by both the portal (vitest) and the MCP layer (pytest) so the two implementations cannot drift. Every expected number is taken from the Standard's own text: Annex A rows and the worked notes in section 5.",
+  "version": "v1r1",
+  "limits": [
+    { "note": "Annex A Table EC-1, 2025 row, Offices whole building", "table": "EC-1", "sector": "Offices", "subsector": "General", "scope": "Whole building", "year": 2025, "expect": { "status": "limit", "value": 805, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-1, 2025 row, Commercial Residential has one column for all subsectors", "table": "EC-1", "sector": "Commercial Residential", "subsector": "Care homes", "year": 2025, "expect": { "status": "limit", "value": 580, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-1, 2025 row, Collection / Archives share a column", "table": "EC-1", "sector": "Culture and Entertainment", "subsector": "Archives", "year": 2025, "expect": { "status": "limit", "value": 570, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-1, 2025 row, Offices shell and core only", "table": "EC-1", "sector": "Offices", "subsector": "General", "scope": "Shell & Core only", "year": 2025, "expect": { "status": "limit", "value": 520, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-1, 2044 row, Offices whole building", "table": "EC-1", "sector": "Offices", "subsector": "General", "scope": "Whole building", "year": 2044, "expect": { "status": "limit", "value": 160, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-1, 2044 row, Storage shell and core", "table": "EC-1", "sector": "Storage and Distribution", "subsector": "Conditioned Storage", "scope": "Shell & Core only", "year": 2044, "expect": { "status": "limit", "value": 85, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-3, 2025 row, Offices Cat A + B", "table": "EC-3", "sector": "Offices", "subsector": "General", "scope": "Cat A + Cat B", "year": 2025, "expect": { "status": "limit", "value": 285, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-3, 2025 row, Offices Cat B", "table": "EC-3", "sector": "Offices", "subsector": "Trading floors", "scope": "Cat B", "year": 2025, "expect": { "status": "limit", "value": 210, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-3, 2025 row, Storage Cat A + B, any subsector", "table": "EC-3", "sector": "Storage and Distribution", "subsector": "Cold Store", "scope": "Cat A + Cat B", "year": 2025, "expect": { "status": "limit", "value": 220, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-3, 2050 row, Storage", "table": "EC-3", "sector": "Storage and Distribution", "scope": "Cat A + Cat B", "year": 2050, "expect": { "status": "limit", "value": 20, "unit": "kgCO2e/m2GIA" } },
+    { "note": "Annex A Table EC-3: other sectors to be confirmed", "table": "EC-3", "sector": "Hotels", "year": 2025, "expect": { "status": "no_limit", "value": null } },
+    { "note": "Annex A Table OE-1, 2025 row, Offices GIA", "table": "OE-1", "sector": "Offices", "subsector": "General", "scope": "Whole building", "areaBasis": "GIA", "year": 2025, "expect": { "status": "limit", "value": 90, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-1, 2025 row, Offices NIA alternative", "table": "OE-1", "sector": "Offices", "subsector": "General", "scope": "Whole building", "areaBasis": "NIA", "year": 2025, "expect": { "status": "limit", "value": 113, "unit": "kWh/m2NIA/yr" } },
+    { "note": "Annex A Table OE-1, 2025 row, Offices landlord-only GIA", "table": "OE-1", "sector": "Offices", "subsector": "General", "scope": "Landlord-only", "areaBasis": "GIA", "year": 2025, "expect": { "status": "limit", "value": 54, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-1, 2025 row, Offices tenant-only NIA", "table": "OE-1", "sector": "Offices", "subsector": "General", "scope": "Tenant-only", "areaBasis": "NIA", "year": 2025, "expect": { "status": "limit", "value": 45, "unit": "kWh/m2NIA/yr" } },
+    { "note": "Annex A Table OE-1, 2025 row, Call Centres GIA", "table": "OE-1", "sector": "Offices", "subsector": "Call Centres", "scope": "Whole building", "areaBasis": "GIA", "year": 2025, "expect": { "status": "limit", "value": 135, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-1, 2025 row, Data Centres low utilisation is a PUE", "table": "OE-1", "sector": "Data Centres", "subsector": "Low Utilisation", "year": 2025, "expect": { "status": "limit", "value": 1.4, "unit": "PUE" } },
+    { "note": "Annex A Table OE-1, 2025 row, New Healthcare defers to the NHS standard", "table": "OE-1", "sector": "Healthcare", "subsector": "Acute trust", "year": 2025, "expect": { "status": "deferred", "value": null } },
+    { "note": "Annex A Table OE-1, 2025 row, Hotels", "table": "OE-1", "sector": "Hotels", "year": 2025, "expect": { "status": "limit", "value": 125, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-1, 2025 row, Schools Secondary", "table": "OE-1", "sector": "Schools", "subsector": "Secondary +", "year": 2025, "expect": { "status": "limit", "value": 60, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-1, 2025 row, Unconditioned storage", "table": "OE-1", "sector": "Storage and Distribution", "subsector": "Unconditioned Storage", "year": 2025, "expect": { "status": "limit", "value": 40, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-2, 2025 row, Acute trust (existing buildings have numeric Healthcare limits)", "table": "OE-2", "sector": "Healthcare", "subsector": "Acute trust", "year": 2025, "expect": { "status": "limit", "value": 258, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-2, 2025 row, Offices GIA", "table": "OE-2", "sector": "Offices", "subsector": "General", "scope": "Whole building", "areaBasis": "GIA", "year": 2025, "expect": { "status": "limit", "value": 105, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-2, 2025 row, Offices NIA", "table": "OE-2", "sector": "Offices", "subsector": "General", "scope": "Whole building", "areaBasis": "NIA", "year": 2025, "expect": { "status": "limit", "value": 131, "unit": "kWh/m2NIA/yr" } },
+    { "note": "Annex A Table OE-3, 2025 row, Offices GIA stepped", "table": "OE-3", "sector": "Offices", "subsector": "General", "scope": "Whole building", "areaBasis": "GIA", "year": 2025, "expect": { "status": "limit", "value": 125, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-3, 2025 row, Supermarket stepped", "table": "OE-3", "sector": "Retail", "subsector": "Supermarket", "year": 2025, "expect": { "status": "limit", "value": 410, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-4, Single Family Homes", "table": "OE-4", "sector": "Homes", "subsector": "Single Family", "year": 2027, "expect": { "status": "limit", "value": 20, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-4, Flats", "table": "OE-4", "sector": "Homes", "subsector": "Flats", "year": 2027, "expect": { "status": "limit", "value": 15, "unit": "kWh/m2GIA/yr" } },
+    { "note": "Annex A Table OE-4, Offices have no space heating limit", "table": "OE-4", "sector": "Offices", "subsector": "General", "scope": "Whole building", "year": 2027, "expect": { "status": "no_limit", "value": null } },
+    { "note": "5.2.7.1: a year before 2025 reads as 2025", "table": "OE-1", "sector": "Hotels", "year": 2019, "expect": { "status": "limit", "value": 125, "year": 2025 } },
+    { "note": "Annex A plateaus after 2050", "table": "OE-1", "sector": "Hotels", "year": 2060, "expect": { "status": "limit", "value": 80, "year": 2050 } },
+    { "note": "An unknown subsector is reported, not guessed", "table": "OE-1", "sector": "Offices", "subsector": "Penthouse", "year": 2025, "expect": { "status": "not_found", "value": null } },
+    { "note": "Offices without a subsector or scope is ambiguous: General, Call Centres and Trading floors differ", "table": "OE-1", "sector": "Offices", "year": 2025, "expect": { "status": "ambiguous", "value": null } }
+  ],
+  "renewables_targets": [
+    { "region": "A. Scotland", "group": "all_other", "expect": 30 },
+    { "region": "A. Scotland", "group": "single_family_homes_or_single_storey_storage", "expect": 60 },
+    { "region": "B. Middle and North England, Northern Ireland, Wales", "group": "all_other", "expect": 40 },
+    { "region": "B. Middle and North England, Northern Ireland, Wales", "group": "single_family_homes_or_single_storey_storage", "expect": 65 },
+    { "region": "C. South England", "group": "all_other", "expect": 45 },
+    { "region": "C. South England", "group": "single_family_homes_or_single_storey_storage", "expect": 75 }
+  ],
+  "other_limits": {
+    "refrigerant_gwp_limit": 677,
+    "pv_upfront_carbon": 1000,
+    "pv_upfront_carbon_proforma": 750
+  },
+  "equation_1a": [
+    { "note": "4.2.5.2 Equation 1a: 60% Offices General whole building (OE-1 2025, 90) and 40% High Street Retail (80)", "parts": [{ "share": 0.6, "limit": 90 }, { "share": 0.4, "limit": 80 }], "expect": 86 }
+  ],
+  "equation_1b": [
+    { "note": "4.2.5.2 Equation 1b: 30% New Area by GIA, LN 90 (OE-1), LE 105 (OE-2)", "newShare": 0.3, "ln": 90, "le": 105, "expect": 96 }
+  ],
+  "equation_5": [
+    { "note": "5.3.5.1 note 3: completely overshadowed roof, no other area, AU = 0", "target": 45, "unconstrainedAreaM2": 0, "footprintM2": 800, "expect": 0 },
+    { "note": "5.3.5.1 note 5: car park bigger than the footprint keeps the full target", "target": 45, "unconstrainedAreaM2": 1200, "footprintM2": 800, "expect": 45 },
+    { "note": "Half the footprint unconstrained halves the target", "target": 40, "unconstrainedAreaM2": 400, "footprintM2": 800, "expect": 20 }
+  ],
+  "equation_4": [
+    { "note": "5.2.5 Equation 4: 7,500 occupied of 10,000 GIA less 1,000 unoccupiable", "totalGiaM2": 10000, "unoccupiableGiaM2": 1000, "occupiedGiaM2": 7500, "expect": 0.8333 },
+    { "note": "Below the 80% minimum", "totalGiaM2": 10000, "unoccupiableGiaM2": 1000, "occupiedGiaM2": 7000, "expect": 0.7778 }
+  ],
+  "grid_factor": [
+    { "note": "5.2.3.4: generation + T&D + WTT generation + WTT T&D", "generation": 0.20705, "transmissionAndDistribution": 0.0183, "wttGeneration": 0.05, "wttTransmissionAndDistribution": 0.004, "expect": 0.27935 }
+  ],
+  "dhcn_limits": [
+    { "note": "5.7.6.2 note 1: existing network heat limit with 2024 grid 0.275 is about 0.125", "service": "heating", "existing": true, "gridFactor": 0.275, "expect": 0.125, "tolerance": 0.001 },
+    { "note": "5.7.6.2 note 2: existing network coolth limit is about 0.092", "service": "cooling", "existing": true, "gridFactor": 0.275, "expect": 0.092, "tolerance": 0.001 },
+    { "note": "5.7.6.3 note 1: new network heat limit is about 0.098", "service": "heating", "existing": false, "gridFactor": 0.275, "expect": 0.098, "tolerance": 0.001 },
+    { "note": "5.7.6.3 note 2: new network coolth limit is about 0.092", "service": "cooling", "existing": false, "gridFactor": 0.275, "expect": 0.092, "tolerance": 0.001 }
+  ],
+  "equation_2": [
+    { "note": "5.2.3.6 Equations 2a and 2b", "generationInputKwh": 1200000, "distributionInputKwh": 60000, "meteredKwh": 50000, "systemDeliveredKwh": 1000000, "generationKgCo2e": 90000, "distributionKgCo2e": 10000, "expectEnergyUseKwh": 63000, "expectFactor": 0.1 }
+  ],
+  "refrigerants": [
+    { "note": "5.9 Equations 8 and 9: two systems, one above the GWP limit", "systems": [{ "id": "AHU-1", "refrigerant": "R-32", "gwp": 677, "chargeKg": 3, "addedKg": 0.2 }, { "id": "CH-1", "refrigerant": "R-410A", "gwp": 2088, "chargeKg": 12, "startChargeKg": 12, "addedKg": 1.5, "endChargeKg": 12 }], "expectChargeKgCo2e": 27087, "expectLeakage": [{ "id": "AHU-1", "equation": "9b", "kg": 0.2 }, { "id": "CH-1", "equation": "9a", "kg": 1.5 }], "expectKyotoLeakageKgCo2e": 3267.4, "expectGwpFails": ["CH-1"] }
+  ],
+  "demand": [
+    { "note": "5.6.3: half-hourly kWh to kW, top ten, P50 and P1 by PERCENTILE.INC", "resolutionMinutes": 30, "intervalKwh": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110], "expectTopTenKw": [220, 200, 180, 160, 140, 120, 100, 80, 60, 40], "expectP50Kw": 120, "expectP1Kw": 22 }
+  ],
+  "works_type": [
+    { "note": "Table 5: 55% of NIA new", "facts": { "newNiaShare": 0.55 }, "expect": "New Works" },
+    { "note": "Table 5: 12% of envelope replaced", "facts": { "thermalEnvelopeShareReplaced": 0.12 }, "expect": "Retrofit Works" },
+    { "note": "Table 5: works worth 100,000 pounds", "facts": { "valueGbp": 100000 }, "expect": "Reportable Works" },
+    { "note": "Table 5: replacement lighting", "facts": { "replacedLightingSystems": true }, "expect": "Reportable Works" },
+    { "note": "Table 5: a small redecoration", "facts": { "valueGbp": 20000 }, "expect": "Non-Reportable Works" },
+    { "note": "Table 5 note c: first fit-out is not Reportable Works", "facts": { "valueGbp": 500000, "firstFitOut": true }, "expect": "Non-Reportable Works" }
+  ],
+  "prohibited_claims": {
+    "prohibited": ["This building is a Net Zero Carbon Aligned Building.", "Office X is aligned with the UK Net Zero Carbon Buildings Standard", "NZCBS-compliant portfolio", "certified to the UK Net Zero Carbon Buildings Standard"],
+    "permitted": ["targeting verification to the UK Net Zero Carbon Buildings Standard", "assessed against the limits of the Standard; not a verified claim"]
+  }
+}

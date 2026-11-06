@@ -16,6 +16,8 @@ RUN mkdir -p src/nzcai_mcp && touch src/nzcai_mcp/__init__.py && pip install .
 
 # Real source, installed without re-resolving anything.
 COPY src ./src
+# The UK NZCBS reference tables are bundled into the wheel (see pyproject.toml).
+COPY reference ./reference
 RUN pip install --no-deps --force-reinstall .
 
 

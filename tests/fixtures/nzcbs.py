@@ -1,34 +1,26 @@
-"""A synthetic UK NZCBS limit table for tests.
+"""Helpers for the UK NZCBS reference tests.
 
-Mirrors the portal's own vTEST.csv, including the row whose limit is blank —
-the Standard setting no limit for that sector/metric, which must never be read
-as a limit of zero. Values are marked SYNTHETIC in the notes and use
-repeating digits so they cannot be mistaken for published limits.
+The real Rev 1 tables are bundled with the repository (reference/uk-nzcbs/v1r1),
+so tests read them directly. The one fixture here copies that folder into a
+deployment directory and tampers with a limit, to prove the loader refuses a
+table that no longer matches its manifest.
 """
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
-LIMITS = "\n".join(
-    [
-        "version,sector,metric,year,limit_value,unit,notes",
-        'vTEST,Office,operational_energy_eui,2025,111.1,kWh/m2/yr,"SYNTHETIC value, GIA basis"',
-        "vTEST,Office,operational_energy_eui,2030,99.9,kWh/m2/yr,SYNTHETIC value",
-        'vTEST,Office,embodied_upfront,2025,555.5,kgCO2e/m2,"SYNTHETIC value, A1-A5"',
-        "vTEST,Office,onsite_renewables,,,kWh/m2/yr,SYNTHETIC: no limit set in this fixture",
-        "vTEST,Retail,operational_energy_eui,2025,222.2,kWh/m2/yr,SYNTHETIC value",
-        # Rows the loader skips: no sector, no metric.
-        "vTEST,,operational_energy_eui,2025,1.1,kWh/m2/yr,skipped",
-        "vTEST,Office,,2025,1.1,kWh/m2/yr,skipped",
-        "",
-    ]
-)
+from nzcai_mcp.nzcbs import bundled_reference_dir
+
+VECTORS = Path(__file__).resolve().parents[1] / "nzcbs" / "vectors.json"
 
 
-def write_limits(base: Path, version: str = "vTEST", text: str = LIMITS) -> Path:
-    directory = base / "uk-nzcbs"
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"{version}.csv"
-    path.write_text(text, encoding="utf-8")
-    return path
+def tampered_copy(base: Path, version: str = "v9test") -> Path:
+    """A deployment copy of the bundled v1r1 folder with one limit changed."""
+    src = bundled_reference_dir() / "v1r1"
+    dest = base / "uk-nzcbs" / version
+    shutil.copytree(src, dest)
+    limits = dest / "limits.csv"
+    limits.write_text(limits.read_text(encoding="utf-8").replace(",805,", ",999,", 1), encoding="utf-8")
+    return dest

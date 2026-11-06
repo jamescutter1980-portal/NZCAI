@@ -36,17 +36,13 @@ v9.99,GB,Warehouse,ghg,1.5C,2027,99.900,kgCO2e/m2
 v9.99,GB,Warehouse,ghg,1.5C,2028,99.900,kgCO2e/m2
 `;
 
-export const NZCBS_CSV = `version,sector,metric,year,limit_value,unit,notes
-v1.0,Office,operational_energy_eui,2026,11.110,kWh/m2/yr,Synthetic limit; not the published Standard
-v1.0,Office,embodied_upfront,2026,222.200,kgCO2e/m2,Synthetic A1-A5 limit
-v1.0,Office,onsite_renewables,2026,,kWh/m2/yr,No limit set in this synthetic table
-v1.0,Retail,operational_energy_eui,2026,55.500,kWh/m2/yr,Synthetic limit
-v1.0,Retail,embodied_upfront,2030,111.100,kgCO2e/m2,Synthetic limit for a later year only
-`;
-
-/** Writes the synthetic files into `dir`, which the tests pass as REFERENCE_DATA_DIR. */
-export function writeReferenceFixtures(dir: string, which: { desnz?: boolean; crrem?: boolean; nzcbs?: boolean } = {}): void {
-  const { desnz = true, crrem = true, nzcbs = true } = which;
+/**
+ * Writes the synthetic files into `dir`, which the tests pass as REFERENCE_DATA_DIR.
+ * The UK NZCBS tables are not synthetic: the engine reads the bundled, checksummed
+ * Rev 1 tables under reference/uk-nzcbs, so nothing is written for them here.
+ */
+export function writeReferenceFixtures(dir: string, which: { desnz?: boolean; crrem?: boolean } = {}): void {
+  const { desnz = true, crrem = true } = which;
   if (desnz) {
     mkdirSync(join(dir, "desnz-conversion-factors"), { recursive: true });
     writeFileSync(join(dir, "desnz-conversion-factors", "2026.csv"), DESNZ_CSV);
@@ -54,9 +50,5 @@ export function writeReferenceFixtures(dir: string, which: { desnz?: boolean; cr
   if (crrem) {
     mkdirSync(join(dir, "crrem-pathways"), { recursive: true });
     writeFileSync(join(dir, "crrem-pathways", "v9.99.csv"), CRREM_CSV);
-  }
-  if (nzcbs) {
-    mkdirSync(join(dir, "uk-nzcbs"), { recursive: true });
-    writeFileSync(join(dir, "uk-nzcbs", "v1.0.csv"), NZCBS_CSV);
   }
 }

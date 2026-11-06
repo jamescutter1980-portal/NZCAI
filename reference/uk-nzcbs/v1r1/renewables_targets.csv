@@ -1,0 +1,7 @@
+region,building_group,value,unit
+A. Scotland,all_other,30,kWh/m2FP/yr
+A. Scotland,single_family_homes_or_single_storey_storage,60,kWh/m2FP/yr
+C. South England,all_other,45,kWh/m2FP/yr
+C. South England,single_family_homes_or_single_storey_storage,75,kWh/m2FP/yr
+"B. Middle and North England, Northern Ireland, Wales",all_other,40,kWh/m2FP/yr
+"B. Middle and North England, Northern Ireland, Wales",single_family_homes_or_single_storey_storage,65,kWh/m2FP/yr

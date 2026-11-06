@@ -203,74 +203,83 @@ describe("crremAssessment", () => {
 });
 
 describe("nzcbsAssessment", () => {
-  it("fails a metric above the limit and passes one below it", () => {
+  // The limits here are the published Rev 1 values from the bundled tables
+  // (reference/uk-nzcbs/v1r1), cross-checked in src/lib/nzcbs/__tests__.
+  // The asset is an Existing Building on the one-go route, so Table OE-2 for
+  // 2025 applies: Offices General whole building 105 kWh/m2GIA/yr.
+  it("compares the metered EUI with the Rev 1 limit for the asset's sector", () => {
     const { asset, meters } = makeAsset();
     const office = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: YEAR });
     expect(office.assessable).toBe(true);
-    expect(office.sector).toBe("Office");
-    const eui = office.rows.find((r) => r.metric === "operational_energy_eui")!;
-    expect(eui).toMatchObject({ status: "fail", limitValue: 11.11, unit: "kWh/m2/yr" });
+    expect(office.sector).toBe("Offices");
+    expect(office.subsector).toBe("General");
+    expect(office.buildingType).toBe("Existing Building");
+    expect(office.limitYear).toBe(2025);
+    expect(office.version).toBe("v1r1");
+    const eui = office.rows.find((r) => r.metric === "Energy use intensity")!;
+    expect(eui).toMatchObject({ status: "pass", label: "within limit", limitValue: 105, unit: "kWh/m2GIA/yr", section: "5.2.7.1" });
     expect(eui.assetValue).toBeCloseTo(15, 6);
-    expect(eui.gap).toBeCloseTo(15 - 11.11, 3);
-    expect(office.summary).toMatch(/not a verified NZCBS assessment/);
-
-    const { asset: retail, meters: retailMeters } = makeAsset({ propertyType: "Retail" });
-    const pass = nzcbsAssessment(db, ctxFor(dir), retail, retailMeters, { year: YEAR });
-    const retailEui = pass.rows.find((r) => r.metric === "operational_energy_eui")!;
-    expect(retailEui.status).toBe("pass");
-    expect(retailEui.gap).toBeCloseTo(15 - 55.5, 3);
-    expect(pass.counts).toMatchObject({ pass: 1, fail: 0 });
+    expect(eui.gap).toBeCloseTo(15 - 105, 3);
+    expect(office.summary).toMatch(/targeting verification to the UK Net Zero Carbon Buildings Standard/);
+    expect(office.summary).not.toMatch(/aligned/i);
   });
 
-  it("marks metrics the portal cannot compute, and blank limits, as not assessable", () => {
+  it("uses the Standard's carbon basis only when all four grid lines are loaded", () => {
     const { asset, meters } = makeAsset();
     const r = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: YEAR });
-    const embodied = r.rows.find((x) => x.metric === "embodied_upfront")!;
-    expect(embodied).toMatchObject({ status: "not_assessable", assetValue: null, gap: null, limitValue: 222.2 });
-    expect(embodied.reason).toMatch(/does not compute "embodied_upfront"/);
-    const renewables = r.rows.find((x) => x.metric === "onsite_renewables")!;
-    expect(renewables).toMatchObject({ status: "not_assessable", limitValue: null, gap: null });
-    expect(renewables.reason).toMatch(/sets no limit .*not a limit of zero/);
-    expect(r.counts.notAssessable).toBe(2);
-    expect(r.warnings.join(" ")).toMatch(/never as a pass/);
+    const carbon = r.rows.find((x) => x.metric === "Annual operational carbon emissions intensity")!;
+    // The synthetic DESNZ fixture has no WTT rows, so the figure is withheld rather than computed on the wrong basis.
+    expect(carbon.status).toBe("not_assessable");
+    expect(r.warnings.join(" ")).toMatch(/four DESNZ lines/);
   });
 
-  it("is not assessable without a limit file, an unknown sector or a year with no rows", () => {
+  it("marks what the portal cannot supply as not assessable, never as a pass", () => {
     const { asset, meters } = makeAsset();
-    const noFile = nzcbsAssessment(db, ctxFor(join(dir, "empty")), asset, meters, { year: YEAR });
-    expect(noFile.assessable).toBe(false);
-    expect(noFile.reasons.join(" ")).toMatch(/No UK NZCBS limit file is loaded/);
-    expect(noFile.rows).toEqual([]);
+    const r = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: YEAR });
+    const renewables = r.rows.find((x) => x.metric.startsWith("Annual on-site renewable electricity generation per m2"))!;
+    expect(renewables).toMatchObject({ status: "not_assessable", gap: null });
+    const occupancy = r.rows.find((x) => x.metric.startsWith("Occupancy rate"))!;
+    expect(occupancy.status).toBe("not_assessable");
+    const refrigerants = r.rows.find((x) => x.metric.startsWith("GWP of refrigerants"))!;
+    expect(refrigerants).toMatchObject({ status: "not_assessable", limitValue: 677 });
+    // Apart from the classification requirements, only the EUI comparison can pass from portal data.
+    expect(r.rows.filter((x) => x.status === "pass" && x.aspect !== "Classification and reporting periods").map((x) => x.metric)).toEqual(["Energy use intensity"]);
+    expect(r.counts.notAssessable).toBeGreaterThan(3);
+  });
 
-    const { asset: unknown, meters: unknownMeters } = makeAsset({ propertyType: "Data centre" });
+  it("explains an unmappable property type, an unknown version, and an asset with no floor area", () => {
+    const { asset: unknown, meters: unknownMeters } = makeAsset({ propertyType: "Zeppelin hangar" });
     const badSector = nzcbsAssessment(db, ctxFor(dir), unknown, unknownMeters, { year: YEAR });
     expect(badSector.assessable).toBe(false);
-    expect(badSector.reasons.join(" ")).toMatch(/no sector matching "Data centre". Sectors loaded: Office, Retail/);
+    expect(badSector.reasons.join(" ")).toMatch(/not a Table 6 sector/);
 
-    const badYear = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: 2035 });
-    expect(badYear.assessable).toBe(false);
-    expect(badYear.reasons.join(" ")).toMatch(/none for 2035. Years in the file for this sector: 2026/);
-
+    const { asset, meters } = makeAsset();
     const badVersion = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: YEAR, version: "v0.1" });
     expect(badVersion.assessable).toBe(false);
     expect(badVersion.reasons.join(" ")).toMatch(/v0\.1 is not loaded/);
-  });
 
-  it("says why the operational metric is not assessable when the portal has no EUI", () => {
-    const { asset, meters } = makeAsset({ floorAreaM2: undefined });
-    const r = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: YEAR });
+    const { asset: noArea, meters: noAreaMeters } = makeAsset({ floorAreaM2: undefined });
+    const r = nzcbsAssessment(db, ctxFor(dir), noArea, noAreaMeters, { year: YEAR });
     expect(r.assessable).toBe(true);
-    const eui = r.rows.find((x) => x.metric === "operational_energy_eui")!;
-    expect(eui).toMatchObject({ status: "not_assessable", assetValue: null, gap: null });
-    expect(eui.reason).toMatch(/could not compute the asset's energy use intensity/);
+    const eui = r.rows.find((x) => x.metric === "Energy use intensity")!;
+    expect(eui).toMatchObject({ status: "not_assessable", assetValue: null, gap: null, limitValue: 105 });
   });
 
-  it("carries the limit file name and the factor references in provenance", () => {
+  it("accepts an explicit sector, subsector and scope", () => {
+    const { asset, meters } = makeAsset({ propertyType: "Mixed" });
+    const r = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: YEAR, sector: "Retail / Supermarket" });
+    expect(r.sector).toBe("Retail");
+    expect(r.rows.find((x) => x.metric === "Energy use intensity")!.limitValue).toBe(230);
+  });
+
+  it("carries the reference version and the factor references in provenance", () => {
     const { asset, meters } = makeAsset();
     const r = nzcbsAssessment(db, ctxFor(dir), asset, meters, { year: YEAR });
-    expect(r.provenance).toMatchObject({ version: "v1.0", file: "v1.0.csv" });
+    expect(r.provenance.version).toBe("v1r1");
+    expect(r.provenance.file).toMatch(/limits\.csv$/);
     expect(r.provenance.factorReferences.length).toBeGreaterThan(0);
-    expect(r.disclaimer).toMatch(/not a verified NZCBS assessment/);
+    expect(r.disclaimer).toMatch(/not a verified claim/i);
+    expect(r.assessment?.aspects.length).toBe(11);
   });
 });
 
@@ -279,15 +288,16 @@ describe("assessAsset", () => {
     const { asset, meters } = makeAsset();
     const r = assessAsset(db, ctxFor(dir), asset, meters, { year: YEAR });
     expect(r.crrem.misalignmentYear).toBe(2029);
-    expect(r.nzcbs.sector).toBe("Office");
+    expect(r.nzcbs.sector).toBe("Offices");
   });
 
   it("returns two unassessable views, not an error, when nothing is loaded", () => {
     const { asset, meters } = makeAsset();
     const r = assessAsset(db, ctxFor(join(dir, "empty")), asset, meters, { year: YEAR });
     expect(r.crrem.assessable).toBe(false);
-    expect(r.nzcbs.assessable).toBe(false);
     expect(r.crrem.reasons.length).toBeGreaterThan(0);
-    expect(r.nzcbs.reasons.length).toBeGreaterThan(0);
+    // The NZCBS tables are bundled, so that view still runs; without DESNZ factors its carbon rows are withheld.
+    expect(r.nzcbs.assessable).toBe(true);
+    expect(r.nzcbs.rows.find((x) => x.metric === "Annual operational carbon emissions intensity")!.status).toBe("not_assessable");
   });
 });

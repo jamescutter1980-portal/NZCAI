@@ -1,43 +1,60 @@
-import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { definition } from "..";
 import { runOperation, testContext } from "../../testing";
 
-// vTEST.csv is SYNTHETIC: 111.1, 99.9, 555.5 ... are invented numbers, not UK NZCBS limits.
-const REF = fileURLToPath(new URL("./fixtures/reference", import.meta.url));
-const ctx = () => testContext(vi.fn(), { REFERENCE_DATA_DIR: REF });
+/**
+ * The integration reads the bundled Rev 1 tables (reference/uk-nzcbs/v1r1).
+ * Every figure asserted here is a published Annex A value, cross-checked in
+ * src/lib/nzcbs/__tests__/vectors.test.ts against the Standard's text.
+ */
+const ctx = () => testContext(vi.fn(), {});
 
 describe("uk-nzcbs", () => {
-  it("returns limits for a sector, including year-less rows, with unavailable rows kept distinct from 0", async () => {
-    const res = await runOperation(definition, "limits", { sector: "office", year: 2025 }, ctx());
-    expect(res.rows?.map((r) => r.metric)).toEqual(["operational_energy_eui", "embodied_upfront", "onsite_renewables"]);
-    expect(res.rows?.[0]).toMatchObject({ limit_value: 111.1, unit: "kWh/m2/yr", availability: "available", notes: "SYNTHETIC value, GIA basis" });
-    expect(res.rows?.[2]).toMatchObject({ limit_value: null, availability: "unavailable", year: null });
-    expect(res.provenance.basis).toBe("measured");
-    expect(res.provenance.version).toMatch(/^vTEST; file vTEST\.csv; modified /);
-    expect(res.warnings?.[0]).toMatch(/not 0/);
-  });
-
-  it("filters by metric and year", async () => {
-    const res = await runOperation(definition, "limits", { sector: "Office", metric: "energy_eui", year: 2030 }, ctx());
+  it("returns the OE-2 2025 Offices limit from the bundled tables", async () => {
+    const res = await runOperation(definition, "limits", { table: "OE-2", sector: "Offices", subsector: "General", scope: "Whole building", year: 2025 }, ctx());
     expect(res.rows).toHaveLength(1);
-    expect(res.rows?.[0]).toMatchObject({ year: 2030, limit_value: 99.9 });
+    expect(res.rows?.[0]).toMatchObject({ table: "OE-2", sector: "Offices", subsector: "General", value: 105, unit: "kWh/m2GIA/yr", status: "limit" });
+    expect(res.provenance.basis).toBe("measured");
+    expect(res.provenance.version).toMatch(/^v1r1 \(UK Net Zero Carbon Buildings Standard, Version 1, Rev 1/);
+    expect(res.summary).toContain("105 kWh/m2GIA/yr");
   });
 
-  it("reports unknown sectors and versions as unavailable", async () => {
-    const res = await runOperation(definition, "limits", { sector: "Hospital" }, ctx());
-    expect(res.rows).toEqual([]);
+  it("keeps no-limit rows distinct from zero and clamps the year", async () => {
+    const res = await runOperation(definition, "limits", { table: "OE-4", sector: "Offices", subsector: "General", scope: "Whole building", year: 2019 }, ctx());
+    expect(res.rows?.[0]).toMatchObject({ status: "no_limit", value: null, year: 2025 });
+    expect(res.provenance.basis).toBe("not_applicable");
+    expect(res.summary).toMatch(/no limit/);
+  });
+
+  it("reports an ambiguous query instead of guessing", async () => {
+    const res = await runOperation(definition, "limits", { table: "OE-1", sector: "Offices", year: 2025 }, ctx());
+    expect(res.rows!.length).toBeGreaterThan(1);
     expect(res.provenance.basis).toBe("unavailable");
-    expect(res.summary).toContain("Office, Retail");
-    const v = await runOperation(definition, "limits", { sector: "Office", version: "v99" }, ctx());
-    expect(v.summary).toContain("v99.csv");
+    expect(res.summary).toMatch(/ambiguous/);
   });
 
-  it("lists versions and validates before reading", async () => {
+  it("lists renewables targets and the other limits, including the PV discrepancy", async () => {
+    const res = await runOperation(definition, "renewables_targets", {}, ctx());
+    expect(res.rows?.find((r) => String(r.key).includes("C. South England, all other"))).toMatchObject({ value: 45 });
+    expect(res.rows?.find((r) => r.key === "refrigerant_gwp_limit")).toMatchObject({ value: 677 });
+    expect(res.rows?.find((r) => r.key === "pv_upfront_carbon")).toMatchObject({ value: 1000 });
+    expect(res.rows?.find((r) => r.key === "pv_upfront_carbon_proforma")).toMatchObject({ value: 750 });
+  });
+
+  it("lists versions and reports an unknown version", async () => {
     const res = await runOperation(definition, "versions", {}, ctx());
-    expect(res.rows?.[0]).toMatchObject({ version: "vTEST", rows: 5, sectors: "Office, Retail" });
+    expect(res.rows?.[0]).toMatchObject({ version: "v1r1", source: "bundled", sectors: expect.stringContaining("Offices") });
+    const v = await runOperation(definition, "limits", { table: "OE-2", sector: "Offices", year: 2025, version: "v99" }, ctx());
+    expect(v.summary).toContain("v99 is not loaded");
+    expect(v.provenance.basis).toBe("unavailable");
+  });
+
+  it("validates parameters before reading and never calls the network", async () => {
     const fetch = vi.fn();
-    await expect(runOperation(definition, "limits", { sector: "Office", year: 99 }, testContext(fetch, { REFERENCE_DATA_DIR: REF }))).rejects.toThrow();
+    await expect(runOperation(definition, "limits", { table: "OE-2", sector: "Offices", year: 99 }, testContext(fetch, {}))).rejects.toThrow();
     expect(fetch).not.toHaveBeenCalled();
+    const health = await definition.healthCheck!(ctx());
+    expect(health.ok).toBe(true);
+    expect(health.detail).toMatch(/checksums verified/);
   });
 });

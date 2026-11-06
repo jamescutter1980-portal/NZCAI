@@ -1,0 +1,4 @@
+key,value,unit,source,note
+pv_upfront_carbon,1000,kgCO2e/kWp,Annex A Table EC-5 (Rev 1 text),Photovoltaics only; wind and hydro are reporting only. See pv_upfront_carbon_proforma for the differing proforma figure.
+pv_upfront_carbon_proforma,750,kgCO2e/kWp,"Proforma rev03, Other limits sheet",The Rev 1 text (Annex A Table EC-5) prints 1000 kgCO2e/kWp. The engine uses the Standard's value; this row records the proforma figure for the verification log.
+refrigerant_gwp_limit,677,kgCO2e/kg,Annex A4; proforma rev03 Other limits sheet,Corresponds to R-32 in the 2025 UK Government conversion factors.
