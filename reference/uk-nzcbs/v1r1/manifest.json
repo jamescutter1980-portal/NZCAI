@@ -1,0 +1,30 @@
+{
+  "version": "v1r1",
+  "standard": "UK Net Zero Carbon Buildings Standard, Version 1, Rev 1 (April 2026)",
+  "proforma": "Submission Proforma v1 rev03 (April 2026)",
+  "publisher": "Net Zero Carbon Buildings Standard Ltd, https://www.nzcbuildings.co.uk/",
+  "converted_on": "2026-11-05",
+  "converter": "scripts/nzcbs/convert-proforma-tables.py",
+  "files": {
+    "limits.csv": {
+      "sha256": "a0c011fa83cb68b8d46f1c780b9dabdc1db0b9f9cb1856bd76ac945a56fe6eb8",
+      "rows": 7774
+    },
+    "renewables_targets.csv": {
+      "sha256": "ae628bf02a1682b10e27ec5be81845cec6f1e2438a460d8c70172d7be2f27fca",
+      "rows": 6
+    },
+    "other_limits.csv": {
+      "sha256": "e829252d0d29ef9bd3c13c39adbc75b4d2e4b9635e6a093af82a09494bc6e95b",
+      "rows": 3
+    },
+    "reduction_curves.csv": {
+      "sha256": "baf6a9be96070dd8c0dcc87d98311a42ea05ffb39183e83832d684d38b089ae5",
+      "rows": 26
+    },
+    "menus.csv": {
+      "sha256": "61c178812baffc2a703d91b9055f153cb4b177276e949ad70054c979b87648c4",
+      "rows": 342
+    }
+  }
+}

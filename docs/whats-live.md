@@ -14,6 +14,14 @@ What each status means:
 
 ## Log (newest first)
 
+### 6 November 2026: NZC AI can classify and assess a building against the UK NZCBS Version 1, Rev 1
+
+- **Product:** NZC AI (AI tools)
+- **Feature:** UK Net Zero Carbon Buildings Standard limits lookup, building classification and pre-verification assessment
+- **Status:** Coming soon
+- **What a user can do today:** Nothing new is released. Once released, the AI assistant will be able to look up the Standard's published limits, classify a building the way the Standard does (building type, works, sectors, reporting periods, the year and table its limits come from), and assess the figures it is given against every requirement of the Standard, saying for each one whether it is met, not met, or cannot yet be assessed from the information supplied.
+- **Limits or caveats:** This is not a verified claim. Verification is carried out by an approved verifier through NZCBS Ltd. Until a building is verified it may only be described as "targeting verification to the UK Net Zero Carbon Buildings Standard"; never say "aligned", "compliant" or "certified". The assistant works from figures the user supplies; it does not read a building's meters. The NZC Portal's own UK NZCBS check is unchanged by this.
+
 ### 16 October 2026: Energy Policy App description confirmed
 
 - **Product:** NZC Portal: Energy Policy App
@@ -140,4 +148,4 @@ What each status means:
 | NZC AI | AI tools | Carbon intensity calculation | Coming soon | UK government factors |
 | NZC AI | AI tools | Emission factor lookup | Coming soon | UK government factors |
 | NZC AI | AI tools | CRREM stranding year | Coming soon | Needs licensed CRREM data |
-| NZC AI | AI tools | UK NZCBS limits and indicative check | Coming soon | Indicative only, not certification |
+| NZC AI | AI tools | UK NZCBS published limits, building classification and pre-verification assessment | Coming soon | Not a verified claim; say "targeting verification" only; works from figures the user supplies |

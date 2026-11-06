@@ -26,6 +26,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/nzcai_mcp"]
 
+# The UK NZCBS V1 Rev 1 reference tables ship inside the wheel so the MCP layer
+# reads the same checksummed files as the portal (reference/uk-nzcbs/<version>/).
+[tool.hatch.build.targets.wheel.force-include]
+"reference/uk-nzcbs" = "nzcai_mcp/bundled_reference/uk-nzcbs"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]

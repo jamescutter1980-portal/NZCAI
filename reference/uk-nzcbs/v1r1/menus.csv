@@ -1,0 +1,343 @@
+menu,position,value
+Yes/No,1,Yes
+Yes/No,2,No
+Yes/No +n/a,1,Yes
+Yes/No +n/a,2,No
+Yes/No +n/a,3,n/a
+Yes/No + unknown,1,Yes
+Yes/No + unknown,2,No
+Yes/No + unknown,3,unknown
+Which building sector represents the primary use of the building?,1,Commercial Residential
+Which building sector represents the primary use of the building?,2,"Culture, Worship and Entertainment"
+Which building sector represents the primary use of the building?,3,Data Centres
+Which building sector represents the primary use of the building?,4,Healthcare
+Which building sector represents the primary use of the building?,5,Higher Education
+Which building sector represents the primary use of the building?,6,Homes
+Which building sector represents the primary use of the building?,7,Hotels
+Which building sector represents the primary use of the building?,8,Offices
+Which building sector represents the primary use of the building?,9,Retail
+Which building sector represents the primary use of the building?,10,Schools
+Which building sector represents the primary use of the building?,11,Science and Technology
+Which building sector represents the primary use of the building?,12,Sport and Leisure
+Which building sector represents the primary use of the building?,13,Storage and Distribution
+Which building sector represents the primary use of the building?,14,Other sector
+Is the building Single-use or Mixed-use?,1,Single sector
+Is the building Single-use or Mixed-use?,2,Mixed use
+is it a listed building?,1,No
+is it a listed building?,2,"Yes, grade I"
+is it a listed building?,3,"Yes, grade II"
+is it a listed building?,4,"Yes, grade II*"
+Is it partially listed?,1,It is partially listed
+Is it partially listed?,2,It is fully listed
+Asset surroundings,1,Urban
+Asset surroundings,2,Suburban
+Asset surroundings,3,Rural
+"If the asset that already been built, please provide the year/period of the original construction",1,Unknown
+"If the asset that already been built, please provide the year/period of the original construction",2,Before 1800
+"If the asset that already been built, please provide the year/period of the original construction",3,1801-1900
+"If the asset that already been built, please provide the year/period of the original construction",4,1901-1920
+"If the asset that already been built, please provide the year/period of the original construction",5,1921-1940
+"If the asset that already been built, please provide the year/period of the original construction",6,1941-1950
+"If the asset that already been built, please provide the year/period of the original construction",7,1951-1960
+"If the asset that already been built, please provide the year/period of the original construction",8,1961-1970
+"If the asset that already been built, please provide the year/period of the original construction",9,1971-1980
+"If the asset that already been built, please provide the year/period of the original construction",10,1981-1990
+"If the asset that already been built, please provide the year/period of the original construction",11,1991-2000
+"If the asset that already been built, please provide the year/period of the original construction",12,2001-2010
+"If the asset that already been built, please provide the year/period of the original construction",13,2011-2021
+"If the asset that already been built, please provide the year/period of the original construction",14,2021-2025
+"If the asset that already been built, please provide the year/period of the original construction",15,2026 and after
+Which building type is applicable?,1,New Building
+Which building type is applicable?,2,Existing Building
+How many New Works have been completed within the Embodied Reporting Period (ERP)?,1,none
+How many New Works have been completed within the Embodied Reporting Period (ERP)?,2,1
+How many New Works have been completed within the Embodied Reporting Period (ERP)?,3,2
+How many New Works have been completed within the Embodied Reporting Period (ERP)?,4,3
+How many New Works have been completed within the Embodied Reporting Period (ERP)?,5,4
+How many New Works have been completed within the Embodied Reporting Period (ERP)?,6,5
+Theatre type,1,Receiving
+Theatre type,2,Producing
+Is this submission for an individual home or for a multi-building development?,1,Individual home
+Is this submission for an individual home or for a multi-building development?,2,Multi-building development
+Office occupancy type,1,General office
+Office occupancy type,2,Financial
+Office occupancy type,3,Legal
+Office occupancy type,4,Event space
+Office occupancy type,5,Other
+Type of retail unit,1,Department store
+Type of retail unit,2,Dry cleaner
+Type of retail unit,3,DIY store
+Type of retail unit,4,"General retail (e.g., clothes, pharmacy, general goods etc)"
+Type of retail unit,5,Hairdresser
+Type of retail unit,6,Nail salon
+Type of retail unit,7,Other beauty parlour retail
+Type of retail unit,8,"High street agency (e.g., bank branch)"
+Type of retail unit,9,Other
+Foundation type,1,Corbels
+Foundation type,2,Mass pads/strips
+Foundation type,3,Piled ground beams
+Foundation type,4,Piles (pile caps)
+Foundation type,5,Raft
+Foundation type,6,Reinforced pads/strips
+Foundation type,7,Other
+Ground floor type,1,Ground bearing RC
+Ground floor type,2,Suspended
+Ground floor type,3,Timber
+Ground floor type,4,Other
+Vertical element structure type,1,Timber
+Vertical element structure type,2,Steel
+Vertical element structure type,3,Concrete
+Vertical element structure type,4,Hybrid
+Vertical element structure type,5,Masonry
+Vertical element structure type,6,Other
+Horizontal element structure type,1,Timber
+Horizontal element structure type,2,Steel
+Horizontal element structure type,3,Concrete
+Horizontal element structure type,4,Hybrid
+Horizontal element structure type,5,Other
+Floor slab type,1,Timber
+Floor slab type,2,Steel
+Floor slab type,3,Concrete
+Floor slab type,4,Hybrid
+Floor slab type,5,Other
+Cladding type,1,Masonry Only
+Cladding type,2,Masonry & steel framing systems
+Cladding type,3,Stone & steel framing systems
+Cladding type,4,Stone
+Cladding type,5,Precast/GRC
+Cladding type,6,Glazed/Curtain Wall
+Cladding type,7,Timber only
+Cladding type,8,Lightweight & steel framing systems
+Cladding type,9,Lightweight Only
+Cladding type,10,Other
+Finishes type,1,Shell and core only
+Finishes type,2,Fully fitted
+Heating type,1,Air Source Heat Pump (ASHP) - Water distribution
+Heating type,2,Air Source Heat Pump (ASHP) - Air distribution
+Heating type,3,Boiler - Water distribution
+Heating type,4,Boiler - Air distribution
+Heating type,5,Direct electric - Water distribution
+Heating type,6,Direct electric - Air distribution
+Heating type,7,Direct electric - Panel heaters
+Heating type,8,District heating - Air distribution
+Heating type,9,District heating - Water distribution
+Heating type,10,Ground Source Heat Pump (GSHP) - Air distribution
+Heating type,11,Ground Source Heat Pump (GSHP) - Water distribution
+Heating type,12,Solar thermal
+Heating type,13,Other
+Cooling type,1,Air Source Heat Pump (ASHP) - Water distribution
+Cooling type,2,Air Source Heat Pump (ASHP) - Air distribution
+Cooling type,3,Chiller - Water distribution
+Cooling type,4,Chiller - Air distribution
+Cooling type,5,Variable Refrigerant Flow (VRF) - Refrigerant distribution
+Cooling type,6,Variable Refrigerant Flow (VRF) - Air distribution
+Cooling type,7,Ground Source Heat Pump (GSHP) - Air distribution
+Cooling type,8,Ground Source Heat Pump (GSHP) - Water distribution
+Cooling type,9,Other
+Ventilation type,1,Full mechanical
+Ventilation type,2,Mixed mode
+Ventilation type,3,Natural
+Which works type are you reporting?,1,New Works
+Which works type are you reporting?,2,Retrofit Works
+Which works type are you reporting?,3,Reportable Works
+Which works type are you reporting?,4,no works to be reported
+What is the main source of the material quantities?,1,Predicted or estimated quantities - Estimation from drawings and 3D models / BIM
+What is the main source of the material quantities?,2,Predicted or estimated quantities - Quantity take-offs from 3D / BIM / bill of quantities / cost plan
+What is the main source of the material quantities?,3,Predicted or estimated quantities - Industry guidance
+What is the main source of the material quantities?,4,Predicted or estimated quantities - Assumptions from other buildings
+What is the main source of the material quantities?,5,Measured or calculated quantities - Quantity take-offs from 3D / BIM / bill of quantities / cost plan
+What is the main source of the material quantities?,6,Measured or calculated quantities - BIM model and drawings data
+What is the main source of the material quantities?,7,"Measured or calculated quantities - Project technical information: specifications, construction methodologies, etc."
+What is the main source of the material quantities?,8,Measured or calculated quantities - Industry guidance
+What is the main source of the material quantities?,9,Actual quantities - As-built BIM model
+What is the main source of the material quantities?,10,Actual quantities - As-built cost record of material quantities procured
+What is the main source of the material quantities?,11,Unknown
+Quantities uncertainty factor,1,0
+Quantities uncertainty factor,2,1%
+Quantities uncertainty factor,3,0.02
+Quantities uncertainty factor,4,0.03
+Quantities uncertainty factor,5,0.04
+What is the main source of the product carbon factors?,1,Generic carbon factors
+What is the main source of the product carbon factors?,2,National carbon factors from accepted industry databases
+What is the main source of the product carbon factors?,3,Specific carbon factors
+What is the main source of the product carbon factors?,4,Unknown
+Carbon data uncertainty factor,1,0
+Carbon data uncertainty factor,2,0.01
+Carbon data uncertainty factor,3,0.02
+Carbon data uncertainty factor,4,0.03
+Carbon data uncertainty factor,5,0.04
+Carbon data uncertainty factor,6,0.05
+Carbon data uncertainty factor,7,0.06
+Carbon data uncertainty factor,8,0.07
+Type of Embodied Carbon Factor (ECF),1,Generic carbon factor
+Type of Embodied Carbon Factor (ECF),2,National carbon factor from accepted industry databases
+Type of Embodied Carbon Factor (ECF),3,Specific carbon factor
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",1,Box 1
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",2,Box 2
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",3,Box 3
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",4,Box 4
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",5,Box 5
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",6,Box 6
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",7,Box 7
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",8,Box 8
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",9,Box 9
+"Box number resulting from using the ""Carbon data selection flowchart"" in section 5.1.4.3 (Figure 6)",10,Box 10
+Material / product type,1,Concrete - in-situ structural
+Material / product type,2,Concrete - products
+Material / product type,3,Concrete - other cementitious materials
+Material / product type,4,Clay and Stone based materials
+Material / product type,5,Wood based materials
+Material / product type,6,Glass
+Material / product type,7,Plastics and Polymers
+Material / product type,8,Bituminous mixtures
+Material / product type,9,Metals - Steel
+Material / product type,10,Metals - Aluminium
+Material / product type,11,Metals - Other
+Material / product type,12,Other natural or synthetic materials
+Material / product type,13,Gypsum
+Material / product type,14,Mixed - multi-component/ composite
+Material / product type,15,Electrical and Electronic Equipment
+Material / product type,16,Other
+Source of material quantity information,1,Predicted or estimated quantities - Estimation from drawings and 3D models / BIM
+Source of material quantity information,2,Predicted or estimated quantities - Quantity take-offs from 3D / BIM / bill of quantities / cost plan
+Source of material quantity information,3,Predicted or estimated quantities - Industry guidance
+Source of material quantity information,4,Predicted or estimated quantities - Assumptions from other buildings
+Source of material quantity information,5,Measured or calculated quantities - Quantity take-offs from 3D / BIM / bill of quantities / cost plan
+Source of material quantity information,6,Measured or calculated quantities - BIM model and drawings data
+Source of material quantity information,7,"Measured or calculated quantities - Project technical information: specifications, construction methodologies, etc."
+Source of material quantity information,8,Measured or calculated quantities - Industry guidance
+Source of material quantity information,9,Actual quantities - As-built BIM model
+Source of material quantity information,10,Actual quantities - As-built cost record of material quantities procured
+Source of material quantity information,11,Unknown
+Geographical Representativeness,1,0
+Geographical Representativeness,2,1
+Geographical Representativeness,3,2
+Geographical Representativeness,4,3
+Geographical Representativeness,5,4
+Geographical Representativeness,6,5
+Geographical Representativeness,7,6
+Geographical Representativeness,8,7
+Geographical Representativeness,9,8
+Geographical Representativeness,10,9
+Geographical Representativeness,11,10
+Technological Representativeness: Technology,1,0
+Technological Representativeness: Technology,2,1
+Technological Representativeness: Technology,3,2
+Technological Representativeness: Technology,4,3
+Technological Representativeness: Technology,5,4
+Technological Representativeness: Technology,6,5
+Technological Representativeness: Technology,7,6
+Temporal Representativeness,1,0
+Temporal Representativeness,2,1
+Temporal Representativeness,3,2
+Temporal Representativeness,4,3
+Temporal Representativeness,5,4
+Temporal Representativeness,6,5
+Temporal Representativeness,7,6
+Temporal Representativeness,8,7
+Temporal Representativeness,9,8
+Data aspect: Granularity,1,0
+Data aspect: Granularity,2,1
+Data aspect: Granularity,3,2
+Data aspect: Granularity,4,3
+Data aspect: Granularity,5,4
+Data aspect: Granularity,6,5
+Quantities uncertainty level,1,Very good (0)
+Quantities uncertainty level,2,Good (1)
+Quantities uncertainty level,3,Fair (3)
+Quantities uncertainty level,4,Sufficient (5)
+Is this Data centre considered Low utilisation or High utilisation?,1,Low utilisation
+Is this Data centre considered Low utilisation or High utilisation?,2,High utilisation
+"Does the energy use data you are providing represent a building operating at normal, acceptable indoor environmental quality (IEQ) conditions?",1,"Yes, good IEQ has been confirmed by some level of monitoring and/or user feedback"
+"Does the energy use data you are providing represent a building operating at normal, acceptable indoor environmental quality (IEQ) conditions?",2,I don't know
+Other source: specify,1,Oil
+Other source: specify,2,Coal
+Other source: specify,3,Other
+How was energy use apportioned between landlord and tenant(s)?,1,Contractual agreements
+How was energy use apportioned between landlord and tenant(s)?,2,Area-based allocation
+How was energy use apportioned between landlord and tenant(s)?,3,Full allocation to landlord
+How was energy use apportioned between landlord and tenant(s)?,4,Full allocation to tenant(s)
+Exception for presence of fossil fuel on-site,1,Energy uses that are also excluded from the operational energy general assessment scope (see section 5.2.1.2)
+Exception for presence of fossil fuel on-site,2,"Emergency and life safety systems (e.g., for firefighting, evacuation, back-up power in healthcare settings)"
+Exception for presence of fossil fuel on-site,3,"Essential back-up systems serving buildings with functions of critical importance, defined as Class IV buildings within BS EN 1998:2004+A1:2013 (see section 2)"
+Exception for presence of fossil fuel on-site,4,Essential back-up systems serving data centres or critical server infrastructure in areas of floor classified as Offices where it can be shown that no other options are commercially available/viable
+Exception for presence of fossil fuel on-site,5,Fossil fuels used in construction process (typically reported under module A5.2)
+Justification for excluding this energy load from the OE limit,1,Electric vehicle charging
+Justification for excluding this energy load from the OE limit,2,"Heavy process loads, whose associated carbon emissions are already managed by regulation"
+Justification for excluding this energy load from the OE limit,3,Energy used by external works (RICS PS building element category 8)
+Justification for excluding this energy load from the OE limit,4,Energy used within car parks
+What type of Additional Use Area is this?,1,Commercial Residential - Laundry
+What type of Additional Use Area is this?,2,Culture & Entertainment - Theatre production workshops
+What type of Additional Use Area is this?,3,Hotels - Conference centres
+What type of Additional Use Area is this?,4,Hotels - Laundry
+What type of Additional Use Area is this?,5,Retail (Landlord Areas subsector within Commercial Centres only) - Waste storage & management areas
+What type of Additional Use Area is this?,6,Schools - Community uses and other out-of-hours use
+What type of Additional Use Area is this?,7,Schools - Large specialist uses
+What type of Additional Use Area is this?,8,Science and Technology - Equipment with safety critical function
+What type of Additional Use Area is this?,9,"Science and Technology - Higher performance laboratory spaces above Hazard Group Level 2 or similar specialist applications, manufacturing fcilities, or those with more onerous vibration criteria of R<1 (e.g., close control labs for specialist prep and experiments with temperature control ranges of +/-1°C and humidity control ranges of +/-5%RH; or CERs which need to operate 24/7 and meet the same control requirements)"
+What type of Additional Use Area is this?,10,Science and Technology - Close control spaces in bioimaging specialist prep and SB CTR
+What type of Additional Use Area is this?,11,"Science and Technology - High process loads in labs (e.g. laser, fibre optic), if the load is above 200W/m2"
+What type of Additional Use Area is this?,12,Sport & Leisure - Community uses
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",1,Planning or legal constraints
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",2,Available space(s) on site
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",3,Overshadowed roofs
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",4,Grid connectivity constraints
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",5,Access (e.g. for installation and maintenance)
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",6,Structural capacity (e.g. the building’s ability to bear the load of a system)
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",7,Existing plant areas (if solar PV cannot be installed on top of the plant)
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",8,Existing rooflights
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",9,There is no roof associated with the building
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",10,Not enough space leased to the tenant
+"If there is no on-site source of renewable energy generation, or if the generated energy does not meet the target, provide justification",11,Not enough space left for the landlord
+What is your metering resolution?,1,Half hour or less between readings
+What is your metering resolution?,2,More than half hour between readings
+Is the district heating/cooling network new or existing?,1,New
+Is the district heating/cooling network new or existing?,2,Existing
+Type of system,1,Space heating and hot water
+Type of system,2,Dedicated cooling installations
+Type of system,3,Air movement
+Type of system,4,Other
+How was the leakage quantity assessed?,1,Change in quantity approach
+How was the leakage quantity assessed?,2,Quantity added approach
+Version of the Standard that is applicable to this Submission,1,Pilot
+Has this Submission been verified for conformity with the Standard?,1,Verified submission
+Has this Submission been verified for conformity with the Standard?,2,Unverified submission (does not meet the requirements of the Standard)
+Has this Submission been verified for conformity with the Standard?,3,Unverified submission (building sector is not covered by the Standard)
+What type of claim does this Submission support?,1,Whole building
+What type of claim does this Submission support?,2,Landlord-only route
+What type of claim does this Submission support?,3,Tenant-only route
+What type of claim does this Submission support?,4,PC-on-track check
+"If it is considered an Existing Building, how does it meet the operational energy limit?",1,One-Go Route
+"If it is considered an Existing Building, how does it meet the operational energy limit?",2,Stepped Route
+Have you chosen to meet the limit on basis on GIA or NIA?,1,GIA
+Have you chosen to meet the limit on basis on GIA or NIA?,2,NIA
+In which area of the UK is the building located?,1,A. Scotland
+In which area of the UK is the building located?,2,"B. Middle and North England, Northern Ireland, Wales"
+In which area of the UK is the building located?,3,C. South England
+Carbon credit verification scheme,1,ICROA
+Carbon credit verification scheme,2,ICVCM
+Type of carbon credit,1,Carbon removal
+Type of carbon credit,2,Carbon reduction
+Procurement route,1,UKGBC Silver procurement strategy
+Procurement route,2,Deep green electricity tariff
+Procurement route,3,PPA
+zet zero NHS space types,1,Low Tech Space
+zet zero NHS space types,2,Medium Tech Space
+zet zero NHS space types,3,High Tech Space
+zet zero NHS space types,4,Ultra High Tech / Specialist Space
+zet zero NHS space types,5,Support Space
+floor area,1,New
+floor area,2,Existing
+reasons for refri GWP not meeting limit,1,It is not possible to retrofit the system to use a replacement refrigerant due to health and safety concerns or physical site constraints
+reasons for refri GWP not meeting limit,2,"Systems were installed before the release of Version 1 of the Standard, no works have been carried out on the systems since then, and the Reporting Period End Point is prior to 1st January 2030"
+NABERS stars,1,1
+NABERS stars,2,1.5
+NABERS stars,3,2
+NABERS stars,4,2.5
+NABERS stars,5,3
+NABERS stars,6,3.5
+NABERS stars,7,4
+NABERS stars,8,4.5
+NABERS stars,9,5
+NABERS stars,10,5.5
+NABERS stars,11,6
